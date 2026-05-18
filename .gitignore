@@ -1,4 +1,35 @@
-# Local runtime configuration copied before each deploy.
+# Node / Frontend
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Python / Backend
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Env files
+.env
+.env.*
+!.env.example
+!.env.development.example
+
+# Runtime configs reais
+runtime-config.local.json
 public/runtime-config.local.json
-backend/.env
-.runtime/
+dist/runtime-config.local.json
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
