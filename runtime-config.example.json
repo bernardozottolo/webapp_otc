@@ -1,30 +1,47 @@
 {
-  "id": "default",
-  "companyName": "Infinite Ativos Virtuais",
-  "logoUrl": "https://assets.zyrosite.com/cdn-cgi/image/format=auto,w=768,fit=crop,q=95/A3Qpaz46n7tEQ28N/infinite-AoPeJb2l7zCKbG54.jpeg",
-  "headline": "Inovação e Segurança em Cada Transação",
+  "id": "cliente-exemplo",
+  "companyName": "Empresa Exemplo",
+  "logoUrl": "/logo-example.png",
+  "headline": "Cotação OTC com segurança e agilidade",
   "subheadline": "Cotação em tempo real, validação de identidade e liquidação segura.",
-  "secondarySubheadline": "Atendimento especializado para operações OTC e suporte consultivo.",
+  "secondarySubheadline": "Atendimento especializado para operações OTC.",
   "fiatCurrency": "BRL",
   "transactionalCapFiat": 5000,
-  "primaryColor": "#f5c242",
-  "supportEmail": "support@infiniteativosvirtuais.com.br",
+  "primaryColor": "#222222",
+  "supportEmail": "suporte@empresa-exemplo.com.br",
   "legalDisclaimer": "Serviço sujeito a compliance e políticas locais.",
   "defaultLocale": "pt-BR",
   "defaultCountry": "BR",
-  "enabledCountries": ["BR"],
-  "enabledPaymentKinds": ["crypto", "bank"],
+  "enabledCountries": [
+    "BR"
+  ],
+  "enabledPaymentKinds": [
+    "crypto",
+    "bank"
+  ],
   "bankLabelByCountry": {
     "BR": "PIX"
   },
   "documentTypesByCountry": {
-    "BR": ["CPF", "CNPJ"]
+    "BR": [
+      "CPF",
+      "CNPJ"
+    ]
   },
   "companyDocumentTypes": {
-    "BR": ["CNPJ"]
+    "BR": [
+      "CNPJ"
+    ]
   },
-  "occupations": ["Representante Legal", "Sócio", "Funcionário"],
-  "occupationsAvailable": ["Representante Legal", "Sócio"],
+  "occupations": [
+    "Representante Legal",
+    "Sócio",
+    "Funcionário"
+  ],
+  "occupationsAvailable": [
+    "Representante Legal",
+    "Sócio"
+  ],
   "tradeAvailabilityTexts": {
     "buyUnavailable": "Essa funcionalidade volta em breve ✨",
     "sellUnavailable": "Essa funcionalidade volta em breve ✨"
@@ -35,7 +52,7 @@
     "contacts": {
       "phone": "",
       "whatsapp": "",
-      "email": "suporte@infiniteativosvirtuais.com.br",
+      "email": "suporte@empresa-exemplo.com.br",
       "linkedin": "",
       "facebook": "",
       "instagram": ""
@@ -50,9 +67,9 @@
     }
   },
   "backend": {
-    "companyKey": "infinite",
+    "companyKey": "cliente-exemplo",
     "platform": "webapp",
-    "clientsDbBaseUrl": "https://origin-internal.com.br",
+    "clientsDbBaseUrl": "https://api.empresa-exemplo.com.br",
     "otcKycValidityDays": 30,
     "localPaymentAssetByCountry": {
       "BR": "PIX"
@@ -60,14 +77,18 @@
     "negotiationAssetsFallback": [
       {
         "asset": "USDT",
-        "tradeTypes": ["BUY"],
+        "tradeTypes": [
+          "BUY"
+        ],
         "decimalPrecisionAsset": 6,
         "decimalPrecisionFiat": 3,
         "minNegotiationValueFiat": 100
       },
       {
         "asset": "BTC",
-        "tradeTypes": ["BUY"],
+        "tradeTypes": [
+          "BUY"
+        ],
         "decimalPrecisionAsset": 6,
         "decimalPrecisionFiat": 2,
         "minNegotiationValueFiat": 100
@@ -75,22 +96,22 @@
     ],
     "didit": {
       "apiBaseUrl": "https://verification.didit.me",
-      "callbackUrl": "https://origin-internal.com.br/didit/callback",
-      "waitingUrl": "https://origin-internal.com.br/webhook/didit_waiting",
-      "documentVerificationWorkflowId": "9fd62a99-413d-4a18-8299-b23ed4fe9f8d",
-      "biometricValidationWorkflowId": "e785001e-3a31-4349-83cb-25ef953c09e1",
+      "callbackUrl": "https://api.empresa-exemplo.com.br/didit/callback",
+      "waitingUrl": "https://api.empresa-exemplo.com.br/webhook/didit_waiting",
+      "documentVerificationWorkflowId": "00000000-0000-0000-0000-000000000000",
+      "biometricValidationWorkflowId": "00000000-0000-0000-0000-000000000000",
       "documentVerificationValidityDays": 365,
       "sdkMode": "modal"
     }
   },
   "endpoints": {
-    "quoteBaseUrl": "https://infiniteativosvirtuais.tec.br",
+    "quoteBaseUrl": "https://app.empresa-exemplo.com.br",
     "otcViaSameOrigin": false,
     "customerBaseUrl": "mock://customer",
     "paymentBaseUrl": "mock://payment",
     "orderBaseUrl": "",
-    "sendEmailUrl": "https://origin-internal.com.br/webhook/otc/send_email",
-    "updateWebhookBaseUrl": "https://origin-internal.com.br/webhook/order_update"
+    "sendEmailUrl": "https://api.empresa-exemplo.com.br/webhook/otc/send_email",
+    "updateWebhookBaseUrl": "https://api.empresa-exemplo.com.br/webhook/order_update"
   },
   "orderLoading": {
     "spinnerColor": "#dfdfdf",
@@ -103,7 +124,7 @@
   },
   "orderPage": {
     "backgroundColor": "#f5f7fb",
-    "backgroundImage": "url('https://assets.zyrosite.com/cdn-cgi/image/format=auto,w=1920,fit=crop/A3Qpaz46n7tEQ28N/kai-pilger-ef6il87-voa-unsplash-AE0prWN5EWFEG1E8.jpg')",
+    "backgroundImage": "",
     "backgroundImageOpacity": "1",
     "backgroundOverlayColor": "#000000",
     "backgroundOverlayOpacity": "0.2",
@@ -175,7 +196,7 @@
       "waitingMessage": "Assim que o pagamento for identificado, atualizaremos esta tela automaticamente.",
       "paymentTimeout": {
         "title": "Pagamento expirado",
-        "message": "O prazo de pagamento terminou. Gere um novo pedido para continuar.\nSe você acha que isso é um erro, entre em contato com o suporte pelo e-mail suporte@infiniteativosvirtuais.com.br.",
+        "message": "O prazo de pagamento terminou. Gere um novo pedido para continuar.\nSe você acha que isso é um erro, entre em contato com o suporte pelo e-mail suporte@empresa-exemplo.com.br.",
         "emoji": "⏰"
       },
       "paymentRecognized": {
@@ -190,12 +211,12 @@
       },
       "paymentUpdateTimeout": {
         "title": "Pagamento expirado",
-        "message": "Que pena! Não conseguimos processar o pagamento.\nSe você acha que isso é um erro, entre em contato com o suporte pelo e-mail suporte@infiniteativosvirtuais.com.br.",
+        "message": "Que pena! Não conseguimos processar o pagamento.\nSe você acha que isso é um erro, entre em contato com o suporte pelo e-mail suporte@empresa-exemplo.com.br.",
         "emoji": "💔"
       },
       "orderUpdateTimeout": {
         "title": "Pedido atrasado",
-        "message": "Que pena! Não conseguimos processar o pedido.\nSe você acha que isso é um erro, entre em contato com o suporte pelo e-mail suporte@infiniteativosvirtuais.com.br.",
+        "message": "Que pena! Não conseguimos processar o pedido.\nSe você acha que isso é um erro, entre em contato com o suporte pelo e-mail suporte@empresa-exemplo.com.br.",
         "emoji": "💔"
       },
       "statusLabels": {
@@ -234,7 +255,7 @@
       "--page-shell-background": "#f3f4f6",
       "--page-background-start": "#fafafa",
       "--page-background-end": "#eef2f7",
-      "--page-background-image": "url('https://assets.zyrosite.com/cdn-cgi/image/format=auto,w=1920,fit=crop/A3Qpaz46n7tEQ28N/kai-pilger-ef6il87-voa-unsplash-AE0prWN5EWFEG1E8.jpg')",
+      "--page-background-image": "none",
       "--page-background-image-opacity": "1",
       "--page-background-overlay-color": "#000000",
       "--page-background-overlay-opacity": "0",
