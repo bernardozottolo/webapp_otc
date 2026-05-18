@@ -1,0 +1,4 @@
+# Local runtime configuration copied before each deploy.
+public/runtime-config.local.json
+backend/.env
+.runtime/

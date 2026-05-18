@@ -1,0 +1,183 @@
+from __future__ import annotations
+
+import json
+import time
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException, Request
+from starlette.responses import Response
+
+from ..otc_client import OtcUpstreamClient, httpx_to_starlette_response
+
+router = APIRouter(prefix="/otc", tags=["otc"])
+
+
+def get_otc_upstream(request: Request) -> OtcUpstreamClient:
+    client = getattr(request.app.state, "otc_upstream_client", None)
+    if client is None:
+        raise HTTPException(status_code=503, detail="OTC upstream not configured")
+    return client
+
+
+async def _proxy_post(
+    request: Request,
+    route: str,
+    client: OtcUpstreamClient,
+) -> Response:
+    body = await request.body()
+    try:
+        upstream = await client.forward_post(
+            route,
+            body,
+            content_type=request.headers.get("content-type"),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return httpx_to_starlette_response(upstream)
+
+
+def _as_float(value: object) -> float | None:
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str) and value.strip():
+        try:
+            return float(value.strip())
+        except ValueError:
+            return None
+    return None
+
+
+def _build_order_snapshot(body: bytes, response: Response) -> dict[str, object] | None:
+    try:
+        request_payload = json.loads(body.decode("utf-8")) if body else {}
+        response_payload = json.loads(response.body.decode("utf-8")) if response.body else {}
+    except Exception:
+        return None
+    if not isinstance(request_payload, dict) or not isinstance(response_payload, dict):
+        return None
+    order_details = response_payload.get("order_details")
+    if not isinstance(order_details, dict):
+        return None
+    order_id = str(order_details.get("order_id", "")).strip()
+    if not order_id:
+        return None
+    pre_order = request_payload.get("pre_order")
+    client_data = request_payload.get("client_data")
+    payment_info = request_payload.get("payment_info")
+    payment_data = order_details.get("payment_data")
+    if not isinstance(pre_order, dict):
+        pre_order = {}
+    if not isinstance(client_data, dict):
+        client_data = {}
+    if not isinstance(payment_info, dict):
+        payment_info = {}
+    if not isinstance(payment_data, dict):
+        payment_data = {}
+    quote_total = _as_float(pre_order.get("amount_to_pay"))
+    amount = _as_float(pre_order.get("final_amount_to_receive"))
+    if amount is None:
+        amount = _as_float(pre_order.get("total_amount_to_receive"))
+    price = _as_float(pre_order.get("price"))
+    trade_type = str(request_payload.get("trade_type", "BUY")).strip().upper()
+    return {
+        "id": order_id,
+        "email": str(client_data.get("email", "")).strip(),
+        "tradeSide": "sell" if trade_type == "SELL" else "buy",
+        "asset": str(request_payload.get("asset", "")).strip(),
+        "amount": amount or 0,
+        "quoteTotal": quote_total or 0,
+        "status": str(order_details.get("status", "waiting_for_payment")).strip() or "waiting_for_payment",
+        "createdAt": int(time.time() * 1000),
+        "price": price,
+        "amountToPay": quote_total,
+        "orderIsValid": bool(response_payload.get("order_is_valid", True)),
+        "paymentData": {
+            "BeneficiaryBankName": payment_data.get("BeneficiaryBankName"),
+            "BeneficiaryName": payment_data.get("BeneficiaryName"),
+            "BeneficiaryTaxId": payment_data.get("BeneficiaryTaxId"),
+            "imagemQRCodeInBase64": payment_data.get("imagemQRCodeInBase64"),
+            "payload": payment_data.get("payload") or payment_data.get("qr_code"),
+            "txHash": payment_data.get("tx_hash"),
+            "network": payment_data.get("network") or payment_info.get("network"),
+            "walletAddress": payment_data.get("wallet_address") or payment_info.get("wallet"),
+        },
+    }
+
+
+@router.post("/get_pricing")
+async def otc_get_pricing(
+    request: Request,
+    client: Annotated[OtcUpstreamClient, Depends(get_otc_upstream)],
+) -> Response:
+    return await _proxy_post(request, "get_pricing", client)
+
+
+@router.post("/pre_order_validation")
+async def otc_pre_order_validation(
+    request: Request,
+    client: Annotated[OtcUpstreamClient, Depends(get_otc_upstream)],
+) -> Response:
+    return await _proxy_post(request, "pre_order_validation", client)
+
+
+@router.post("/create_order")
+async def otc_create_order(
+    request: Request,
+    client: Annotated[OtcUpstreamClient, Depends(get_otc_upstream)],
+) -> Response:
+    body = await request.body()
+    try:
+        upstream = await client.forward_post(
+            "create_order",
+            body,
+            content_type=request.headers.get("content-type"),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    response = httpx_to_starlette_response(upstream)
+    store = getattr(request.app.state, "order_store", None)
+    if store is not None:
+        snapshot = _build_order_snapshot(body, response)
+        if snapshot is not None:
+            store.save_order(snapshot)
+    return response
+
+
+@router.post("/counterparty_kyc")
+async def otc_counterparty_kyc(
+    request: Request,
+    client: Annotated[OtcUpstreamClient, Depends(get_otc_upstream)],
+) -> Response:
+    return await _proxy_post(request, "counterparty_kyc", client)
+
+
+@router.post("/get_available_withdraw_networks")
+async def otc_get_available_withdraw_networks(
+    request: Request,
+    client: Annotated[OtcUpstreamClient, Depends(get_otc_upstream)],
+) -> Response:
+    return await _proxy_post(request, "get_available_withdraw_networks", client)
+
+
+@router.post("/check_wallet_risk")
+async def otc_check_wallet_risk(
+    request: Request,
+    client: Annotated[OtcUpstreamClient, Depends(get_otc_upstream)],
+) -> Response:
+    return await _proxy_post(request, "check_wallet_risk", client)
+
+
+@router.post("/get_transaction_history")
+async def otc_get_transaction_history(
+    request: Request,
+    client: Annotated[OtcUpstreamClient, Depends(get_otc_upstream)],
+) -> Response:
+    return await _proxy_post(request, "get_transaction_history", client)
+
+
+@router.post("/get_counterparty_transactional_limit")
+async def otc_get_counterparty_transactional_limit(
+    request: Request,
+    client: Annotated[OtcUpstreamClient, Depends(get_otc_upstream)],
+) -> Response:
+    return await _proxy_post(request, "get_counterparty_transactional_limit", client)
