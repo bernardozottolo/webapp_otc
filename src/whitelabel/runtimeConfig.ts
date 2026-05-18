@@ -1,3 +1,4 @@
+import { validateRuntimeBrandConfig } from "./runtimeConfigSchema";
 import type { BrandConfig, ThemeVariableName } from "./config";
 import { defaultBrandConfig, normalizeRuntimeBrandConfig, supportedThemeVariables } from "./config";
 
@@ -63,14 +64,15 @@ export async function loadRuntimeBrandConfig(): Promise<BrandConfig> {
 
   try {
     const payload = await fetchRuntimeConfig(configPath);
+    validateRuntimeBrandConfig(payload);
     return applyOtcSameOriginQueryParam(normalizeRuntimeBrandConfig(payload));
   } catch (error) {
     const shouldTryDevFallback = configPath === LOCAL_RUNTIME_CONFIG_PATH && isLocalDevelopmentHost();
     if (shouldTryDevFallback) {
       const fallbackPath = resolveDevelopmentFallbackPath();
       const fallbackPayload = await fetchRuntimeConfig(fallbackPath);
-      return applyOtcSameOriginQueryParam(normalizeRuntimeBrandConfig(fallbackPayload));
-    }
+      validateRuntimeBrandConfig(fallbackPayload);
+      return applyOtcSameOriginQueryParam(normalizeRuntimeBrandConfig(fallbackPayload));    }
 
     const message = error instanceof Error ? error.message : "Unknown runtime config error.";
     throw new Error(
