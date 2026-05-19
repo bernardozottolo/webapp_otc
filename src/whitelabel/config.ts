@@ -241,8 +241,6 @@ export interface BrandConfig {
     didit: {
       /** Browser mode real usa sempre same-origin; `mock://didit` continua permitido. */
       apiBaseUrl: string;
-      callbackUrl: string;
-      waitingUrl: string;
       /**
        * How long an approved document verification remains valid for the biometric-validation path.
        * Set to `0` to disable the age check (any approved verification counts).
@@ -399,8 +397,6 @@ export const defaultBrandConfig: BrandConfig = {
     ],
     didit: {
       apiBaseUrl: "",
-      callbackUrl: "",
-      waitingUrl: "",
       documentVerificationValidityDays: 365,
       sdkMode: "modal"
     }
@@ -1008,8 +1004,6 @@ export function normalizeRuntimeBrandConfig(raw: unknown, fallback: BrandConfig 
       ),
       didit: {
         apiBaseUrl: asString(didit.apiBaseUrl, fallback.backend.didit.apiBaseUrl),
-        callbackUrl: asString(didit.callbackUrl, fallback.backend.didit.callbackUrl),
-        waitingUrl: asString(didit.waitingUrl, fallback.backend.didit.waitingUrl),
         documentVerificationValidityDays: asNonNegativeNumber(
           didit.documentVerificationValidityDays,
           fallback.backend.didit.documentVerificationValidityDays

@@ -96,8 +96,6 @@
     ],
     "didit": {
       "apiBaseUrl": "https://verification.didit.me",
-      "callbackUrl": "https://api.empresa-exemplo.com.br/didit/callback",
-      "waitingUrl": "https://api.empresa-exemplo.com.br/webhook/didit_waiting",
       "documentVerificationValidityDays": 365,
       "sdkMode": "modal"
     }
