@@ -243,8 +243,6 @@ export interface BrandConfig {
       apiBaseUrl: string;
       callbackUrl: string;
       waitingUrl: string;
-      documentVerificationWorkflowId: string;
-      biometricValidationWorkflowId: string;
       /**
        * How long an approved document verification remains valid for the biometric-validation path.
        * Set to `0` to disable the age check (any approved verification counts).
@@ -403,8 +401,6 @@ export const defaultBrandConfig: BrandConfig = {
       apiBaseUrl: "",
       callbackUrl: "",
       waitingUrl: "",
-      documentVerificationWorkflowId: "",
-      biometricValidationWorkflowId: "",
       documentVerificationValidityDays: 365,
       sdkMode: "modal"
     }
@@ -1014,14 +1010,6 @@ export function normalizeRuntimeBrandConfig(raw: unknown, fallback: BrandConfig 
         apiBaseUrl: asString(didit.apiBaseUrl, fallback.backend.didit.apiBaseUrl),
         callbackUrl: asString(didit.callbackUrl, fallback.backend.didit.callbackUrl),
         waitingUrl: asString(didit.waitingUrl, fallback.backend.didit.waitingUrl),
-        documentVerificationWorkflowId: asString(
-          didit.documentVerificationWorkflowId,
-          fallback.backend.didit.documentVerificationWorkflowId
-        ),
-        biometricValidationWorkflowId: asString(
-          didit.biometricValidationWorkflowId,
-          fallback.backend.didit.biometricValidationWorkflowId
-        ),
         documentVerificationValidityDays: asNonNegativeNumber(
           didit.documentVerificationValidityDays,
           fallback.backend.didit.documentVerificationValidityDays

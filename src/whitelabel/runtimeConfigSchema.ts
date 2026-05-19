@@ -38,10 +38,8 @@ export const runtimeBrandConfigSchema = z.object({
     companyKey: nonEmptyString,
     platform: nonEmptyString,
     otcKycValidityDays: z.number().min(0),
-
+    
     didit: z.object({
-      documentVerificationWorkflowId: nonEmptyString,
-      biometricValidationWorkflowId: nonEmptyString,
       documentVerificationValidityDays: z.number().min(0),
       sdkMode: z.literal("modal")
     })
