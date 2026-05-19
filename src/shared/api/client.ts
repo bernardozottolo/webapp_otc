@@ -37,8 +37,7 @@ let clientsDatabaseConfig: ClientsDatabaseConfig = {
   companyKey: defaultBrandConfig.backend.companyKey,
   platform: defaultBrandConfig.backend.platform,
   clientsDbBaseUrl: effectiveClientsDatabaseBaseUrl(defaultBrandConfig.backend.clientsDbBaseUrl),
-  localPaymentAssetByCountry: defaultBrandConfig.backend.localPaymentAssetByCountry,
-  sendEmailUrl: defaultBrandConfig.endpoints.sendEmailUrl
+  localPaymentAssetByCountry: defaultBrandConfig.backend.localPaymentAssetByCountry
 };
 
 let pricingConfig: PricingConfig = {
@@ -98,8 +97,7 @@ export function configureOtcApi(brand: BrandConfig) {
     companyKey: brand.backend.companyKey,
     platform: brand.backend.platform,
     clientsDbBaseUrl: effectiveClientsDatabaseBaseUrl(brand.backend.clientsDbBaseUrl),
-    localPaymentAssetByCountry: brand.backend.localPaymentAssetByCountry,
-    sendEmailUrl: brand.endpoints.sendEmailUrl
+    localPaymentAssetByCountry: brand.backend.localPaymentAssetByCountry
   };
   pricingConfig = {
     quoteBaseUrl: effectiveOtcQuoteBaseUrl(brand.endpoints),

@@ -51,7 +51,6 @@ export const runtimeBrandConfigSchema = z.object({
     customerBaseUrl: z.string(),
     paymentBaseUrl: z.string(),
     orderBaseUrl: z.string(),
-    sendEmailUrl: z.string(),
     updateWebhookBaseUrl: z.string()
   })
 }).passthrough();

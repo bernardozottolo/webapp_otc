@@ -106,7 +106,6 @@
     "customerBaseUrl": "mock://customer",
     "paymentBaseUrl": "mock://payment",
     "orderBaseUrl": "",
-    "sendEmailUrl": "https://api.empresa-exemplo.com.br/webhook/otc/send_email",
     "updateWebhookBaseUrl": "https://api.empresa-exemplo.com.br/webhook/order_update"
   },
   "orderLoading": {

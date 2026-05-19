@@ -260,7 +260,6 @@ export interface BrandConfig {
     customerBaseUrl: string;
     paymentBaseUrl: string;
     orderBaseUrl: string;
-    sendEmailUrl: string;
     updateWebhookBaseUrl: string;
   };
   orderLoading: OrderLoadingConfig;
@@ -407,7 +406,6 @@ export const defaultBrandConfig: BrandConfig = {
     customerBaseUrl: "mock://customer",
     paymentBaseUrl: "mock://payment",
     orderBaseUrl: "mock://order",
-    sendEmailUrl: "",
     updateWebhookBaseUrl: ""
   },
   orderLoading: {
@@ -1017,7 +1015,6 @@ export function normalizeRuntimeBrandConfig(raw: unknown, fallback: BrandConfig 
       customerBaseUrl: asString(endpoints.customerBaseUrl, fallback.endpoints.customerBaseUrl),
       paymentBaseUrl: asString(endpoints.paymentBaseUrl, fallback.endpoints.paymentBaseUrl),
       orderBaseUrl: asQuoteBaseUrl(endpoints.orderBaseUrl, fallback.endpoints.orderBaseUrl),
-      sendEmailUrl: asString(endpoints.sendEmailUrl, fallback.endpoints.sendEmailUrl),
       updateWebhookBaseUrl: asQuoteBaseUrl(endpoints.updateWebhookBaseUrl, fallback.endpoints.updateWebhookBaseUrl)
     },
     orderLoading: asOrderLoadingConfig(raw.orderLoading, fallback.orderLoading),

@@ -5,7 +5,6 @@ export interface ClientsDatabaseConfig {
   platform: string;
   clientsDbBaseUrl: string;
   localPaymentAssetByCountry: Record<Country, string>;
-  sendEmailUrl?: string;
 }
 
 interface OtpRecord {
@@ -301,13 +300,10 @@ export async function sendOtpEmailHttp(
   const verificationCode = generateVerificationCode(timestamp);
   otpByEmail.set(normalizedEmail, { code: verificationCode, timestamp });
 
-  if (!config.sendEmailUrl?.trim()) {
-    return { ok: true, codePreview: verificationCode };
-  }
-
+  const sendEmailEndpoint = "/webhook/clients_database/send-email";
   const row = await queryClient(config, normalizedEmail);
   const clientData = buildEmailVerificationClientData(config, normalizedEmail, row);
-  const response = await fetch(config.sendEmailUrl, {
+  const response = await fetch(sendEmailEndpoint, {
     method: "POST",
     headers: {
       "Content-Type": "application/json"

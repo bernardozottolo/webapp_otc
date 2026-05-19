@@ -40,6 +40,7 @@ class Settings:
     order_updates_ttl_ms: int
     biometric_rate_limit_per_ip_per_day: int
     biometric_rate_limit_file: Path
+    send_email_url: str
 
 
 def get_settings() -> Settings:
@@ -75,4 +76,5 @@ def get_settings() -> Settings:
             int(os.getenv("BIOMETRIC_RATE_LIMIT_PER_IP_PER_DAY", "3").strip() or "3"),
         ),
         biometric_rate_limit_file=biometric_rate_limit_file,
+        send_email_url=os.getenv("SEND_EMAIL_URL", "").strip(),
     )
