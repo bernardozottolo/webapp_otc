@@ -3,7 +3,6 @@ import type { Country, Customer, Limits, PaymentContext, PaymentData } from "../
 export interface ClientsDatabaseConfig {
   companyKey: string;
   platform: string;
-  clientsDbBaseUrl: string;
   localPaymentAssetByCountry: Record<Country, string>;
 }
 
@@ -91,11 +90,6 @@ function hasRowData<T>(data: T | null): data is T {
   return Object.keys(data as Record<string, unknown>).length > 0;
 }
 
-function buildEndpoint(baseUrl: string) {
-  const normalized = baseUrl.replace(/\/+$/, "");
-  return `${normalized}/webhook/clients_database`;
-}
-
 function getPaymentStorageAsset(config: ClientsDatabaseConfig, context: PaymentContext) {
   if (context.tradeSide === "buy") {
     return context.asset;
@@ -159,8 +153,11 @@ function normalizeTransactionalLimitValue(value: unknown): number | Record<strin
   return null;
 }
 
-async function postToClientsDatabase<T>(config: ClientsDatabaseConfig, payload: unknown): Promise<ClientsDatabaseResponse<T>> {
-  const response = await fetch(buildEndpoint(config.clientsDbBaseUrl), {
+async function postToClientsDatabase<T>(
+  _config: ClientsDatabaseConfig,
+  payload: unknown
+): Promise<ClientsDatabaseResponse<T>> {
+  const response = await fetch("/webhook/clients_database", {
     method: "POST",
     headers: {
       "Content-Type": "application/json"

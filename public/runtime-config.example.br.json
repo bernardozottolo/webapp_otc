@@ -69,7 +69,6 @@
   "backend": {
     "companyKey": "cliente-exemplo",
     "platform": "webapp",
-    "clientsDbBaseUrl": "https://api.empresa-exemplo.com.br",
     "otcKycValidityDays": 30,
     "localPaymentAssetByCountry": {
       "BR": "PIX"

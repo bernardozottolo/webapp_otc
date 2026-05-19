@@ -232,8 +232,6 @@ export interface BrandConfig {
   backend: {
     companyKey: string;
     platform: string;
-    /** Browser mode real usa sempre same-origin; `mock://...` continua permitido. */
-    clientsDbBaseUrl: string;
     /** Days before an OTC counterparty KYC must be revalidated on login. `0` disables expiry. */
     otcKycValidityDays: number;
     localPaymentAssetByCountry: Record<Country, string>;
@@ -383,7 +381,6 @@ export const defaultBrandConfig: BrandConfig = {
   backend: {
     companyKey: "origin",
     platform: "webapp",
-    clientsDbBaseUrl: "",
     otcKycValidityDays: 30,
     localPaymentAssetByCountry: {
       BR: "PIX"
@@ -552,11 +549,6 @@ export function effectiveOtcQuoteBaseUrl(endpoints: BrandConfig["endpoints"]): s
   const q = endpoints.quoteBaseUrl;
   if (q.startsWith("mock://")) return q;
   return "";
-}
-
-/** Browser nunca chama clients_database real cross-origin; apenas mock ou same-origin. */
-export function effectiveClientsDatabaseBaseUrl(baseUrl: string): string {
-  return baseUrl.startsWith("mock://") ? baseUrl : "";
 }
 
 /** Browser nunca chama Didit REST real cross-origin; apenas mock ou same-origin. */
@@ -988,7 +980,6 @@ export function normalizeRuntimeBrandConfig(raw: unknown, fallback: BrandConfig 
     backend: {
       companyKey: asString(backend.companyKey, fallback.backend.companyKey),
       platform: asString(backend.platform, fallback.backend.platform),
-      clientsDbBaseUrl: asString(backend.clientsDbBaseUrl, fallback.backend.clientsDbBaseUrl),
       otcKycValidityDays: asNonNegativeNumber(backend.otcKycValidityDays, fallback.backend.otcKycValidityDays),
       localPaymentAssetByCountry: asCountryStringMap(
         backend.localPaymentAssetByCountry,

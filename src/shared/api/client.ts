@@ -2,7 +2,6 @@ import * as mockApi from "./mockApi";
 import type { BrandConfig } from "../../whitelabel/config";
 import {
   defaultBrandConfig,
-  effectiveClientsDatabaseBaseUrl,
   effectiveOrderBaseUrl,
   effectiveOtcQuoteBaseUrl
 } from "../../whitelabel/config";
@@ -36,7 +35,6 @@ import { getTransactionalAllowanceHttp } from "./transactionalLimits";
 let clientsDatabaseConfig: ClientsDatabaseConfig = {
   companyKey: defaultBrandConfig.backend.companyKey,
   platform: defaultBrandConfig.backend.platform,
-  clientsDbBaseUrl: effectiveClientsDatabaseBaseUrl(defaultBrandConfig.backend.clientsDbBaseUrl),
   localPaymentAssetByCountry: defaultBrandConfig.backend.localPaymentAssetByCountry
 };
 
@@ -53,7 +51,7 @@ let documentTypesByCountry = defaultBrandConfig.documentTypesByCountry;
 configureDiditProxy(defaultBrandConfig);
 
 function useMockClientsDatabase() {
-  return clientsDatabaseConfig.clientsDbBaseUrl.startsWith("mock://");
+  return false;
 }
 
 function mapSellAssetForStorage(country: PaymentContext["country"], asset: string, tradeSide: PaymentContext["tradeSide"]) {
@@ -95,7 +93,6 @@ export function configureOtcApi(brand: BrandConfig) {
   clientsDatabaseConfig = {
     companyKey: brand.backend.companyKey,
     platform: brand.backend.platform,
-    clientsDbBaseUrl: effectiveClientsDatabaseBaseUrl(brand.backend.clientsDbBaseUrl),
     localPaymentAssetByCountry: brand.backend.localPaymentAssetByCountry
   };
   pricingConfig = {
