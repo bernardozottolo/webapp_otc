@@ -11,10 +11,6 @@ import type {
 
 export interface DiditProxyConfig {
   apiBaseUrl: string;
-  callbackUrl: string;
-  waitingUrl: string;
-  documentVerificationWorkflowId: string;
-  biometricValidationWorkflowId: string;
   documentVerificationValidityDays: number;
   sdkMode: "modal";
 }
@@ -129,10 +125,6 @@ function getExpectedDetails(name: string | null | undefined, birthDate: string |
 
 let diditProxyConfig: DiditProxyConfig = {
   apiBaseUrl: "mock://didit",
-  callbackUrl: "",
-  waitingUrl: "",
-  documentVerificationWorkflowId: "",
-  biometricValidationWorkflowId: "",
   documentVerificationValidityDays: 365,
   sdkMode: "modal"
 };
@@ -391,12 +383,6 @@ function unwrapDiditDecisionPayload(payload: unknown): DiditDecisionResponse {
   return record as DiditDecisionResponse;
 }
 
-function resolveWorkflowId(flowKind: DiditFlowKind) {
-  return flowKind === "document_verification"
-    ? diditProxyConfig.documentVerificationWorkflowId
-    : diditProxyConfig.biometricValidationWorkflowId;
-}
-
 function resolveVendorData(documentNumber: string, flowKind: DiditFlowKind) {
   const normalized = normalizeDocument(documentNumber);
   const suffix = flowKind === "document_verification" ? "document_verification" : "biometric_validation";
@@ -406,10 +392,6 @@ function resolveVendorData(documentNumber: string, flowKind: DiditFlowKind) {
 export function configureDiditProxy(brand: BrandConfig) {
   diditProxyConfig = {
     apiBaseUrl: effectiveDiditProxyBaseUrl(brand.backend.didit.apiBaseUrl),
-    callbackUrl: brand.backend.didit.callbackUrl,
-    waitingUrl: brand.backend.didit.waitingUrl,
-    documentVerificationWorkflowId: brand.backend.didit.documentVerificationWorkflowId,
-    biometricValidationWorkflowId: brand.backend.didit.biometricValidationWorkflowId,
     documentVerificationValidityDays: brand.backend.didit.documentVerificationValidityDays,
     sdkMode: brand.backend.didit.sdkMode
   };
@@ -439,8 +421,7 @@ export async function createDiditSession(input: CreateDiditSessionInput): Promis
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
-      workflow_id: resolveWorkflowId(input.flowKind),
-      callback: diditProxyConfig.callbackUrl,
+      flow_kind: input.flowKind,
       language: mapLocaleToDiditLanguage(input.locale),
       vendor_data: resolveVendorData(input.documentNumber, input.flowKind),
       expected_details: getExpectedDetails(input.kycName, input.birthDate),
@@ -449,14 +430,14 @@ export async function createDiditSession(input: CreateDiditSessionInput): Promis
         name: input.kycName,
         document: normalizeDocument(input.documentNumber),
         cnpj: input.companyDocumentNumber ? normalizeDocument(input.companyDocumentNumber) : undefined,
-        last_successful_biometric: input.lastSuccessfulBiometric,
-        waiting_url: diditProxyConfig.waitingUrl
+        last_successful_biometric: input.lastSuccessfulBiometric
       }
     })
   });
 
   const payload = await parseProxyResponse<DiditSessionResponse>(response);
   const session = payload.data;
+
   if (!session) {
     throw new Error(payload.error ?? "Unable to create Didit session.");
   }
@@ -464,7 +445,13 @@ export async function createDiditSession(input: CreateDiditSessionInput): Promis
   return {
     sessionId: session.session_id ?? session.sessionId ?? "",
     sessionToken: session.session_token ?? session.sessionToken,
-    verificationUrl: session.url ?? session.session_url ?? session.sessionUrl ?? session.verification_url ?? session.verificationUrl ?? "",
+    verificationUrl:
+      session.url ??
+      session.session_url ??
+      session.sessionUrl ??
+      session.verification_url ??
+      session.verificationUrl ??
+      "",
     status: normalizeDiditStatus(session.status)
   };
 }
@@ -524,8 +511,6 @@ export async function createBiometricSessionFromDocument(input: {
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
-      workflow_id: diditProxyConfig.biometricValidationWorkflowId,
-      callback: diditProxyConfig.callbackUrl,
       language: mapLocaleToDiditLanguage(input.locale),
       document_verification_vendor_data: resolveVendorData(input.documentNumber, "document_verification"),
       biometric_validation_vendor_data: resolveVendorData(input.documentNumber, "biometric_validation"),
@@ -535,14 +520,14 @@ export async function createBiometricSessionFromDocument(input: {
         name: input.kycName,
         document: normalizeDocument(input.documentNumber),
         cnpj: input.companyDocumentNumber ? normalizeDocument(input.companyDocumentNumber) : undefined,
-        last_successful_biometric: input.lastSuccessfulBiometric,
-        waiting_url: diditProxyConfig.waitingUrl
+        last_successful_biometric: input.lastSuccessfulBiometric
       }
     })
   });
 
   const payload = await parseProxyResponse<DiditSessionResponse>(response);
   const session = payload.data;
+
   if (!session) {
     throw new Error(payload.error ?? "Unable to create Didit biometric validation session.");
   }
@@ -550,7 +535,13 @@ export async function createBiometricSessionFromDocument(input: {
   return {
     sessionId: session.session_id ?? session.sessionId ?? "",
     sessionToken: session.session_token ?? session.sessionToken,
-    verificationUrl: session.url ?? session.session_url ?? session.sessionUrl ?? session.verification_url ?? session.verificationUrl ?? "",
+    verificationUrl:
+      session.url ??
+      session.session_url ??
+      session.sessionUrl ??
+      session.verification_url ??
+      session.verificationUrl ??
+      "",
     status: normalizeDiditStatus(session.status)
   };
 }
