@@ -50,8 +50,7 @@ export const runtimeBrandConfigSchema = z.object({
     otcViaSameOrigin: z.boolean(),
     customerBaseUrl: z.string(),
     paymentBaseUrl: z.string(),
-    orderBaseUrl: z.string(),
-    updateWebhookBaseUrl: z.string()
+    orderBaseUrl: z.string()
   })
 }).passthrough();
 

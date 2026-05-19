@@ -3,7 +3,6 @@ import { resolveSameOriginOtcPath } from "./otcUrls";
 
 export interface PricingConfig {
   quoteBaseUrl: string;
-  updateWebhookBaseUrl: string;
 }
 
 interface PricingSides {

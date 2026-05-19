@@ -105,8 +105,7 @@
     "otcViaSameOrigin": false,
     "customerBaseUrl": "mock://customer",
     "paymentBaseUrl": "mock://payment",
-    "orderBaseUrl": "",
-    "updateWebhookBaseUrl": "https://api.empresa-exemplo.com.br/webhook/order_update"
+    "orderBaseUrl": ""
   },
   "orderLoading": {
     "spinnerColor": "#dfdfdf",

@@ -260,7 +260,6 @@ export interface BrandConfig {
     customerBaseUrl: string;
     paymentBaseUrl: string;
     orderBaseUrl: string;
-    updateWebhookBaseUrl: string;
   };
   orderLoading: OrderLoadingConfig;
   orderPersistence: OrderPersistenceConfig;
@@ -405,8 +404,7 @@ export const defaultBrandConfig: BrandConfig = {
     otcViaSameOrigin: false,
     customerBaseUrl: "mock://customer",
     paymentBaseUrl: "mock://payment",
-    orderBaseUrl: "mock://order",
-    updateWebhookBaseUrl: ""
+    orderBaseUrl: "mock://order"
   },
   orderLoading: {
     spinnerColor: "#f5c242",
@@ -1014,8 +1012,7 @@ export function normalizeRuntimeBrandConfig(raw: unknown, fallback: BrandConfig 
       otcViaSameOrigin: asBoolean(endpoints.otcViaSameOrigin, fallback.endpoints.otcViaSameOrigin),
       customerBaseUrl: asString(endpoints.customerBaseUrl, fallback.endpoints.customerBaseUrl),
       paymentBaseUrl: asString(endpoints.paymentBaseUrl, fallback.endpoints.paymentBaseUrl),
-      orderBaseUrl: asQuoteBaseUrl(endpoints.orderBaseUrl, fallback.endpoints.orderBaseUrl),
-      updateWebhookBaseUrl: asQuoteBaseUrl(endpoints.updateWebhookBaseUrl, fallback.endpoints.updateWebhookBaseUrl)
+      orderBaseUrl: asQuoteBaseUrl(endpoints.orderBaseUrl, fallback.endpoints.orderBaseUrl)
     },
     orderLoading: asOrderLoadingConfig(raw.orderLoading, fallback.orderLoading),
     orderPersistence: asOrderPersistenceConfig(raw.orderPersistence, fallback.orderPersistence),

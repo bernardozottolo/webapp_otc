@@ -41,8 +41,7 @@ let clientsDatabaseConfig: ClientsDatabaseConfig = {
 };
 
 let pricingConfig: PricingConfig = {
-  quoteBaseUrl: effectiveOtcQuoteBaseUrl(defaultBrandConfig.endpoints),
-  updateWebhookBaseUrl: defaultBrandConfig.endpoints.updateWebhookBaseUrl
+  quoteBaseUrl: effectiveOtcQuoteBaseUrl(defaultBrandConfig.endpoints)
 };
 
 let orderUpdatesConfig: OrderUpdatesConfig = {
@@ -100,8 +99,7 @@ export function configureOtcApi(brand: BrandConfig) {
     localPaymentAssetByCountry: brand.backend.localPaymentAssetByCountry
   };
   pricingConfig = {
-    quoteBaseUrl: effectiveOtcQuoteBaseUrl(brand.endpoints),
-    updateWebhookBaseUrl: brand.endpoints.updateWebhookBaseUrl
+    quoteBaseUrl: effectiveOtcQuoteBaseUrl(brand.endpoints)
   };
   orderUpdatesConfig = {
     orderBaseUrl: effectiveOrderBaseUrl(brand.endpoints.orderBaseUrl)

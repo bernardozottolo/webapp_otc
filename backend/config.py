@@ -37,6 +37,7 @@ class Settings:
     otc_upstream_base_url: str
     # When non-empty: FastAPI forwards `/webhook/clients_database` to the real upstream API.
     clients_database_api_base_url: str
+    order_update_webhook_url: str
     order_updates_ttl_ms: int
     biometric_rate_limit_per_ip_per_day: int
     biometric_rate_limit_file: Path
@@ -70,6 +71,7 @@ def get_settings() -> Settings:
         log_level=os.getenv("LOG_LEVEL", "INFO").strip() or "INFO",
         otc_upstream_base_url=os.getenv("OTC_UPSTREAM_API_BASE_URL", "").strip(),
         clients_database_api_base_url=os.getenv("CLIENTS_DATABASE_API_BASE_URL", "").strip(),
+        order_update_webhook_url=os.getenv("ORDER_UPDATE_WEBHOOK_URL", "").strip(),
         order_updates_ttl_ms=max(60_000, int(os.getenv("ORDER_UPDATES_TTL_MS", "3600000").strip() or "3600000")),
         biometric_rate_limit_per_ip_per_day=max(
             1,

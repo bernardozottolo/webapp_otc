@@ -94,17 +94,6 @@ function buildOtcUrl(baseUrl: string, routeSuffix: string) {
   return `${normalized}/otc/${routeSuffix}`;
 }
 
-function buildUpdateWebhookUrl(baseUrl: string) {
-  const normalized = baseUrl.trim().replace(/\/+$/, "");
-  if (normalized) {
-    return `${normalized}/api/order-updates`;
-  }
-  if (typeof window !== "undefined" && window.location.origin) {
-    return `${window.location.origin}/api/order-updates`;
-  }
-  return "/api/order-updates";
-}
-
 async function postOtcJson<T>(config: PricingConfig, routeSuffix: string, body: Record<string, unknown>): Promise<T> {
   const response = await fetch(buildOtcUrl(config.quoteBaseUrl, routeSuffix), {
     method: "POST",
@@ -310,7 +299,6 @@ export async function preOrderValidationHttp(
 export async function createOrderHttp(config: PricingConfig, input: CreateOrderInput): Promise<Order> {
   const emailNorm = input.email.trim().toLowerCase();
   const clientId = `${emailNorm}_webapp_${input.country.toLowerCase()}`;
-  const updateWebhook = buildUpdateWebhookUrl(config.updateWebhookBaseUrl);
   const data = await postOtcJson<CreateOrderPayload>(config, "create_order", {
     asset: input.asset,
     trade_type: input.tradeType,
@@ -324,7 +312,6 @@ export async function createOrderHttp(config: PricingConfig, input: CreateOrderI
     },
     price: otcDecimalString(input.preOrder.price),
     client_id: clientId,
-    webhook_url: updateWebhook,
     payment_info: {
       wallet: input.paymentInfo.wallet,
       network: input.paymentInfo.network

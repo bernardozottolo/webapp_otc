@@ -7,6 +7,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Request
 from starlette.responses import Response
 
+from ..config import Settings, get_settings
 from ..otc_client import OtcUpstreamClient, httpx_to_starlette_response
 
 router = APIRouter(prefix="/otc", tags=["otc"])
@@ -104,6 +105,22 @@ def _build_order_snapshot(body: bytes, response: Response) -> dict[str, object] 
     }
 
 
+def _inject_order_update_webhook(body: bytes, settings: Settings) -> bytes:
+    if not settings.order_update_webhook_url:
+        raise HTTPException(status_code=503, detail="order update webhook URL not configured")
+
+    try:
+        payload = json.loads(body.decode("utf-8")) if body else {}
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail="Invalid create_order JSON payload") from exc
+
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=400, detail="Invalid create_order payload")
+
+    payload["webhook_url"] = settings.order_update_webhook_url
+
+    return json.dumps(payload).encode("utf-8")
+
 @router.post("/get_pricing")
 async def otc_get_pricing(
     request: Request,
@@ -119,18 +136,20 @@ async def otc_pre_order_validation(
 ) -> Response:
     return await _proxy_post(request, "pre_order_validation", client)
 
-
 @router.post("/create_order")
 async def otc_create_order(
     request: Request,
     client: Annotated[OtcUpstreamClient, Depends(get_otc_upstream)],
+    settings: Annotated[Settings, Depends(get_settings)],
 ) -> Response:
-    body = await request.body()
+    original_body = await request.body()
+    body = _inject_order_update_webhook(original_body, settings)
+
     try:
         upstream = await client.forward_post(
             "create_order",
             body,
-            content_type=request.headers.get("content-type"),
+            content_type="application/json",
         )
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
