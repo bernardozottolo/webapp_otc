@@ -14,8 +14,6 @@ router = APIRouter(prefix="/webhook/didit", tags=["didit"])
 
 
 class CreateDiditSessionRequest(BaseModel):
-    workflow_id: str | None = None
-    callback: str | None = None
     language: str
     vendor_data: str
     expected_details: dict[str, Any] | None = None
@@ -24,8 +22,6 @@ class CreateDiditSessionRequest(BaseModel):
 
 
 class CreateBiometricSessionFromDocumentRequest(BaseModel):
-    workflow_id: str | None = None
-    callback: str | None = None
     language: str
     document_verification_vendor_data: str
     biometric_validation_vendor_data: str
@@ -141,33 +137,33 @@ def _enforce_biometric_rate_limit(request: Request, limiter: Any) -> None:
     )
 
 
-def _resolve_callback(callback: str | None, settings: Settings) -> str:
-    if callback and callback.strip():
-        return callback.strip()
+def _resolve_callback(settings: Settings) -> str:
     if settings.didit_callback_url:
         return settings.didit_callback_url
     raise HTTPException(status_code=503, detail="Didit callback URL not configured")
 
 
 def _resolve_waiting_url(metadata: dict[str, Any], settings: Settings) -> dict[str, Any]:
-    if metadata.get("waiting_url"):
-        return metadata
+    clean_metadata = dict(metadata)
+    clean_metadata.pop("waiting_url", None)
+
     if not settings.didit_waiting_url:
-        return metadata
+        return clean_metadata
+
     return {
-        **metadata,
+        **clean_metadata,
         "waiting_url": settings.didit_waiting_url,
     }
 
 
-def _resolve_workflow_id(workflow_id: str | None, vendor_data: str, settings: Settings) -> str:
-    if workflow_id and workflow_id.strip():
-        return workflow_id.strip()
+def _resolve_workflow_id(vendor_data: str, settings: Settings) -> str:
     if _is_biometric_vendor_data(vendor_data) and settings.didit_biometric_validation_workflow_id:
         return settings.didit_biometric_validation_workflow_id
+
     if _is_document_vendor_data(vendor_data) and settings.didit_document_verification_workflow_id:
         return settings.didit_document_verification_workflow_id
-    raise HTTPException(status_code=503, detail="Didit workflow is not configured")
+
+    raise HTTPException(status_code=503, detail="Didit workflow ID not configured")
 
 
 def _parse_timestamp_maybe(value: Any) -> int | None:
@@ -294,9 +290,10 @@ async def create_session(
     if _is_biometric_vendor_data(payload.vendor_data):
         _enforce_biometric_rate_limit(request, biometric_rate_limiter)
     resolved_payload = payload.model_dump(exclude_none=True)
-    resolved_payload["workflow_id"] = _resolve_workflow_id(payload.workflow_id, payload.vendor_data, settings)
-    resolved_payload["callback"] = _resolve_callback(payload.callback, settings)
+    resolved_payload["workflow_id"] = _resolve_workflow_id(payload.vendor_data, settings)
+    resolved_payload["callback"] = _resolve_callback(settings)
     resolved_payload["metadata"] = _resolve_waiting_url(dict(payload.metadata), settings)
+    
     try:
         session = await didit_client.create_session(resolved_payload)
     except httpx.HTTPStatusError as error:
@@ -393,11 +390,10 @@ async def create_biometric_session_from_document(
             )
         upstream_payload = {
             "workflow_id": _resolve_workflow_id(
-                payload.workflow_id,
                 payload.biometric_validation_vendor_data,
                 settings,
             ),
-            "callback": _resolve_callback(payload.callback, settings),
+            "callback": _resolve_callback(settings),
             "language": payload.language,
             "vendor_data": payload.biometric_validation_vendor_data,
             "expected_details": merged_expected,
