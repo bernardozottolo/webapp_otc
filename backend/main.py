@@ -6,7 +6,9 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
+from redis.asyncio import Redis, from_url
 
+from .audit.audit_logger import AuditLogger
 from .biometric_rate_limiter import FileBiometricRateLimiter
 from .clients_database_client import ClientsDatabaseUpstreamClient
 from .config import configure_app_logging, get_settings
@@ -14,10 +16,14 @@ from .didit_client import DiditClient
 from .logging_middleware import RequestLoggingMiddleware
 from .otc_client import OtcUpstreamClient
 from .order_store import InMemoryOrderStore
+from .routes.admin_security import router as admin_security_router
 from .routes.clients_database import router as clients_database_router
 from .routes.didit import router as didit_router
 from .routes.otc import router as otc_router
 from .routes.order_updates import router as order_updates_router
+from .security.ip_blacklist import IpBlacklistService
+from .security.middleware import SecurityMiddleware
+from .security.rate_limiter import RedisRateLimiter
 
 
 settings = get_settings()
@@ -33,6 +39,27 @@ app.state.didit_client = DiditClient(
     api_base_url=settings.didit_api_base_url,
     api_key=settings.didit_api_key,
 )
+redis_client: Redis | None = None
+if settings.redis_url:
+    redis_client = from_url(settings.redis_url, encoding="utf-8", decode_responses=True)
+elif settings.rate_limit_enabled or settings.ip_blacklist_enabled:
+    logging.getLogger("didit_proxy").warning(
+        "REDIS_URL is empty; rate limit and IP blacklist protections are disabled."
+    )
+
+app.state.redis = redis_client
+app.state.ip_blacklist_service = IpBlacklistService(redis_client, enabled=settings.ip_blacklist_enabled)
+app.state.rate_limiter = RedisRateLimiter(
+    redis_client,
+    settings=settings,
+    blacklist_service=app.state.ip_blacklist_service,
+)
+app.state.audit_logger = AuditLogger(
+    enabled=settings.audit_log_enabled,
+    path=settings.audit_log_path,
+    max_bytes=settings.audit_log_max_bytes,
+    backup_count=settings.audit_log_backup_count,
+)
 
 app.add_middleware(
     CORSMiddleware,
@@ -41,10 +68,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(SecurityMiddleware)
 app.add_middleware(RequestLoggingMiddleware)
 
 app.include_router(didit_router)
 app.include_router(order_updates_router)
+app.include_router(admin_security_router)
 if settings.otc_upstream_base_url:
     app.state.otc_upstream_client = OtcUpstreamClient(settings.otc_upstream_base_url)
     app.include_router(otc_router)

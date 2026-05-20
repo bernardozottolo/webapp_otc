@@ -7,6 +7,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Request
 from starlette.responses import Response
 
+from ..audit.audit_logger import write_audit_event
 from ..config import Settings, get_settings
 from ..otc_client import OtcUpstreamClient, httpx_to_starlette_response
 
@@ -105,6 +106,45 @@ def _build_order_snapshot(body: bytes, response: Response) -> dict[str, object] 
     }
 
 
+def _build_order_audit_data(body: bytes, response: Response) -> dict[str, object] | None:
+    try:
+        request_payload = json.loads(body.decode("utf-8")) if body else {}
+        response_payload = json.loads(response.body.decode("utf-8")) if response.body else {}
+    except Exception:
+        return None
+    if not isinstance(request_payload, dict) or not isinstance(response_payload, dict):
+        return None
+    client_data = request_payload.get("client_data")
+    payment_info = request_payload.get("payment_info")
+    pre_order = request_payload.get("pre_order")
+    order_details = response_payload.get("order_details")
+    if not isinstance(client_data, dict):
+        client_data = {}
+    if not isinstance(payment_info, dict):
+        payment_info = {}
+    if not isinstance(pre_order, dict):
+        pre_order = {}
+    if not isinstance(order_details, dict):
+        order_details = {}
+    return {
+        "email": client_data.get("email"),
+        "document": request_payload.get("document"),
+        "document_type": request_payload.get("document_type"),
+        "trade_type": request_payload.get("trade_type"),
+        "asset": request_payload.get("asset"),
+        "coupon": request_payload.get("coupon"),
+        "price": pre_order.get("price") or request_payload.get("price"),
+        "amount": pre_order.get("final_amount_to_receive") or pre_order.get("total_amount_to_receive"),
+        "total": pre_order.get("amount_to_pay"),
+        "client_id": request_payload.get("client_id"),
+        "client_data": client_data,
+        "payment_info": payment_info,
+        "order_id": order_details.get("order_id"),
+        "status": order_details.get("status"),
+        "payment_data": order_details.get("payment_data"),
+    }
+
+
 def _inject_order_update_webhook(body: bytes, settings: Settings) -> bytes:
     if not settings.order_update_webhook_url:
         raise HTTPException(status_code=503, detail="order update webhook URL not configured")
@@ -159,6 +199,9 @@ async def otc_create_order(
         snapshot = _build_order_snapshot(body, response)
         if snapshot is not None:
             store.save_order(snapshot)
+    audit_data = _build_order_audit_data(body, response)
+    if audit_data is not None:
+        await write_audit_event(request, "order_created", audit_data)
     return response
 
 

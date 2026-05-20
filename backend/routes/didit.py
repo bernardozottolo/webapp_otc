@@ -7,13 +7,16 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
+from ..audit.audit_logger import write_audit_event
 from ..config import Settings
 from ..didit_client import DiditClient
+from ..security.client_ip import get_client_ip
 
 router = APIRouter(prefix="/webhook/didit", tags=["didit"])
 
 
 class CreateDiditSessionRequest(BaseModel):
+    flow_kind: str | None = None
     language: str
     vendor_data: str
     expected_details: dict[str, Any] | None = None
@@ -99,23 +102,6 @@ def _biometric_rate_limiter_dependency(request: Request) -> Any:
     return limiter
 
 
-def _client_ip_from_request(request: Request) -> str:
-    forwarded_for = request.headers.get("x-forwarded-for", "")
-    if forwarded_for:
-        first_ip = forwarded_for.split(",")[0].strip()
-        if first_ip:
-            return first_ip
-
-    real_ip = request.headers.get("x-real-ip", "").strip()
-    if real_ip:
-        return real_ip
-
-    if request.client and request.client.host:
-        return request.client.host
-
-    return "unknown"
-
-
 def _is_biometric_vendor_data(vendor_data: str) -> bool:
     return vendor_data.strip().endswith("_biometric_validation")
 
@@ -125,7 +111,7 @@ def _is_document_vendor_data(vendor_data: str) -> bool:
 
 
 def _enforce_biometric_rate_limit(request: Request, limiter: Any) -> None:
-    decision = limiter.consume(_client_ip_from_request(request))
+    decision = limiter.consume(get_client_ip(request))
     if decision.allowed:
         return
     raise HTTPException(
@@ -298,9 +284,20 @@ async def create_session(
         session = await didit_client.create_session(resolved_payload)
     except httpx.HTTPStatusError as error:
         _raise_upstream_http_error(error)
+    sanitized = _sanitize_session_summary(session)
+    await write_audit_event(
+        request,
+        "didit_session_created",
+        {
+            "vendor_data": payload.vendor_data,
+            "flow_kind": payload.flow_kind,
+            "session_id": sanitized.get("session_id"),
+            "metadata": payload.metadata,
+        },
+    )
     return {
         "success": True,
-        "data": _sanitize_session_summary(session),
+        "data": sanitized,
     }
 
 
@@ -407,7 +404,18 @@ async def create_biometric_session_from_document(
     except httpx.HTTPStatusError as error:
         _raise_upstream_http_error(error)
 
+    sanitized = _sanitize_session_summary(session)
+    await write_audit_event(
+        request,
+        "didit_biometric_session_created",
+        {
+            "document_verification_vendor_data": payload.document_verification_vendor_data,
+            "biometric_validation_vendor_data": payload.biometric_validation_vendor_data,
+            "session_id": sanitized.get("session_id"),
+            "metadata": payload.metadata,
+        },
+    )
     return {
         "success": True,
-        "data": _sanitize_session_summary(session),
+        "data": sanitized,
     }

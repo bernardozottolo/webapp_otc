@@ -4,6 +4,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
+from ..audit.audit_logger import write_audit_event
 from ..order_store import InMemoryOrderStore
 
 router = APIRouter(prefix="/api/order-updates", tags=["order-updates"])
@@ -20,11 +21,22 @@ def get_order_store(request: Request) -> InMemoryOrderStore:
 @router.post("/")
 async def receive_order_update(
     payload: dict[str, Any],
+    request: Request,
     store: Annotated[InMemoryOrderStore, Depends(get_order_store)],
 ) -> dict[str, Any]:
     stored = store.add_update(payload)
     if stored is None:
         raise HTTPException(status_code=400, detail="order_info.order_id is required")
+    order_info = payload.get("order_info") if isinstance(payload.get("order_info"), dict) else {}
+    await write_audit_event(
+        request,
+        "order_update_received",
+        {
+            "order_id": order_info.get("order_id"),
+            "status": order_info.get("status"),
+            "payload": payload,
+        },
+    )
     return {"success": True, **stored}
 
 

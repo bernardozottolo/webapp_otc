@@ -10,6 +10,31 @@ def _repo_root() -> Path:
     return Path(__file__).resolve().parent.parent
 
 
+def _env_bool(name: str, default: bool) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _env_int(name: str, default: int, *, minimum: int | None = None) -> int:
+    raw = os.getenv(name, str(default)).strip() or str(default)
+    try:
+        value = int(raw)
+    except ValueError:
+        value = default
+    if minimum is not None:
+        value = max(minimum, value)
+    return value
+
+
+def _resolve_path(path_value: str, repo_root: Path) -> Path:
+    path = Path(path_value).expanduser()
+    if not path.is_absolute():
+        path = (repo_root / path).resolve()
+    return path
+
+
 def configure_app_logging(package: str = "didit_proxy", level_str: str = "INFO") -> None:
     level = getattr(logging, level_str.upper(), logging.INFO)
     log = logging.getLogger(package)
@@ -42,6 +67,31 @@ class Settings:
     biometric_rate_limit_per_ip_per_day: int
     biometric_rate_limit_file: Path
     send_email_url: str
+    redis_url: str
+    rate_limit_enabled: bool
+    ip_blacklist_enabled: bool
+    audit_log_enabled: bool
+    rate_limit_default_requests: int
+    rate_limit_default_window_seconds: int
+    rate_limit_send_email_requests: int
+    rate_limit_send_email_window_seconds: int
+    rate_limit_didit_session_requests: int
+    rate_limit_didit_session_window_seconds: int
+    rate_limit_create_order_requests: int
+    rate_limit_create_order_window_seconds: int
+    rate_limit_get_pricing_requests: int
+    rate_limit_get_pricing_window_seconds: int
+    rate_limit_verify_otp_requests: int
+    rate_limit_verify_otp_window_seconds: int
+    ip_auto_block_enabled: bool
+    ip_auto_block_threshold: int
+    ip_auto_block_window_seconds: int
+    ip_auto_block_ttl_seconds: int
+    audit_log_path: Path
+    audit_log_max_bytes: int
+    audit_log_backup_count: int
+    admin_security_token: str
+    otp_ttl_seconds: int
 
 
 def get_settings() -> Settings:
@@ -49,15 +99,16 @@ def get_settings() -> Settings:
     raw_origins = os.getenv("PROXY_ALLOW_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173")
     allowed_origins = [origin.strip() for origin in raw_origins.split(",") if origin.strip()] or ["*"]
 
-    frontend_dist_dir = Path(os.getenv("FRONTEND_DIST_DIR", str(repo_root / "dist"))).expanduser()
-    if not frontend_dist_dir.is_absolute():
-        frontend_dist_dir = (repo_root / frontend_dist_dir).resolve()
+    frontend_dist_dir = _resolve_path(os.getenv("FRONTEND_DIST_DIR", str(repo_root / "dist")), repo_root)
 
-    biometric_rate_limit_file = Path(
-        os.getenv("BIOMETRIC_RATE_LIMIT_FILE", str(repo_root / ".runtime" / "biometric_rate_limits.json"))
-    ).expanduser()
-    if not biometric_rate_limit_file.is_absolute():
-        biometric_rate_limit_file = (repo_root / biometric_rate_limit_file).resolve()
+    biometric_rate_limit_file = _resolve_path(
+        os.getenv("BIOMETRIC_RATE_LIMIT_FILE", str(repo_root / ".runtime" / "biometric_rate_limits.json")),
+        repo_root,
+    )
+    audit_log_path = _resolve_path(
+        os.getenv("AUDIT_LOG_PATH", str(repo_root / "storage" / "logs" / "audit.log.jsonl")),
+        repo_root,
+    )
 
     return Settings(
         didit_api_key=os.getenv("DIDIT_API_KEY", "").strip(),
@@ -79,4 +130,29 @@ def get_settings() -> Settings:
         ),
         biometric_rate_limit_file=biometric_rate_limit_file,
         send_email_url=os.getenv("SEND_EMAIL_URL", "").strip(),
+        redis_url=os.getenv("REDIS_URL", "").strip(),
+        rate_limit_enabled=_env_bool("RATE_LIMIT_ENABLED", True),
+        ip_blacklist_enabled=_env_bool("IP_BLACKLIST_ENABLED", True),
+        audit_log_enabled=_env_bool("AUDIT_LOG_ENABLED", True),
+        rate_limit_default_requests=_env_int("RATE_LIMIT_DEFAULT_REQUESTS", 120, minimum=1),
+        rate_limit_default_window_seconds=_env_int("RATE_LIMIT_DEFAULT_WINDOW_SECONDS", 60, minimum=1),
+        rate_limit_send_email_requests=_env_int("RATE_LIMIT_SEND_EMAIL_REQUESTS", 5, minimum=1),
+        rate_limit_send_email_window_seconds=_env_int("RATE_LIMIT_SEND_EMAIL_WINDOW_SECONDS", 300, minimum=1),
+        rate_limit_didit_session_requests=_env_int("RATE_LIMIT_DIDIT_SESSION_REQUESTS", 10, minimum=1),
+        rate_limit_didit_session_window_seconds=_env_int("RATE_LIMIT_DIDIT_SESSION_WINDOW_SECONDS", 300, minimum=1),
+        rate_limit_create_order_requests=_env_int("RATE_LIMIT_CREATE_ORDER_REQUESTS", 10, minimum=1),
+        rate_limit_create_order_window_seconds=_env_int("RATE_LIMIT_CREATE_ORDER_WINDOW_SECONDS", 300, minimum=1),
+        rate_limit_get_pricing_requests=_env_int("RATE_LIMIT_GET_PRICING_REQUESTS", 120, minimum=1),
+        rate_limit_get_pricing_window_seconds=_env_int("RATE_LIMIT_GET_PRICING_WINDOW_SECONDS", 60, minimum=1),
+        rate_limit_verify_otp_requests=_env_int("RATE_LIMIT_VERIFY_OTP_REQUESTS", 10, minimum=1),
+        rate_limit_verify_otp_window_seconds=_env_int("RATE_LIMIT_VERIFY_OTP_WINDOW_SECONDS", 300, minimum=1),
+        ip_auto_block_enabled=_env_bool("IP_AUTO_BLOCK_ENABLED", True),
+        ip_auto_block_threshold=_env_int("IP_AUTO_BLOCK_THRESHOLD", 30, minimum=1),
+        ip_auto_block_window_seconds=_env_int("IP_AUTO_BLOCK_WINDOW_SECONDS", 300, minimum=1),
+        ip_auto_block_ttl_seconds=_env_int("IP_AUTO_BLOCK_TTL_SECONDS", 3600, minimum=1),
+        audit_log_path=audit_log_path,
+        audit_log_max_bytes=_env_int("AUDIT_LOG_MAX_BYTES", 10_485_760, minimum=1024),
+        audit_log_backup_count=_env_int("AUDIT_LOG_BACKUP_COUNT", 10, minimum=1),
+        admin_security_token=os.getenv("ADMIN_SECURITY_TOKEN", "").strip(),
+        otp_ttl_seconds=_env_int("OTP_TTL_SECONDS", 600, minimum=30),
     )

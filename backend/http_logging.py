@@ -38,6 +38,11 @@ _SENSITIVE_KEYS: Final[tuple[str, ...]] = (
     "vendor_data",
     "session_id",
     "order_id",
+    "x-admin-security-token",
+    "admin_security_token",
+    "verification_code",
+    "otp",
+    "otp_code",
 )
 
 _JSON_KEY_RE = re.compile(

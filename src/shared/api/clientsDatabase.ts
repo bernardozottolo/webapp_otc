@@ -6,13 +6,6 @@ export interface ClientsDatabaseConfig {
   localPaymentAssetByCountry: Record<Country, string>;
 }
 
-interface OtpRecord {
-  code: string;
-  timestamp: number;
-}
-
-const otpByEmail = new Map<string, OtpRecord>();
-
 interface ClientsDatabaseResponse<T> {
   success: boolean;
   data: T | null;
@@ -76,10 +69,6 @@ const BANK_NETWORK_TO_KEY_TYPE: Record<string, string> = {
 
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
-}
-
-function generateVerificationCode(timestamp: number) {
-  return String((timestamp % 900000) + 100000).slice(0, 6);
 }
 
 function hasRowData<T>(data: T | null): data is T {
@@ -293,10 +282,8 @@ export async function sendOtpEmailHttp(
   email: string,
   timestamp: number
 ): Promise<{ ok: boolean; codePreview: string }> {
+  void timestamp;
   const normalizedEmail = normalizeEmail(email);
-  const verificationCode = generateVerificationCode(timestamp);
-  otpByEmail.set(normalizedEmail, { code: verificationCode, timestamp });
-
   const sendEmailEndpoint = "/webhook/clients_database/send-email";
   const row = await queryClient(config, normalizedEmail);
   const clientData = buildEmailVerificationClientData(config, normalizedEmail, row);
@@ -311,8 +298,7 @@ export async function sendOtpEmailHttp(
       country: config.companyKey,
       message_type: "email_verification",
       email: normalizedEmail,
-      client_data: clientData,
-      verification_code: verificationCode
+      client_data: clientData
     })
   });
 
@@ -320,18 +306,28 @@ export async function sendOtpEmailHttp(
     throw new Error(`send_email request failed with status ${response.status}`);
   }
 
-  return { ok: true, codePreview: "" };
+  return (await response.json()) as { ok: boolean; codePreview: string };
 }
 
 export async function verifyOtpEmailHttp(email: string, code: string): Promise<{ ok: boolean }> {
   const normalizedEmail = normalizeEmail(email);
-  const saved = otpByEmail.get(normalizedEmail);
-  const normalizedCode = code.trim();
-  const ok = Boolean(saved && normalizedCode && saved.code === normalizedCode);
-  if (ok) {
-    otpByEmail.delete(normalizedEmail);
+  const response = await fetch("/webhook/clients_database/verify-otp", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      email: normalizedEmail,
+      code: code.trim()
+    })
+  });
+  if (response.ok) {
+    return (await response.json()) as { ok: boolean };
   }
-  return { ok };
+  if (response.status === 400) {
+    return { ok: false };
+  }
+  throw new Error(`verify_otp request failed with status ${response.status}`);
 }
 
 export async function getProfileAndLimitsHttp(config: ClientsDatabaseConfig, email: string): Promise<{ customer: Customer; limits: Limits }> {

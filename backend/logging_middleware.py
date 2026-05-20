@@ -10,6 +10,7 @@ from starlette.responses import Response
 
 from .http_logging import decode_body_preview, redact_query_string
 from .request_context import get_request_id, reset_request_id, set_request_id
+from .security.client_ip import get_client_ip
 
 logger = logging.getLogger("didit_proxy.http")
 
@@ -77,7 +78,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         qs = request.url.query
         qs_redacted = _truncate_query(redact_query_string(qs)) if qs else ""
         path_human = f"{path}?{qs_redacted}" if qs_redacted else path
-        client = request.client.host if request.client else "-"
+        client = get_client_ip(request)
 
         try:
             response = await call_next(request)

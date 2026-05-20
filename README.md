@@ -231,6 +231,15 @@ O projeto pode usar um backend Python simples para:
 - `ORDER_UPDATES_TTL_MS` (opcional, default `3600000`): TTL em milissegundos para snapshots iniciais de `create_order` e updates recebidos em `/api/order-updates`.
 - `PROXY_ALLOW_ORIGINS` (opcional, default `http://localhost:5173,http://127.0.0.1:5173`)
 - `LOG_LEVEL` (opcional, default `INFO`) nivel do logger `didit_proxy` (requisicoes HTTP de entrada em `didit_proxy.http`, saida para a API Didit em `didit_proxy.upstream`)
+- `SEND_EMAIL_URL` (recomendado quando ha OTP por email): endpoint interno usado pelo backend para disparar o email com o codigo OTP
+- `REDIS_URL` (recomendado em producao): necessario para OTP server-side; tambem sustenta rate limit, blacklist de IP e contadores de abuso
+- `RATE_LIMIT_ENABLED` / `IP_BLACKLIST_ENABLED` / `AUDIT_LOG_ENABLED`: ligam a camada operacional; se Redis estiver ausente, rate limit e blacklist sobem desativados com warning, mas OTP por email passa a devolver `503`
+- `RATE_LIMIT_*`: limites por rota (`SEND_EMAIL`, `VERIFY_OTP`, `DIDIT_SESSION`, `CREATE_ORDER`, `GET_PRICING`) e fallback `DEFAULT`
+- `IP_AUTO_BLOCK_*`: threshold, janela e TTL do bloqueio automatico por abuso
+- `OTP_TTL_SECONDS` (opcional, default `600`): validade do OTP guardado no Redis
+- `AUDIT_LOG_PATH` (opcional, default `storage/logs/audit.log.jsonl`): ficheiro JSONL local com auditoria operacional
+- `AUDIT_LOG_MAX_BYTES` / `AUDIT_LOG_BACKUP_COUNT`: rotacao do audit log por tamanho
+- `ADMIN_SECURITY_TOKEN`: protege `GET/POST/DELETE /admin/security/blacklist` via header `X-Admin-Security-Token`
 - `HTTP_LOG_REQUEST_BODY_MAX_CHARS` (opcional, default `8192`) tamanho maximo do trecho do corpo do pedido logado
 - `HTTP_LOG_RESPONSE_BODY_MAX_CHARS` (opcional, default `8192`) tamanho maximo do trecho do corpo da resposta logada
 - `HTTP_LOG_RESPONSE_BUFFER_MAX_BYTES` (opcional, default `524288`) limite de bytes da resposta agregada em memoria (so rotas com corpo completo no log; ver abaixo)
@@ -244,6 +253,8 @@ VITE_HTTP_LOG=true npm run build
 ```
 
 **Backend (FastAPI):** o middleware (`didit_proxy.http`) regista metodo, URL/caminho, `request_id`, preview redigido do corpo do pedido, status, tempo e IP. Para rotas de API (`/webhook/*`, `/otc/*`, `/api/*`, `/health`) o corpo da resposta tambem pode ser agregado, respeitando os limites acima. Chamadas HTTP de saida (Didit, OTC, clients_database, foto) aparecem em logs de upstream com o mesmo `request_id`, facilitando correlacao ponta-a-ponta.
+
+**Auditoria JSONL:** quando `AUDIT_LOG_ENABLED=true`, o backend escreve eventos estruturados em `AUDIT_LOG_PATH` (default `storage/logs/audit.log.jsonl`) com rotacao por tamanho. Sao registados eventos como `otp_email_requested`, `otp_verified`, `didit_session_created`, `didit_biometric_session_created`, `order_created`, `order_update_received`, bloqueios por blacklist e estouros de rate limit. Campos de QR/base64/blob e segredos administrativos sao removidos/redigidos antes da escrita.
 
 ### Rodar o backend
 
