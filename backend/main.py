@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -9,6 +10,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from redis.asyncio import Redis, from_url
 
 from .audit.audit_logger import AuditLogger
+from .audit.audit_worker import AuditLogWorker
 from .biometric_rate_limiter import FileBiometricRateLimiter
 from .clients_database_client import ClientsDatabaseUpstreamClient
 from .config import configure_app_logging, get_settings
@@ -25,10 +27,46 @@ from .security.ip_blacklist import IpBlacklistService
 from .security.middleware import SecurityMiddleware
 from .security.rate_limiter import RedisRateLimiter
 
-
 settings = get_settings()
 configure_app_logging(level_str=settings.log_level)
-app = FastAPI(title="Didit Proxy", version="0.1.0")
+
+redis_client: Redis | None = None
+if settings.redis_url:
+    redis_client = from_url(settings.redis_url, encoding="utf-8", decode_responses=True)
+elif settings.rate_limit_enabled or settings.ip_blacklist_enabled:
+    logging.getLogger("didit_proxy").warning(
+        "REDIS_URL is empty; rate limit and IP blacklist protections are disabled."
+    )
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    audit_worker: AuditLogWorker | None = None
+    if settings.audit_log_enabled:
+        if redis_client is not None:
+            audit_worker = AuditLogWorker(redis_client, settings)
+            audit_worker.start()
+            app.state.audit_worker = audit_worker
+            logging.getLogger("didit_proxy").info(
+                "Audit log worker started (queue=%s, dir=%s, tz=%s)",
+                settings.audit_redis_queue_key,
+                settings.audit_log_dir,
+                settings.audit_log_timezone,
+            )
+        else:
+            logging.getLogger("didit_proxy").warning(
+                "AUDIT_LOG_ENABLED but REDIS_URL is empty; audit events will be written synchronously to daily JSONL files."
+            )
+    yield
+    if audit_worker is not None:
+        await audit_worker.stop()
+        logging.getLogger("didit_proxy").info("Audit log worker stopped")
+    if redis_client is not None:
+        await redis_client.aclose()
+        logging.getLogger("didit_proxy").info("Redis connection closed")
+
+
+app = FastAPI(title="Didit Proxy", version="0.1.0", lifespan=lifespan)
 app.state.settings = settings
 app.state.order_store = InMemoryOrderStore(settings.order_updates_ttl_ms)
 app.state.biometric_rate_limiter = FileBiometricRateLimiter(
@@ -39,13 +77,6 @@ app.state.didit_client = DiditClient(
     api_base_url=settings.didit_api_base_url,
     api_key=settings.didit_api_key,
 )
-redis_client: Redis | None = None
-if settings.redis_url:
-    redis_client = from_url(settings.redis_url, encoding="utf-8", decode_responses=True)
-elif settings.rate_limit_enabled or settings.ip_blacklist_enabled:
-    logging.getLogger("didit_proxy").warning(
-        "REDIS_URL is empty; rate limit and IP blacklist protections are disabled."
-    )
 
 app.state.redis = redis_client
 app.state.ip_blacklist_service = IpBlacklistService(redis_client, enabled=settings.ip_blacklist_enabled)
@@ -56,9 +87,8 @@ app.state.rate_limiter = RedisRateLimiter(
 )
 app.state.audit_logger = AuditLogger(
     enabled=settings.audit_log_enabled,
-    path=settings.audit_log_path,
-    max_bytes=settings.audit_log_max_bytes,
-    backup_count=settings.audit_log_backup_count,
+    settings=settings,
+    redis_client=redis_client,
 )
 
 app.add_middleware(
@@ -97,6 +127,7 @@ else:
     logging.getLogger("didit_proxy").info(
         "clients_database upstream disabled; set CLIENTS_DATABASE_API_BASE_URL for same-origin browser access."
     )
+
 
 @app.get("/health")
 async def healthcheck() -> dict[str, str]:

@@ -237,8 +237,10 @@ O projeto pode usar um backend Python simples para:
 - `RATE_LIMIT_*`: limites por rota (`SEND_EMAIL`, `VERIFY_OTP`, `DIDIT_SESSION`, `CREATE_ORDER`, `GET_PRICING`) e fallback `DEFAULT`
 - `IP_AUTO_BLOCK_*`: threshold, janela e TTL do bloqueio automatico por abuso
 - `OTP_TTL_SECONDS` (opcional, default `600`): validade do OTP guardado no Redis
-- `AUDIT_LOG_PATH` (opcional, default `storage/logs/audit.log.jsonl`): ficheiro JSONL local com auditoria operacional
-- `AUDIT_LOG_MAX_BYTES` / `AUDIT_LOG_BACKUP_COUNT`: rotacao do audit log por tamanho
+- `AUDIT_LOG_DIR` (opcional, default `storage/logs`): pasta onde sao criados ficheiros diarios `audit-YYYY-MM-DD.jsonl`
+- `AUDIT_LOG_TIMEZONE` (opcional, default `America/Sao_Paulo`): fuso para definir o dia do ficheiro (virada a meia-noite local)
+- `AUDIT_REDIS_QUEUE_KEY` (opcional, default `audit:queue`): fila Redis para escrita sequencial assincrona
+- `AUDIT_WORKER_BLOCK_SECONDS` (opcional, default `5`): timeout do `BLPOP` no worker de auditoria
 - `ADMIN_SECURITY_TOKEN`: protege `GET/POST/DELETE /admin/security/blacklist` via header `X-Admin-Security-Token`
 - `HTTP_LOG_REQUEST_BODY_MAX_CHARS` (opcional, default `8192`) tamanho maximo do trecho do corpo do pedido logado
 - `HTTP_LOG_RESPONSE_BODY_MAX_CHARS` (opcional, default `8192`) tamanho maximo do trecho do corpo da resposta logada
@@ -254,7 +256,7 @@ VITE_HTTP_LOG=true npm run build
 
 **Backend (FastAPI):** o middleware (`didit_proxy.http`) regista metodo, URL/caminho, `request_id`, preview redigido do corpo do pedido, status, tempo e IP. Para rotas de API (`/webhook/*`, `/otc/*`, `/api/*`, `/health`) o corpo da resposta tambem pode ser agregado, respeitando os limites acima. Chamadas HTTP de saida (Didit, OTC, clients_database, foto) aparecem em logs de upstream com o mesmo `request_id`, facilitando correlacao ponta-a-ponta.
 
-**Auditoria JSONL:** quando `AUDIT_LOG_ENABLED=true`, o backend escreve eventos estruturados em `AUDIT_LOG_PATH` (default `storage/logs/audit.log.jsonl`) com rotacao por tamanho. Sao registados eventos como `otp_email_requested`, `otp_verified`, `didit_session_created`, `didit_biometric_session_created`, `order_created`, `order_update_received`, bloqueios por blacklist e estouros de rate limit. Campos de QR/base64/blob e segredos administrativos sao removidos/redigidos antes da escrita.
+**Auditoria JSONL:** quando `AUDIT_LOG_ENABLED=true`, cada evento e enfileirado no Redis (`RPUSH`) e um worker no processo drena a fila com `BLPOP` (FIFO), escrevendo uma linha JSON por evento em `storage/logs/audit-YYYY-MM-DD.jsonl` (dia em `AUDIT_LOG_TIMEZONE`). Sem Redis, a escrita e sincrona no ficheiro do dia com lock de ficheiro (`flock`). Consulta do dia atual: `tail -f storage/logs/audit-$(TZ=America/Sao_Paulo date +%F).jsonl`. Eventos: `otp_email_requested`, `otp_verified`, `didit_session_created`, `order_created`, `order_update_received`, blacklist e rate limit. QR/base64/blob e tokens admin sao removidos/redigidos antes da persistencia.
 
 ### Rodar o backend
 

@@ -87,9 +87,10 @@ class Settings:
     ip_auto_block_threshold: int
     ip_auto_block_window_seconds: int
     ip_auto_block_ttl_seconds: int
-    audit_log_path: Path
-    audit_log_max_bytes: int
-    audit_log_backup_count: int
+    audit_log_dir: Path
+    audit_log_timezone: str
+    audit_redis_queue_key: str
+    audit_worker_block_seconds: int
     admin_security_token: str
     otp_ttl_seconds: int
 
@@ -105,8 +106,8 @@ def get_settings() -> Settings:
         os.getenv("BIOMETRIC_RATE_LIMIT_FILE", str(repo_root / ".runtime" / "biometric_rate_limits.json")),
         repo_root,
     )
-    audit_log_path = _resolve_path(
-        os.getenv("AUDIT_LOG_PATH", str(repo_root / "storage" / "logs" / "audit.log.jsonl")),
+    audit_log_dir = _resolve_path(
+        os.getenv("AUDIT_LOG_DIR", str(repo_root / "storage" / "logs")),
         repo_root,
     )
 
@@ -150,9 +151,10 @@ def get_settings() -> Settings:
         ip_auto_block_threshold=_env_int("IP_AUTO_BLOCK_THRESHOLD", 30, minimum=1),
         ip_auto_block_window_seconds=_env_int("IP_AUTO_BLOCK_WINDOW_SECONDS", 300, minimum=1),
         ip_auto_block_ttl_seconds=_env_int("IP_AUTO_BLOCK_TTL_SECONDS", 3600, minimum=1),
-        audit_log_path=audit_log_path,
-        audit_log_max_bytes=_env_int("AUDIT_LOG_MAX_BYTES", 10_485_760, minimum=1024),
-        audit_log_backup_count=_env_int("AUDIT_LOG_BACKUP_COUNT", 10, minimum=1),
+        audit_log_dir=audit_log_dir,
+        audit_log_timezone=os.getenv("AUDIT_LOG_TIMEZONE", "America/Sao_Paulo").strip() or "America/Sao_Paulo",
+        audit_redis_queue_key=os.getenv("AUDIT_REDIS_QUEUE_KEY", "audit:queue").strip() or "audit:queue",
+        audit_worker_block_seconds=_env_int("AUDIT_WORKER_BLOCK_SECONDS", 5, minimum=1),
         admin_security_token=os.getenv("ADMIN_SECURITY_TOKEN", "").strip(),
         otp_ttl_seconds=_env_int("OTP_TTL_SECONDS", 600, minimum=30),
     )

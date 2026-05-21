@@ -7,6 +7,7 @@ dist/
 venv/
 .venv/
 __pycache__/
+backend/__pycache__/
 *.pyc
 *.pyo
 *.pyd
@@ -23,6 +24,7 @@ public/runtime-config.local.json
 dist/runtime-config.local.json
 
 # Logs
+storage/logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
