@@ -162,7 +162,9 @@ function otcDecimalString(amount: number): string {
 }
 
 function normalizeApprovedKyc(result: string): "approved" | "rejected" {
-  return result === "approve" || result === "approved" ? "approved" : "rejected";
+  return result === "approve" || result === "approved" || result === "review"
+    ? "approved"
+    : "rejected";
 }
 
 function normalizeBirthDate(value: unknown): string | null {
