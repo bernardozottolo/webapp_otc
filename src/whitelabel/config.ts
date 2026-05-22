@@ -198,8 +198,10 @@ export interface FooterColorsConfig {
 export interface FooterConfig {
   title: string;
   description: string;
-  /** Texto livre exibido no rodapé (direita); use \\n no JSON para quebras de linha. */
-  legalInfo: string;
+  /** HTML exibido no rodapé (esquerda), ex.: endereço e dados da empresa. */
+  legalInfoLeft: string;
+  /** HTML exibido no rodapé (direita), ex.: termos de uso e links legais. */
+  legalInfoRight: string;
   contacts: FooterContactsConfig;
   colors: FooterColorsConfig;
 }
@@ -338,7 +340,8 @@ export const defaultCompanyDocumentTypes: Record<Country, string[]> = {
 export const defaultFooterConfig: FooterConfig = {
   title: "Fale Conosco",
   description: "Entre em contato com nossa equipe para mais informações ou para saber como aumentar seu limite transacional.",
-  legalInfo: "",
+  legalInfoLeft: "",
+  legalInfoRight: "",
   contacts: {
     phone: "",
     whatsapp: "",
@@ -935,7 +938,8 @@ function asFooterConfig(value: unknown, fallback: FooterConfig): FooterConfig {
   return {
     title: asString(value.title, fallback.title),
     description: asString(value.description, fallback.description),
-    legalInfo: asString(value.legalInfo, fallback.legalInfo),
+    legalInfoLeft: asString(value.legalInfoLeft ?? value.legalInfo, fallback.legalInfoLeft),
+    legalInfoRight: asString(value.legalInfoRight, fallback.legalInfoRight),
     contacts: asFooterContactsConfig(value.contacts, fallback.contacts),
     colors: asFooterColorsConfig(value.colors, fallback.colors)
   };

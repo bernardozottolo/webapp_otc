@@ -364,7 +364,8 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
       Boolean(
         brand.footer.title.trim() ||
           brand.footer.description.trim() ||
-          brand.footer.legalInfo.trim() ||
+          brand.footer.legalInfoLeft.trim() ||
+          brand.footer.legalInfoRight.trim() ||
           FOOTER_CONTACT_ORDER.some((kind) => brand.footer.contacts[kind].trim())
       ),
     [brand.footer]
@@ -2140,9 +2141,22 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
                 </div>
               ) : null}
             </div>
-            {brand.footer.legalInfo.trim() ? (
-              <div className="home-contact-footer__legal-info" style={footerLegalInfoStyle}>
-                {brand.footer.legalInfo}
+            {brand.footer.legalInfoLeft.trim() || brand.footer.legalInfoRight.trim() ? (
+              <div className="home-contact-footer__legal-row">
+                {brand.footer.legalInfoLeft.trim() ? (
+                  <div
+                    className="home-contact-footer__legal-info home-contact-footer__legal-info--left"
+                    style={footerLegalInfoStyle}
+                    dangerouslySetInnerHTML={{ __html: brand.footer.legalInfoLeft }}
+                  />
+                ) : null}
+                {brand.footer.legalInfoRight.trim() ? (
+                  <div
+                    className="home-contact-footer__legal-info home-contact-footer__legal-info--right"
+                    style={footerLegalInfoStyle}
+                    dangerouslySetInnerHTML={{ __html: brand.footer.legalInfoRight }}
+                  />
+                ) : null}
               </div>
             ) : null}
           </section>

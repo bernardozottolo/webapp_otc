@@ -303,15 +303,36 @@ body::after {
   overflow-wrap: anywhere;
 }
 
-.home-contact-footer__legal-info {
+.home-contact-footer__legal-row {
   width: 100%;
   max-width: 1280px;
   margin: 8px auto 0;
-  text-align: right;
-  white-space: pre-line;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+}
+
+.home-contact-footer__legal-info {
+  min-width: 0;
   font-size: 0.82rem;
   line-height: 1.55;
   overflow-wrap: anywhere;
+}
+
+.home-contact-footer__legal-info--left {
+  flex: 1;
+  text-align: left;
+}
+
+.home-contact-footer__legal-info--right {
+  margin-left: auto;
+  text-align: right;
+}
+
+.home-contact-footer__legal-info a {
+  color: inherit;
+  text-decoration: underline;
 }
 
 .form-column {
@@ -1508,6 +1529,16 @@ button {
 
   .home-contact-footer {
     padding: 24px 16px;
+  }
+
+  .home-contact-footer__legal-row {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .home-contact-footer__legal-info--right {
+    margin-left: 0;
+    text-align: left;
   }
 }
 
