@@ -9,6 +9,7 @@ from starlette.responses import Response
 
 from ..audit.audit_logger import write_audit_event
 from ..config import Settings, get_settings
+from ..notifications.order_notifications import notify_order_created
 from ..otc_client import OtcUpstreamClient, httpx_to_starlette_response
 
 router = APIRouter(prefix="/otc", tags=["otc"])
@@ -145,6 +146,24 @@ def _build_order_audit_data(body: bytes, response: Response) -> dict[str, object
     }
 
 
+def _extract_notification_context_from_body(body: bytes) -> tuple[str | None, str | None]:
+    try:
+        payload = json.loads(body.decode("utf-8")) if body else {}
+    except Exception:
+        return None, None
+    if not isinstance(payload, dict):
+        return None, None
+    company_key = str(payload.get("country", "")).strip() or None
+    platform = str(payload.get("platform", "")).strip() or None
+    client_data = payload.get("client_data")
+    if isinstance(client_data, dict):
+        if not company_key:
+            company_key = str(client_data.get("country", "")).strip() or company_key
+        if not platform:
+            platform = str(client_data.get("platform", "")).strip() or platform
+    return company_key, platform
+
+
 def _inject_order_update_webhook(body: bytes, settings: Settings) -> bytes:
     if not settings.order_update_webhook_url:
         raise HTTPException(status_code=503, detail="order update webhook URL not configured")
@@ -202,6 +221,20 @@ async def otc_create_order(
     audit_data = _build_order_audit_data(body, response)
     if audit_data is not None:
         await write_audit_event(request, "order_created", audit_data)
+    if upstream.status_code < 400 and response.body:
+        try:
+            response_payload = json.loads(response.body.decode("utf-8"))
+            if isinstance(response_payload, dict):
+                company_key, platform = _extract_notification_context_from_body(original_body)
+                await notify_order_created(
+                    settings=settings,
+                    response_body=response_payload,
+                    company_key=company_key,
+                    platform=platform,
+                    redis_client=getattr(request.app.state, "redis", None),
+                )
+        except Exception:
+            pass
     return response
 
 

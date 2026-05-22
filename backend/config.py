@@ -28,6 +28,23 @@ def _env_int(name: str, default: int, *, minimum: int | None = None) -> int:
     return value
 
 
+def _normalize_notification_status(value: str) -> str:
+    import re
+
+    normalized = value.strip()
+    normalized = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", normalized)
+    return normalized.lower().replace("-", "_").replace(" ", "_")
+
+
+def _parse_notification_statuses(raw: str) -> frozenset[str]:
+    items = {
+        _normalize_notification_status(part)
+        for part in raw.split(",")
+        if part.strip()
+    }
+    return frozenset(item for item in items if item)
+
+
 def _resolve_path(path_value: str, repo_root: Path) -> Path:
     path = Path(path_value).expanduser()
     if not path.is_absolute():
@@ -93,6 +110,16 @@ class Settings:
     audit_worker_block_seconds: int
     admin_security_token: str
     otp_ttl_seconds: int
+    order_notification_enabled: bool
+    order_notification_url: str
+    order_notification_timeout_seconds: int
+    order_notification_max_body_chars: int
+    order_notification_statuses: frozenset[str]
+    order_notification_company_key: str
+    order_notification_platform: str
+    order_notification_dedup_ttl_seconds: int
+    order_notification_local_payment_timeout_ms: int
+    order_notification_local_order_update_timeout_ms: int
 
 
 def get_settings() -> Settings:
@@ -157,4 +184,27 @@ def get_settings() -> Settings:
         audit_worker_block_seconds=_env_int("AUDIT_WORKER_BLOCK_SECONDS", 5, minimum=1),
         admin_security_token=os.getenv("ADMIN_SECURITY_TOKEN", "").strip(),
         otp_ttl_seconds=_env_int("OTP_TTL_SECONDS", 600, minimum=30),
+        order_notification_enabled=_env_bool("ORDER_NOTIFICATION_ENABLED", False),
+        order_notification_url=os.getenv("ORDER_NOTIFICATION_URL", "").strip(),
+        order_notification_timeout_seconds=_env_int("ORDER_NOTIFICATION_TIMEOUT_SECONDS", 10, minimum=1),
+        order_notification_max_body_chars=_env_int("ORDER_NOTIFICATION_MAX_BODY_CHARS", 100_000, minimum=1024),
+        order_notification_statuses=_parse_notification_statuses(
+            os.getenv(
+                "ORDER_NOTIFICATION_STATUSES",
+                "payment_confirmed,completed,concluded,cancelled,failed,expired,timeout,payment_timeout,order_update_timeout",
+            )
+        ),
+        order_notification_company_key=os.getenv("ORDER_NOTIFICATION_COMPANY_KEY", "").strip(),
+        order_notification_platform=os.getenv("ORDER_NOTIFICATION_PLATFORM", "webapp").strip() or "webapp",
+        order_notification_dedup_ttl_seconds=_env_int("ORDER_NOTIFICATION_DEDUP_TTL_SECONDS", 300, minimum=30),
+        order_notification_local_payment_timeout_ms=_env_int(
+            "ORDER_NOTIFICATION_LOCAL_PAYMENT_TIMEOUT_MS",
+            1_800_000,
+            minimum=0,
+        ),
+        order_notification_local_order_update_timeout_ms=_env_int(
+            "ORDER_NOTIFICATION_LOCAL_ORDER_UPDATE_TIMEOUT_MS",
+            300_000,
+            minimum=0,
+        ),
     )
