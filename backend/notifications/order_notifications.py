@@ -76,16 +76,14 @@ def _build_envelope(
     order_id: str | None,
     status: str | None,
     payload: dict[str, Any],
-    company_key: str | None = None,
-    platform: str | None = None,
     email: str | None = None,
     client_id: str | None = None,
 ) -> dict[str, Any]:
     envelope: dict[str, Any] = {
         "event": event,
         "source": SOURCE,
-        "company_key": (company_key or settings.order_notification_company_key or "").strip(),
-        "platform": (platform or settings.order_notification_platform or "webapp").strip() or "webapp",
+        "company_key": settings.backend_company_key,
+        "platform": settings.backend_platform,
         "occurred_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "order_id": order_id,
         "status": status,
@@ -192,8 +190,6 @@ async def notify_order_created(
     response_body: dict[str, Any],
     order_id: str | None = None,
     status: str | None = None,
-    company_key: str | None = None,
-    platform: str | None = None,
     email: str | None = None,
     client_id: str | None = None,
     redis_client: Redis | None = None,
@@ -221,8 +217,6 @@ async def notify_order_created(
         order_id=order_id,
         status=status,
         payload=payload,
-        company_key=company_key,
-        platform=platform,
         email=email,
         client_id=client_id,
     )
@@ -252,8 +246,6 @@ async def notify_order_update(
     order_id: str | None = None,
     status: str | None = None,
     local_payload: dict[str, Any] | None = None,
-    company_key: str | None = None,
-    platform: str | None = None,
     redis_client: Redis | None = None,
 ) -> None:
     if not _is_configured(settings):
@@ -291,8 +283,6 @@ async def notify_order_update(
         order_id=order_id,
         status=status,
         payload=inner_payload,
-        company_key=company_key,
-        platform=platform,
     )
     if not await _dedup_should_send(
         redis_client,

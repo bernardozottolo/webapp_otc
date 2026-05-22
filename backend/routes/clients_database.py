@@ -101,6 +101,11 @@ async def send_email_proxy(
     payload["email"] = normalized_email
     payload["id"] = _normalize_email(str(payload.get("id", normalized_email)))
     payload["verification_code"] = verification_code
+    if settings.backend_company_key:
+        payload["company_key"] = settings.backend_company_key
+        payload["country"] = settings.backend_company_key
+    if settings.backend_platform:
+        payload["platform"] = settings.backend_platform
     body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
 
     try:
@@ -123,8 +128,8 @@ async def send_email_proxy(
         "otp_email_requested",
         {
             "email": normalized_email,
-            "companyKey": payload.get("country"),
-            "platform": payload.get("platform"),
+            "companyKey": settings.backend_company_key or payload.get("company_key") or payload.get("country"),
+            "platform": settings.backend_platform or payload.get("platform"),
             "message_type": payload.get("message_type"),
         },
     )

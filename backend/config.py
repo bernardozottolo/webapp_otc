@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import os
 from dataclasses import dataclass
@@ -43,6 +44,34 @@ def _parse_notification_statuses(raw: str) -> frozenset[str]:
         if part.strip()
     }
     return frozenset(item for item in items if item)
+
+
+def _load_runtime_backend_identity(repo_root: Path, runtime_config_path: str) -> tuple[str, str]:
+    """Lê backend.companyKey e backend.platform do runtime-config (mesmo valor do frontend)."""
+    candidates: list[Path] = []
+    if runtime_config_path:
+        candidates.append(_resolve_path(runtime_config_path, repo_root))
+    candidates.extend(
+        [
+            repo_root / "public" / "runtime-config.local.json",
+            repo_root / "dist" / "runtime-config.local.json",
+        ]
+    )
+    for path in candidates:
+        if not path.is_file():
+            continue
+        try:
+            raw = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        backend = raw.get("backend")
+        if not isinstance(backend, dict):
+            continue
+        company_key = str(backend.get("companyKey", "")).strip()
+        platform = str(backend.get("platform", "")).strip() or "webapp"
+        if company_key:
+            return company_key, platform
+    return "", "webapp"
 
 
 def _resolve_path(path_value: str, repo_root: Path) -> Path:
@@ -115,8 +144,8 @@ class Settings:
     order_notification_timeout_seconds: int
     order_notification_max_body_chars: int
     order_notification_statuses: frozenset[str]
-    order_notification_company_key: str
-    order_notification_platform: str
+    backend_company_key: str
+    backend_platform: str
     order_notification_dedup_ttl_seconds: int
     order_notification_local_payment_timeout_ms: int
     order_notification_local_order_update_timeout_ms: int
@@ -136,6 +165,19 @@ def get_settings() -> Settings:
     audit_log_dir = _resolve_path(
         os.getenv("AUDIT_LOG_DIR", str(repo_root / "storage" / "logs")),
         repo_root,
+    )
+    runtime_config_path = os.getenv("RUNTIME_CONFIG_PATH", "").strip()
+    runtime_company_key, runtime_platform = _load_runtime_backend_identity(repo_root, runtime_config_path)
+    backend_company_key = (
+        os.getenv("BACKEND_COMPANY_KEY", "").strip()
+        or os.getenv("ORDER_NOTIFICATION_COMPANY_KEY", "").strip()
+        or runtime_company_key
+    )
+    backend_platform = (
+        os.getenv("BACKEND_PLATFORM", "").strip()
+        or os.getenv("ORDER_NOTIFICATION_PLATFORM", "").strip()
+        or runtime_platform
+        or "webapp"
     )
 
     return Settings(
@@ -194,8 +236,8 @@ def get_settings() -> Settings:
                 "payment_confirmed,completed,concluded,cancelled,failed,expired,timeout,payment_timeout,order_update_timeout",
             )
         ),
-        order_notification_company_key=os.getenv("ORDER_NOTIFICATION_COMPANY_KEY", "").strip(),
-        order_notification_platform=os.getenv("ORDER_NOTIFICATION_PLATFORM", "webapp").strip() or "webapp",
+        backend_company_key=backend_company_key,
+        backend_platform=backend_platform,
         order_notification_dedup_ttl_seconds=_env_int("ORDER_NOTIFICATION_DEDUP_TTL_SECONDS", 300, minimum=30),
         order_notification_local_payment_timeout_ms=_env_int(
             "ORDER_NOTIFICATION_LOCAL_PAYMENT_TIMEOUT_MS",
