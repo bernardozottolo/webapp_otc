@@ -289,11 +289,14 @@ async def create_session(
         request,
         "didit_session_created",
         {
+            "request_body": payload.model_dump(exclude_none=True),
             "vendor_data": payload.vendor_data,
             "flow_kind": payload.flow_kind,
             "session_id": sanitized.get("session_id"),
             "metadata": payload.metadata,
+            "session": session,
         },
+        sanitize=False,
     )
     return {
         "success": True,
@@ -329,12 +332,22 @@ async def list_sessions(
 @router.get("/session/{session_id}/decision")
 async def get_session_decision(
     session_id: str,
+    request: Request,
     didit_client: DiditClient = Depends(_didit_client_dependency),
 ) -> dict[str, Any]:
     try:
         decision = await didit_client.get_session_decision(session_id)
     except httpx.HTTPStatusError as error:
         _raise_upstream_http_error(error)
+    await write_audit_event(
+        request,
+        "didit_biometry_status_updated",
+        {
+            "session_id": session_id,
+            "decision": decision,
+        },
+        sanitize=False,
+    )
     return {
         "success": True,
         "data": _sanitize_decision(decision),
@@ -409,11 +422,15 @@ async def create_biometric_session_from_document(
         request,
         "didit_biometric_session_created",
         {
+            "request_body": payload.model_dump(exclude_none=True),
             "document_verification_vendor_data": payload.document_verification_vendor_data,
             "biometric_validation_vendor_data": payload.biometric_validation_vendor_data,
             "session_id": sanitized.get("session_id"),
             "metadata": payload.metadata,
+            "decision": decision,
+            "session": session,
         },
+        sanitize=False,
     )
     return {
         "success": True,

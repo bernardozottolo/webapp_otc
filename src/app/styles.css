@@ -641,6 +641,10 @@ button {
   font-size: var(--form-body-size);
 }
 
+.payment-slot--error {
+  border-color: #b91c1c;
+}
+
 .payment-slot strong {
   display: block;
   margin-bottom: 4px;

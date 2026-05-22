@@ -23,6 +23,7 @@ from .routes.clients_database import router as clients_database_router
 from .routes.didit import router as didit_router
 from .routes.otc import router as otc_router
 from .routes.order_updates import router as order_updates_router
+from .routes.telemetry import router as telemetry_router
 from .security.ip_blacklist import IpBlacklistService
 from .security.middleware import SecurityMiddleware
 from .security.rate_limiter import RedisRateLimiter
@@ -103,6 +104,7 @@ app.add_middleware(RequestLoggingMiddleware)
 
 app.include_router(didit_router)
 app.include_router(order_updates_router)
+app.include_router(telemetry_router)
 app.include_router(admin_security_router)
 if settings.otc_upstream_base_url:
     app.state.otc_upstream_client = OtcUpstreamClient(settings.otc_upstream_base_url)

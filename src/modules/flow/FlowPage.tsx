@@ -4,6 +4,7 @@ import { setWindowOrderPayload } from "../../shared/api/orderCache";
 import type { CompanyKycOwnerInfo, KycSubmitResult } from "../../shared/api/contracts";
 import { useI18n } from "../../shared/i18n";
 import { deriveQuoteResponseFromUnitPrice } from "../../shared/api/pricing";
+import { sendFrontendTelemetryEvent } from "../../shared/api/telemetry";
 import type {
   Country,
   Customer,
@@ -299,10 +300,12 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
   const [transactionalLoading, setTransactionalLoading] = useState(false);
   const [transactionalFetchError, setTransactionalFetchError] = useState(false);
   const [paymentData, setPaymentData] = useState<PaymentData | null>(null);
+  const [paymentSlotError, setPaymentSlotError] = useState<string | null>(null);
   const [pendingKyc, setPendingKyc] = useState<PendingKycApproval | null>(null);
 
   /** One silent re-run for payment biometry when doc verification/portrait path needs to start without alerting. */
   const paymentBiometryDocRetryConsumedRef = useRef(false);
+  const lastCouponTelemetryKeyRef = useRef("");
 
   const [documentType, setDocumentType] = useState("");
   const [documentNumber, setDocumentNumber] = useState("");
@@ -473,6 +476,74 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
     customer
   };
 
+  const buildTelemetryUserContext = () => ({
+    email: customer?.email ?? email,
+    document: customer?.documentNumber ?? pendingKyc?.documentNumber ?? documentNumber,
+    document_type: customer?.personType ?? customer?.documentType ?? documentType,
+    identified,
+    company_key: brand.backend.companyKey,
+    platform: brand.backend.platform,
+    country,
+    locale
+  });
+
+  const buildTelemetryFlowState = () => ({
+    step,
+    trade_side: tradeSide,
+    asset,
+    input_amount: inputAmount,
+    parsed_amount: parsedAmount,
+    coupon_input: couponInput,
+    applied_coupon: appliedCoupon,
+    coupon_feedback: couponFeedback,
+    quote,
+    customer,
+    limits,
+    transactional_allowance: transactionalAllowance,
+    transactional_loading: transactionalLoading,
+    transactional_fetch_error: transactionalFetchError,
+    payment_data: paymentData,
+    payment_slot_error: paymentSlotError,
+    pending_kyc: pendingKyc,
+    document_type: documentType,
+    document_number: documentNumber,
+    company_representative_context: companyRepresentativeContext,
+    selected_occupation: selectedOccupation,
+    selected_representative_document_type: selectedRepresentativeDocumentType,
+    selected_representative_document_number: selectedRepresentativeDocumentNumber,
+    biometric_identity_override: biometricIdentityOverride,
+    biometry_reason: biometryReason,
+    counterparty_kyc_mode: counterpartyKycMode,
+    session_biometry_done: sessionBiometryDone,
+    network,
+    wallet_address: walletAddress,
+    bank_key_type: bankKeyType,
+    bank_key_value: bankKeyValue,
+    payment_context: paymentContext
+  });
+
+  const emitFrontendTelemetry = (
+    event: string,
+    payload: Record<string, unknown>,
+    overrides?: {
+      step?: string;
+      userContext?: Record<string, unknown>;
+    }
+  ) => {
+    void sendFrontendTelemetryEvent({
+      event,
+      step: overrides?.step ?? step,
+      user_context: {
+        ...buildTelemetryUserContext(),
+        ...(overrides?.userContext ?? {})
+      },
+      payload: {
+        flow_state: buildTelemetryFlowState(),
+        ...payload
+      }
+    });
+  };
+
   const refreshQuote = useCallback(async () => {
     const { tradeSide: side, asset: a, coupon: coup, parsedAmount: amt, country: ctry, locale: loc, customer: cust } =
       latestQuoteInputsRef.current;
@@ -523,6 +594,32 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
       setQuote(response);
       setCouponFeedback(coup ? (response.couponIsValid ? "valid" : "invalid") : "idle");
       lastPricingSuccessKeyRef.current = successKey;
+      if (coup) {
+        const couponTelemetryKey = `${successKey}\u0001${response.couponIsValid}\u0001${response.updatedAt}`;
+        if (lastCouponTelemetryKeyRef.current !== couponTelemetryKey) {
+          lastCouponTelemetryKeyRef.current = couponTelemetryKey;
+          void sendFrontendTelemetryEvent({
+            event: "frontend_coupon_applied",
+            step,
+            user_context: {
+              ...buildTelemetryUserContext()
+            },
+            payload: {
+              flow_state: buildTelemetryFlowState(),
+              pricing_request: {
+                trade_side: side,
+                asset: a,
+                amount: amt,
+                coupon: coup,
+                country: ctry,
+                locale: loc,
+                customer: cust
+              },
+              pricing_response: response
+            }
+          });
+        }
+      }
     } catch {
       setQuote((prev: QuoteResponse | null) => {
         if (!prev) return null;
@@ -754,6 +851,11 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
     }
   }
 
+  const resetOtpState = useCallback(() => {
+    setOtpCode("");
+    setOtpPreview("");
+  }, []);
+
   const loadPaymentForCurrentContext = async (emailValue: string) => {
     const payment = await otcApiClient.getPaymentData({
       email: emailValue,
@@ -762,6 +864,12 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
       country
     });
     setPaymentData(payment);
+    if (
+      (tradeSide === "buy" && payment?.kind === "crypto" && payment.walletAddress && payment.network) ||
+      (tradeSide === "sell" && payment?.kind === "bank" && payment.bankKeyValue && payment.bankKeyType)
+    ) {
+      setPaymentSlotError(null);
+    }
   };
 
   const resetCompanyRepresentativeState = useCallback(() => {
@@ -857,6 +965,15 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
       emailValue: customer.email,
       documentTypeValue: companyDocumentType,
       documentNumberValue: companyDocumentNumber
+    });
+    emitFrontendTelemetry("frontend_document_kyc_submitted", {
+      kyc_request: {
+        email: customer.email,
+        document_type: companyDocumentType,
+        document_number: companyDocumentNumber,
+        reason: "payment_company_revalidation"
+      },
+      kyc_response: kyc
     });
     if (!kyc.approved) {
       openKycRejectedModal();
@@ -982,7 +1099,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
     setStep("kyc");
   };
 
-  const loadIdentityContext = async (emailValue: string) => {
+  const loadIdentityContext = async (emailValue: string, source = "unknown") => {
     const profile = await otcApiClient.getProfileAndLimits(emailValue);
     setCustomer(profile.customer);
     setLimits(profile.limits);
@@ -994,6 +1111,21 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
     setIdentified(true);
     await loadPaymentForCurrentContext(profile.customer.email);
     setStep("none");
+    emitFrontendTelemetry(
+      "frontend_login_completed",
+      {
+        source,
+        profile,
+        loaded_email: profile.customer.email
+      },
+      {
+        userContext: {
+          email: profile.customer.email,
+          document: profile.customer.documentNumber ?? "",
+          document_type: profile.customer.personType ?? profile.customer.documentType ?? ""
+        }
+      }
+    );
     return profile;
   };
 
@@ -1014,6 +1146,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
 
   const handlePaymentAction = async () => {
     if (!customer) return;
+    setPaymentSlotError(null);
     if (!sessionBiometryDone) {
       paymentBiometryDocRetryConsumedRef.current = false;
       if (isCompanyDocumentType(customer.personType ?? customer.documentType ?? "")) {
@@ -1083,7 +1216,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
       const requiresStoredKycRefresh = hasExpiredCounterpartyKyc(lookup.customer ?? null, brand.backend.otcKycValidityDays);
 
       if (lookup.customer && (lookup.exists || !hasStoredApprovedKyc || requiresStoredKycRefresh)) {
-        const profile = await loadIdentityContext(lookup.customer.email);
+        const profile = await loadIdentityContext(lookup.customer.email, "existing_lookup");
         if (!hasApprovedCounterpartyKyc(profile.customer.approvedKycResult)) {
           setIdentified(false);
           setStep("none");
@@ -1100,6 +1233,11 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
       }
       setPendingKyc(null);
       const send = await otcApiClient.sendOtp(email, Date.now());
+      emitFrontendTelemetry("frontend_email_unregistered", {
+        lookup_response: lookup,
+        send_otp_response: send
+      });
+      resetOtpState();
       setOtpPreview(send.codePreview);
       setStep("otp");
     }, t("loading.checkingEmail"));
@@ -1112,6 +1250,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
         alert(t("otp.invalid"));
         return;
       }
+      resetOtpState();
       await prepareCounterpartyKycStep("onboarding", email);
     }, t("loading.verifyingCode"));
   };
@@ -1125,6 +1264,14 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
         documentTypeValue: normalizedPersonType,
         documentNumberValue: normalizedDocument
       });
+      emitFrontendTelemetry("frontend_document_kyc_submitted", {
+        kyc_request: {
+          email,
+          document_type: normalizedPersonType,
+          document_number: normalizedDocument
+        },
+        kyc_response: kyc
+      });
       if (!kyc.approved) {
         setIdentified(false);
         openKycRejectedModal();
@@ -1137,7 +1284,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
         kyc
       });
       if (counterpartyKycMode === "refresh") {
-        await loadIdentityContext(customer?.email ?? email);
+        await loadIdentityContext(customer?.email ?? email, "kyc_refresh");
         return;
       }
       setPendingKyc({
@@ -1199,6 +1346,12 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
         setBlockingUi(null);
       }
 
+      emitFrontendTelemetry("frontend_biometry_status_updated", {
+        target_email: targetEmail,
+        target_document: targetDocument,
+        biometric_result: biometric
+      });
+
       if (!biometric.approved) {
         if (biometric.errorCode === "cancelled") {
           paymentBiometryDocRetryConsumedRef.current = false;
@@ -1257,7 +1410,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
           lastSuccessfulBiometric: approvedAt,
           emailVerified: true
         });
-        await loadIdentityContext(targetEmail);
+        await loadIdentityContext(targetEmail, "onboarding_completed");
         resetCompanyRepresentativeState();
         setBlockingUi(null);
         return;
@@ -1275,6 +1428,15 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
       await openPaymentModal();
       setBlockingUi(null);
     } catch {
+      emitFrontendTelemetry("frontend_biometry_status_updated", {
+        target_email: targetEmail,
+        target_document: targetDocument,
+        biometric_result: {
+          approved: false,
+          provider: "Didit SDK",
+          error_code: "sdk_error"
+        }
+      });
       setBlockingUi(null);
       if (biometryReason === "payment") {
         paymentBiometryDocRetryConsumedRef.current = false;
@@ -1313,7 +1475,14 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
           walletAddress
         };
         await otcApiClient.savePaymentData(payload);
+        emitFrontendTelemetry("frontend_wallet_saved", {
+          payment_kind: "crypto",
+          is_update: Boolean(paymentData),
+          risk_check: check,
+          saved_payment_data: payload
+        });
         setPaymentData(payload);
+        setPaymentSlotError(null);
         setStep("none");
         return;
       }
@@ -1333,7 +1502,14 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
         bankKeyValue
       };
       await otcApiClient.savePaymentData(payload);
+      emitFrontendTelemetry("frontend_wallet_saved", {
+        payment_kind: "bank",
+        is_update: Boolean(paymentData),
+        owner_check: owner,
+        saved_payment_data: payload
+      });
       setPaymentData(payload);
+      setPaymentSlotError(null);
       setStep("none");
     }, t("loading.savingPayment"));
   };
@@ -1451,6 +1627,28 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
         },
         preOrder
       });
+      emitFrontendTelemetry("frontend_order_created", {
+        order_request: {
+          email: customer.email,
+          country,
+          asset,
+          asset_to_pay: brand.backend.localPaymentAssetByCountry[country] ?? brand.fiatCurrency,
+          trade_type: "BUY",
+          coupon: appliedCoupon.trim() || undefined,
+          payment_info: paymentInfo,
+          price: preOrder.price,
+          amount: parsedAmount,
+          document,
+          document_type: documentType,
+          kyc_info: {
+            name: kycName,
+            kyc_result: mapApprovedKycToCounterpartyPayload(customer.approvedKycResult),
+            kyc_ts: kycTs
+          },
+          pre_order: preOrder
+        },
+        order_response: order
+      });
       setWindowOrderPayload(orderTab, order);
       orderTab.location.href = `/order/${encodeURIComponent(order.id)}`;
     } catch (error) {
@@ -1464,6 +1662,26 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
       orderTab.document.close();
       throw error;
     }
+  };
+
+  const handleConfirmOrder = async () => {
+    emitFrontendTelemetry("frontend_confirm_order_clicked", {
+      confirm_blocked_by_missing_wallet: identified && tradeSide === "buy" && !hasPaymentReady,
+      actionable_quote: actionableQuote,
+      quote_is_expired: quoteIsExpired,
+      has_payment_ready: hasPaymentReady,
+      transactional_gate_blocked: transactionalGateBlocksOrder
+    });
+    if (identified && tradeSide === "buy" && !hasPaymentReady) {
+      setPaymentSlotError(t("form.walletRequiredBeforeConfirm"));
+      return;
+    }
+    setPaymentSlotError(null);
+    if (identified) {
+      await createOrderNow();
+      return;
+    }
+    openEmailModal();
   };
 
   const quoteMissingLabel = t("quote.unavailable");
@@ -1483,6 +1701,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
     tradeSide === "buy"
       ? Boolean(paymentData?.walletAddress && paymentData.network)
       : Boolean(paymentData?.bankKeyValue && paymentData.bankKeyType);
+  const showPaymentSlotError = tradeSide === "buy" && Boolean(paymentSlotError);
   const selectedNetworkOption =
     tradeSide === "buy" && paymentData?.walletAddress && paymentData.network
       ? findWithdrawNetworkByCode(networksAndFees, paymentData.network) ?? null
@@ -1546,7 +1765,10 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
         ? t("limits.exceeded").replace("{max}", formatFiatAmount(locale, brand.fiatCurrency, effectiveMaxFiat))
         : null;
   const payFieldHasError = belowMinimumNegotiationValue || exceedsLimit;
-  const openEmailModal = () => setStep("email");
+  const openEmailModal = () => {
+    resetOtpState();
+    setStep("email");
+  };
   const applyCoupon = useCallback(() => {
     const nextCoupon = couponInput.trim();
     setAppliedCoupon(nextCoupon);
@@ -1566,8 +1788,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
     pricingSnapRef.current = null;
     setQuoteLoading(false);
     setEmail("");
-    setOtpCode("");
-    setOtpPreview("");
+    resetOtpState();
     setBiometryReason("onboarding");
     setCounterpartyKycMode("onboarding");
     setSessionBiometryDone(false);
@@ -1578,6 +1799,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
     setTransactionalLoading(false);
     setTransactionalFetchError(false);
     setPaymentData(null);
+    setPaymentSlotError(null);
     setPendingKyc(null);
     setDocumentType("");
     setDocumentNumber("");
@@ -1590,7 +1812,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
     setBankKeyValue("");
     setNetworksAndFees([]);
     setNetworksAndFeesLoading(false);
-  }, [resetCompanyRepresentativeState]);
+  }, [resetCompanyRepresentativeState, resetOtpState]);
 
   const resetInactivityTimer = useCallback(() => {
     if (inactivityTimerRef.current !== null) {
@@ -1844,10 +2066,11 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
                   </div>
 
                   {identified && paymentContext && (
-                    <div className="payment-slot">
+                    <div className={`payment-slot${showPaymentSlotError ? " payment-slot--error" : ""}`}>
                       <div>
                         <strong>{paymentLabel}</strong>
                         <span>{paymentSummary ?? paymentMissingText}</span>
+                        {showPaymentSlotError ? <p className="field-feedback field-feedback--error">{paymentSlotError}</p> : null}
                       </div>
                       <div className="payment-slot-actions">
                         <button type="button" className="icon-button" onClick={handlePaymentAction}>
@@ -1860,10 +2083,10 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
                   <button
                     type="button"
                     className="primary-button"
-                    onClick={identified ? createOrderNow : openEmailModal}
+                    onClick={handleConfirmOrder}
                     disabled={
                       identified
-                        ? !actionableQuote || !hasPaymentReady || !parsedAmount || transactionalGateBlocksOrder
+                        ? !actionableQuote || !parsedAmount || transactionalGateBlocksOrder
                         : anonymousFlowBlocked
                     }
                   >
@@ -1917,7 +2140,14 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
         </footer>
       ) : null}
 
-      <Modal open={step === "email"} title={t("modal.email.title")} onClose={() => setStep("none")}>
+      <Modal
+        open={step === "email"}
+        title={t("modal.email.title")}
+        onClose={() => {
+          resetOtpState();
+          setStep("none");
+        }}
+      >
         <div className="modal-body modal-body--form">
           <p className="modal-description">{t("modal.email.description")}</p>
           <div className="modal-field">
@@ -1931,12 +2161,19 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
         </div>
       </Modal>
 
-      <Modal open={step === "otp"} title={t("modal.otp.title")} onClose={() => setStep("none")}>
+      <Modal
+        open={step === "otp"}
+        title={t("modal.otp.title")}
+        onClose={() => {
+          resetOtpState();
+          setStep("none");
+        }}
+      >
         <div className="modal-body modal-body--form">
           <p className="modal-description">{t("modal.otp.description")}</p>
           {otpPreview ? <p className="modal-helper">{t("otp.preview")}: {otpPreview}</p> : null}
           <div className="modal-field">
-            <input className="otp-input" value={otpCode} onChange={(e) => setOtpCode(e.target.value)} maxLength={6} />
+            <input className="otp-input" value={otpCode} onChange={(e) => setOtpCode(e.target.value)} maxLength={6} autoComplete="off" />
           </div>
           <div className="modal-actions">
             <button type="button" className="primary-button modal-primary-button" onClick={handleOtpVerify}>

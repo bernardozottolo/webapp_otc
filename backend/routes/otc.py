@@ -26,6 +26,8 @@ async def _proxy_post(
     request: Request,
     route: str,
     client: OtcUpstreamClient,
+    *,
+    audit_event: str | None = None,
 ) -> Response:
     body = await request.body()
     try:
@@ -36,7 +38,22 @@ async def _proxy_post(
         )
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    return httpx_to_starlette_response(upstream)
+    response = httpx_to_starlette_response(upstream)
+    if audit_event:
+        request_payload = _decode_json_or_raw(body)
+        response_payload = _decode_json_or_raw(response.body)
+        await write_audit_event(
+            request,
+            audit_event,
+            {
+                "route": route,
+                "request_body": request_payload,
+                "response_body": response_payload,
+                "status_code": upstream.status_code,
+            },
+            sanitize=False,
+        )
+    return response
 
 
 def _as_float(value: object) -> float | None:
@@ -48,6 +65,15 @@ def _as_float(value: object) -> float | None:
         except ValueError:
             return None
     return None
+
+
+def _decode_json_or_raw(body: bytes | None) -> object:
+    if not body:
+        return {}
+    try:
+        return json.loads(body.decode("utf-8"))
+    except Exception:
+        return {"raw_body": body.decode("utf-8", errors="replace")}
 
 
 def _build_order_snapshot(body: bytes, response: Response) -> dict[str, object] | None:
@@ -188,7 +214,7 @@ async def otc_get_pricing(
     request: Request,
     client: Annotated[OtcUpstreamClient, Depends(get_otc_upstream)],
 ) -> Response:
-    return await _proxy_post(request, "get_pricing", client)
+    return await _proxy_post(request, "get_pricing", client, audit_event="pricing_quoted")
 
 
 @router.post("/pre_order_validation")
@@ -196,7 +222,7 @@ async def otc_pre_order_validation(
     request: Request,
     client: Annotated[OtcUpstreamClient, Depends(get_otc_upstream)],
 ) -> Response:
-    return await _proxy_post(request, "pre_order_validation", client)
+    return await _proxy_post(request, "pre_order_validation", client, audit_event="pre_order_validated")
 
 @router.post("/create_order")
 async def otc_create_order(
@@ -223,7 +249,17 @@ async def otc_create_order(
             store.save_order(snapshot)
     audit_data = _build_order_audit_data(body, response)
     if audit_data is not None:
-        await write_audit_event(request, "order_created", audit_data)
+        await write_audit_event(
+            request,
+            "order_created",
+            {
+                **audit_data,
+                "request_body": _decode_json_or_raw(original_body),
+                "response_body": _decode_json_or_raw(response.body),
+                "status_code": upstream.status_code,
+            },
+            sanitize=False,
+        )
     if upstream.status_code < 400 and response.body:
         try:
             response_payload = json.loads(response.body.decode("utf-8"))
@@ -254,7 +290,7 @@ async def otc_counterparty_kyc(
     request: Request,
     client: Annotated[OtcUpstreamClient, Depends(get_otc_upstream)],
 ) -> Response:
-    return await _proxy_post(request, "counterparty_kyc", client)
+    return await _proxy_post(request, "counterparty_kyc", client, audit_event="counterparty_kyc_completed")
 
 
 @router.post("/get_available_withdraw_networks")
@@ -270,7 +306,7 @@ async def otc_check_wallet_risk(
     request: Request,
     client: Annotated[OtcUpstreamClient, Depends(get_otc_upstream)],
 ) -> Response:
-    return await _proxy_post(request, "check_wallet_risk", client)
+    return await _proxy_post(request, "check_wallet_risk", client, audit_event="wallet_risk_checked")
 
 
 @router.post("/get_transaction_history")

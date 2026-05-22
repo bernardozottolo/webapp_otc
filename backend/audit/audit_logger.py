@@ -31,7 +31,14 @@ class AuditLogger:
         self.settings = settings
         self.redis = redis_client
 
-    def _build_payload(self, request: Request, event: str, data: dict[str, Any] | None) -> dict[str, Any]:
+    def _build_payload(
+        self,
+        request: Request,
+        event: str,
+        data: dict[str, Any] | None,
+        *,
+        sanitize: bool = True,
+    ) -> dict[str, Any]:
         now_utc = datetime.now(timezone.utc)
         return {
             "timestamp": now_utc.isoformat().replace("+00:00", "Z"),
@@ -42,7 +49,7 @@ class AuditLogger:
             "user_agent": request.headers.get("user-agent", ""),
             "method": request.method,
             "path": request.url.path,
-            "data": sanitize_audit_data(data),
+            "data": sanitize_audit_data(data) if sanitize else (data if isinstance(data, dict) else {"value": data}),
         }
 
     def _serialize_payload(self, payload: dict[str, Any]) -> str:
@@ -56,11 +63,18 @@ class AuditLogger:
         )
         append_audit_line(path, line)
 
-    async def write_audit_event(self, request: Request, event: str, data: dict[str, Any] | None = None) -> None:
+    async def write_audit_event(
+        self,
+        request: Request,
+        event: str,
+        data: dict[str, Any] | None = None,
+        *,
+        sanitize: bool = True,
+    ) -> None:
         if not self.enabled:
             return
 
-        payload = self._build_payload(request, event, data)
+        payload = self._build_payload(request, event, data, sanitize=sanitize)
         serialized = self._serialize_payload(payload)
 
         if self.redis is not None:
@@ -82,6 +96,12 @@ def get_audit_logger(request: Request) -> AuditLogger:
     return audit_logger  # type: ignore[no-any-return]
 
 
-async def write_audit_event(request: Request, event: str, data: dict[str, Any] | None = None) -> None:
+async def write_audit_event(
+    request: Request,
+    event: str,
+    data: dict[str, Any] | None = None,
+    *,
+    sanitize: bool = True,
+) -> None:
     audit_logger = get_audit_logger(request)
-    await audit_logger.write_audit_event(request, event, data)
+    await audit_logger.write_audit_event(request, event, data, sanitize=sanitize)

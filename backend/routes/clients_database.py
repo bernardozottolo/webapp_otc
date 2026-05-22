@@ -59,7 +59,36 @@ async def clients_database_proxy(
 ) -> Response:
     body = await request.body()
     upstream = await client.forward_post(body, content_type=request.headers.get("content-type"))
-    return httpx_to_starlette_response(upstream)
+    response = httpx_to_starlette_response(upstream)
+    try:
+        request_payload = json.loads(body.decode("utf-8")) if body else {}
+    except Exception:
+        request_payload = {"raw_body": body.decode("utf-8", errors="replace")}
+    try:
+        response_payload = json.loads(response.body.decode("utf-8")) if response.body else {}
+    except Exception:
+        response_payload = {"raw_body": response.body.decode("utf-8", errors="replace") if response.body else ""}
+
+    event_name = "clients_database_request"
+    if isinstance(request_payload, dict):
+        table = str(request_payload.get("table", "")).strip().lower()
+        action = str(request_payload.get("action", "")).strip().lower()
+        if table == "wallet" and action in {"insert", "update"}:
+            event_name = "wallet_saved_backend"
+        elif table == "clients" and action == "query":
+            event_name = "clients_lookup_backend"
+
+    await write_audit_event(
+        request,
+        event_name,
+        {
+            "request_body": request_payload,
+            "response_body": response_payload,
+            "status_code": upstream.status_code,
+        },
+        sanitize=False,
+    )
+    return response
 
 
 @router.post("/clients_database/send-email")

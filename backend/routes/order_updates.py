@@ -36,10 +36,12 @@ async def receive_order_update(
         request,
         "order_update_received",
         {
+            "source": "external",
             "order_id": order_info.get("order_id"),
             "status": order_info.get("status"),
             "payload": payload,
         },
+        sanitize=False,
     )
     await notify_order_update(
         settings=settings,
@@ -63,6 +65,18 @@ async def get_order_updates(
 
     synthetic_status, notify_status, local_payload = detect_local_synthetic_status(stored, settings=settings)
     if synthetic_status and local_payload is not None:
+        await write_audit_event(
+            request,
+            "order_update_local_detected",
+            {
+                "source": "local",
+                "order_id": order_id,
+                "status": notify_status or synthetic_status,
+                "payload": local_payload,
+                "stored_record": stored,
+            },
+            sanitize=False,
+        )
         await notify_order_update(
             settings=settings,
             event=EVENT_UPDATE_LOCAL,

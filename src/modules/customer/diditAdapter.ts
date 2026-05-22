@@ -9,6 +9,7 @@ import {
   shouldUseBiometricValidation,
   useMockDiditProxy
 } from "../../shared/api/diditProxy";
+import { sendFrontendTelemetryEvent } from "../../shared/api/telemetry";
 import type { DiditBiometricResult, DiditSessionStatus, StartDiditBiometricInput } from "../../shared/types";
 
 interface DiditSdkCompletionResult {
@@ -126,6 +127,23 @@ export async function startBiometricSession(input: StartDiditBiometricInput): Pr
     }
     throw error;
   }
+
+  void sendFrontendTelemetryEvent({
+    event: "frontend_didit_session_created",
+    step: "bio",
+    user_context: {
+      email: input.email,
+      document_number: input.documentNumber,
+      company_document_number: input.companyDocumentNumber ?? null
+    },
+    payload: {
+      reason: input.reason,
+      flow_kind: flowKind,
+      used_approved_document_verification: Boolean(approvedDocumentVerification),
+      session,
+      approved_document_verification: approvedDocumentVerification
+    }
+  });
 
   const sdkResult = await openDiditSdkModal(session.verificationUrl, input.onVerificationOpened);
   const sessionId = sdkResult.session?.sessionId ?? session.sessionId;
