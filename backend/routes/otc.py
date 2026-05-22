@@ -214,7 +214,7 @@ async def otc_get_pricing(
     request: Request,
     client: Annotated[OtcUpstreamClient, Depends(get_otc_upstream)],
 ) -> Response:
-    return await _proxy_post(request, "get_pricing", client, audit_event="pricing_quoted")
+    return await _proxy_post(request, "get_pricing", client)
 
 
 @router.post("/pre_order_validation")
