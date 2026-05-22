@@ -2128,7 +2128,6 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
                         {renderFooterContactIcon(contact.kind)}
                       </span>
                       <span className="home-contact-footer__contact-text">
-                        <strong>{contact.label}</strong>
                         <span>{contact.value}</span>
                       </span>
                     </a>
