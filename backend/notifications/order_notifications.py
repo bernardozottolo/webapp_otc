@@ -78,8 +78,10 @@ def _build_envelope(
     payload: dict[str, Any],
     company_key: str | None = None,
     platform: str | None = None,
+    email: str | None = None,
+    client_id: str | None = None,
 ) -> dict[str, Any]:
-    return {
+    envelope: dict[str, Any] = {
         "event": event,
         "source": SOURCE,
         "company_key": (company_key or settings.order_notification_company_key or "").strip(),
@@ -89,6 +91,11 @@ def _build_envelope(
         "status": status,
         "payload": payload,
     }
+    if email:
+        envelope["email"] = email
+    if client_id:
+        envelope["client_id"] = client_id
+    return envelope
 
 
 async def _dedup_should_send(
@@ -187,6 +194,8 @@ async def notify_order_created(
     status: str | None = None,
     company_key: str | None = None,
     platform: str | None = None,
+    email: str | None = None,
+    client_id: str | None = None,
     redis_client: Redis | None = None,
 ) -> None:
     if not _is_configured(settings):
@@ -200,7 +209,12 @@ async def notify_order_created(
         status = str(order_details.get("status", "")).strip() or None
 
     sanitized_response = sanitize_notification_payload(response_body, allow_qr_on_create=True)
-    payload = {"response_body": sanitized_response}
+    payload: dict[str, Any] = {"response_body": sanitized_response}
+    if email:
+        payload["email"] = email
+    if client_id:
+        payload["client_id"] = client_id
+
     envelope = _build_envelope(
         event=EVENT_CREATED,
         settings=settings,
@@ -209,6 +223,8 @@ async def notify_order_created(
         payload=payload,
         company_key=company_key,
         platform=platform,
+        email=email,
+        client_id=client_id,
     )
     if not await _dedup_should_send(
         redis_client,

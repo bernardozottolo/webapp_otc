@@ -146,22 +146,33 @@ def _build_order_audit_data(body: bytes, response: Response) -> dict[str, object
     }
 
 
-def _extract_notification_context_from_body(body: bytes) -> tuple[str | None, str | None]:
+def _extract_notification_context_from_body(
+    body: bytes,
+) -> tuple[str | None, str | None, str | None, str | None]:
     try:
         payload = json.loads(body.decode("utf-8")) if body else {}
     except Exception:
-        return None, None
+        return None, None, None, None
     if not isinstance(payload, dict):
-        return None, None
+        return None, None, None, None
+
     company_key = str(payload.get("country", "")).strip() or None
     platform = str(payload.get("platform", "")).strip() or None
+    client_id = str(payload.get("client_id", "")).strip() or None
+    email: str | None = None
+
     client_data = payload.get("client_data")
     if isinstance(client_data, dict):
         if not company_key:
             company_key = str(client_data.get("country", "")).strip() or company_key
         if not platform:
             platform = str(client_data.get("platform", "")).strip() or platform
-    return company_key, platform
+        email = str(client_data.get("email", "")).strip() or str(client_data.get("id", "")).strip() or None
+
+    if not email and client_id and "_webapp_" in client_id:
+        email = client_id.split("_webapp_", 1)[0].strip() or None
+
+    return company_key, platform, email, client_id
 
 
 def _inject_order_update_webhook(body: bytes, settings: Settings) -> bytes:
@@ -225,12 +236,14 @@ async def otc_create_order(
         try:
             response_payload = json.loads(response.body.decode("utf-8"))
             if isinstance(response_payload, dict):
-                company_key, platform = _extract_notification_context_from_body(original_body)
+                company_key, platform, email, client_id = _extract_notification_context_from_body(original_body)
                 await notify_order_created(
                     settings=settings,
                     response_body=response_payload,
                     company_key=company_key,
                     platform=platform,
+                    email=email,
+                    client_id=client_id,
                     redis_client=getattr(request.app.state, "redis", None),
                 )
         except Exception:
