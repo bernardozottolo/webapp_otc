@@ -69,6 +69,44 @@ def _extract_status_from_update_body(update_body: dict[str, Any]) -> str:
     return order_status or template
 
 
+def _pick_pre_order_value(pre_order: dict[str, Any], *keys: str) -> Any:
+    for key in keys:
+        if key in pre_order and pre_order[key] is not None:
+            return pre_order[key]
+    return None
+
+
+def extract_create_order_summary(request_body: dict[str, Any]) -> dict[str, Any]:
+    """Campos de negócio do create_order (request), alinhados ao snapshot local."""
+    pre_order = request_body.get("pre_order")
+    pre = pre_order if isinstance(pre_order, dict) else {}
+
+    trade_type = str(request_body.get("trade_type", "")).strip().upper() or None
+    asset = str(request_body.get("asset", "")).strip() or None
+    amount_to_pay = _pick_pre_order_value(pre_order, "amount_to_pay")
+    amount_to_receive = _pick_pre_order_value(
+        pre_order,
+        "final_amount_to_receive",
+        "total_amount_to_receive",
+    )
+    price = _pick_pre_order_value(pre_order, "price")
+    if price is None:
+        price = request_body.get("price")
+
+    summary: dict[str, Any] = {}
+    if trade_type:
+        summary["trade_type"] = trade_type
+    if asset:
+        summary["asset"] = asset
+    if amount_to_pay is not None:
+        summary["amount_to_pay"] = amount_to_pay
+    if amount_to_receive is not None:
+        summary["amount_to_receive"] = amount_to_receive
+    if price is not None:
+        summary["price"] = price
+    return summary
+
+
 def _build_envelope(
     *,
     event: str,
@@ -78,6 +116,11 @@ def _build_envelope(
     payload: dict[str, Any],
     email: str | None = None,
     client_id: str | None = None,
+    trade_type: str | None = None,
+    asset: str | None = None,
+    amount_to_pay: Any = None,
+    amount_to_receive: Any = None,
+    price: Any = None,
 ) -> dict[str, Any]:
     envelope: dict[str, Any] = {
         "event": event,
@@ -93,6 +136,16 @@ def _build_envelope(
         envelope["email"] = email
     if client_id:
         envelope["client_id"] = client_id
+    if trade_type:
+        envelope["trade_type"] = trade_type
+    if asset:
+        envelope["asset"] = asset
+    if amount_to_pay is not None:
+        envelope["amount_to_pay"] = amount_to_pay
+    if amount_to_receive is not None:
+        envelope["amount_to_receive"] = amount_to_receive
+    if price is not None:
+        envelope["price"] = price
     return envelope
 
 
@@ -187,6 +240,7 @@ async def _post_notification(
 async def notify_order_created(
     *,
     settings: Settings,
+    request_body: dict[str, Any] | None = None,
     response_body: dict[str, Any],
     order_id: str | None = None,
     status: str | None = None,
@@ -204,8 +258,19 @@ async def notify_order_created(
     if status is None and isinstance(order_details, dict):
         status = str(order_details.get("status", "")).strip() or None
 
+    order_summary = extract_create_order_summary(request_body) if request_body else {}
+
+    sanitized_request = (
+        sanitize_notification_payload(request_body, allow_qr_on_create=False)
+        if request_body
+        else None
+    )
     sanitized_response = sanitize_notification_payload(response_body, allow_qr_on_create=True)
     payload: dict[str, Any] = {"response_body": sanitized_response}
+    if sanitized_request is not None:
+        payload["request_body"] = sanitized_request
+    if order_summary:
+        payload.update(order_summary)
     if email:
         payload["email"] = email
     if client_id:
@@ -219,6 +284,11 @@ async def notify_order_created(
         payload=payload,
         email=email,
         client_id=client_id,
+        trade_type=order_summary.get("trade_type"),
+        asset=order_summary.get("asset"),
+        amount_to_pay=order_summary.get("amount_to_pay"),
+        amount_to_receive=order_summary.get("amount_to_receive"),
+        price=order_summary.get("price"),
     )
     if not await _dedup_should_send(
         redis_client,

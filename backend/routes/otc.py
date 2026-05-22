@@ -228,9 +228,17 @@ async def otc_create_order(
         try:
             response_payload = json.loads(response.body.decode("utf-8"))
             if isinstance(response_payload, dict):
+                request_payload: dict | None = None
+                try:
+                    parsed_request = json.loads(original_body.decode("utf-8")) if original_body else {}
+                    if isinstance(parsed_request, dict):
+                        request_payload = parsed_request
+                except Exception:
+                    request_payload = None
                 email, client_id = _extract_notification_client_context_from_body(original_body)
                 await notify_order_created(
                     settings=settings,
+                    request_body=request_payload,
                     response_body=response_payload,
                     email=email,
                     client_id=client_id,
