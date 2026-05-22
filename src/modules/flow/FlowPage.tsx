@@ -364,6 +364,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
       Boolean(
         brand.footer.title.trim() ||
           brand.footer.description.trim() ||
+          brand.footer.legalInfo.trim() ||
           FOOTER_CONTACT_ORDER.some((kind) => brand.footer.contacts[kind].trim())
       ),
     [brand.footer]
@@ -404,6 +405,10 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
     [brand.footer.colors.descriptionColor]
   );
   const footerContactStyle = useMemo(() => ({ color: brand.footer.colors.contactColor }), [brand.footer.colors.contactColor]);
+  const footerLegalInfoStyle = useMemo(
+    () => ({ color: brand.footer.colors.descriptionColor }),
+    [brand.footer.colors.descriptionColor]
+  );
   const footerIconStyle = useMemo(
     () => ({ backgroundColor: brand.footer.colors.iconBackgroundColor }),
     [brand.footer.colors.iconBackgroundColor]
@@ -2135,6 +2140,11 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
                 </div>
               ) : null}
             </div>
+            {brand.footer.legalInfo.trim() ? (
+              <div className="home-contact-footer__legal-info" style={footerLegalInfoStyle}>
+                {brand.footer.legalInfo}
+              </div>
+            ) : null}
           </section>
         </footer>
       ) : null}

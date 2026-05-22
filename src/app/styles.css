@@ -303,6 +303,17 @@ body::after {
   overflow-wrap: anywhere;
 }
 
+.home-contact-footer__legal-info {
+  width: 100%;
+  max-width: 1280px;
+  margin: 8px auto 0;
+  text-align: right;
+  white-space: pre-line;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
 .form-column {
   display: flex;
   justify-content: flex-end;

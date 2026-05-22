@@ -49,6 +49,7 @@
   "footer": {
     "title": "Fale Conosco",
     "description": "Entre em contato com nossa equipe para mais informações ou para saber como aumentar seu limite transacional.",
+    "legalInfo": "Endereço: Rua Exemplo, 123\nEmpresa Exemplo LTDA\nCNPJ: 00.000.000/0001-00\n2025",
     "contacts": {
       "phone": "",
       "whatsapp": "",
