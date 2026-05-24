@@ -14,6 +14,24 @@ export function findDocumentTypeConfig(configs: DocumentTypeConfig[], documentTy
   return configs.find((item) => item.type === normalizedType);
 }
 
+export function validateAgainstRegexPattern(value: string, pattern?: string): boolean {
+  const trimmedPattern = pattern?.trim();
+  if (!trimmedPattern) {
+    return true;
+  }
+
+  const candidate = value.trim();
+  if (!candidate) {
+    return false;
+  }
+
+  try {
+    return new RegExp(trimmedPattern).test(candidate);
+  } catch {
+    return true;
+  }
+}
+
 export function validateDocumentNumberForType(
   configs: DocumentTypeConfig[],
   documentType: string,
@@ -31,15 +49,9 @@ export function validateDocumentNumberForType(
   }
 
   const config = findDocumentTypeConfig(configs, normalizedType);
-  const pattern = config?.pattern?.trim();
-  if (!pattern) {
-    return null;
+  if (!validateAgainstRegexPattern(normalizedNumber, config?.pattern)) {
+    return "invalid";
   }
 
-  try {
-    const regex = new RegExp(pattern);
-    return regex.test(normalizedNumber) ? null : "invalid";
-  } catch {
-    return null;
-  }
+  return null;
 }

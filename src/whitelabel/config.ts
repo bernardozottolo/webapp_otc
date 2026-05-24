@@ -373,7 +373,7 @@ export const defaultBrandConfig: BrandConfig = {
   fiatCurrency: "BRL",
   transactionalCapFiat: 5000,
   primaryColor: "#f5c242",
-  supportEmail: "support@infiniteativosvirtuais.com.br",
+  supportEmail: "suporte@infiniteativosvirtuais.com.br",
   legalDisclaimer: "Serviço sujeito a compliance e políticas locais.",
   defaultLocale: "pt-BR",
   defaultCountry: "BR",

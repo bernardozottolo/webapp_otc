@@ -8,6 +8,7 @@ import { sendFrontendTelemetryEvent } from "../../shared/api/telemetry";
 import { QuoteRefreshIndicator, QUOTE_REFRESH_INTERVAL_MS } from "./QuoteRefreshIndicator";
 import {
   type DocumentValidationError,
+  validateAgainstRegexPattern,
   validateDocumentNumberForType
 } from "../../whitelabel/documentTypes";
 import type {
@@ -16,6 +17,7 @@ import type {
   Limits,
   Locale,
   NegotiationAssetInfo,
+  OtcWalletRiskCheck,
   OtcWithdrawNetwork,
   OtcTransactionalAllowance,
   PaymentData,
@@ -33,6 +35,11 @@ type BiometryReason = "onboarding" | "payment";
 type CounterpartyKycMode = "onboarding" | "refresh";
 type PendingKycApproval = Pick<KycSubmitResult, "approvedKycResult" | "kycDate" | "personType" | "kycName" | "birthDate"> & {
   documentNumber: string;
+};
+
+type PendingPaymentSave = {
+  payload: PaymentData;
+  riskCheck?: OtcWalletRiskCheck;
 };
 type CompanyRepresentativeContext = {
   companyName: string | null;
@@ -306,6 +313,8 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
   const [transactionalFetchError, setTransactionalFetchError] = useState(false);
   const [paymentData, setPaymentData] = useState<PaymentData | null>(null);
   const [paymentSlotError, setPaymentSlotError] = useState<string | null>(null);
+  const [pendingPaymentSave, setPendingPaymentSave] = useState<PendingPaymentSave | null>(null);
+  const pendingPaymentSaveRef = useRef<PendingPaymentSave | null>(null);
   const [pendingKyc, setPendingKyc] = useState<PendingKycApproval | null>(null);
 
   /** One silent re-run for payment biometry when doc verification/portrait path needs to start without alerting. */
@@ -327,12 +336,17 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
 
   const [network, setNetwork] = useState("");
   const [walletAddress, setWalletAddress] = useState("");
+  const [walletValidationMessage, setWalletValidationMessage] = useState<string | null>(null);
   const [bankKeyType, setBankKeyType] = useState("Telefone");
   const [bankKeyValue, setBankKeyValue] = useState("");
   const [networksAndFees, setNetworksAndFees] = useState<OtcWithdrawNetwork[]>([]);
   const [networksAndFeesLoading, setNetworksAndFeesLoading] = useState(false);
   const [blockingUi, setBlockingUi] = useState<BlockingUiState | null>(null);
   const bioAutostartedRef = useRef(false);
+
+  useEffect(() => {
+    pendingPaymentSaveRef.current = pendingPaymentSave;
+  }, [pendingPaymentSave]);
 
   const bankLabel = useMemo(() => brand.bankLabelByCountry[country] ?? brand.bankLabelByCountry[brand.defaultCountry], [brand, country]);
   const companyDocumentTypes = useMemo(
@@ -1178,6 +1192,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
         setNetworksAndFees(networks);
         setNetwork(paymentData?.network ?? networks[0]?.network ?? "");
         setWalletAddress(paymentData?.walletAddress ?? "");
+        setWalletValidationMessage(null);
       } else {
         setBankKeyType(paymentData?.bankKeyType ?? "Telefone");
         setBankKeyValue(paymentData?.bankKeyValue ?? "");
@@ -1189,17 +1204,6 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
   const handlePaymentAction = async () => {
     if (!customer) return;
     setPaymentSlotError(null);
-    if (!sessionBiometryDone) {
-      paymentBiometryDocRetryConsumedRef.current = false;
-      if (isCompanyDocumentType(customer.personType ?? customer.documentType ?? "")) {
-        await runWithBlockingUi(beginCompanyRepresentativePaymentFlow, t("loading.validatingIdentity"));
-        return;
-      }
-      setBiometricIdentityOverride(null);
-      setBiometryReason("payment");
-      setStep("bio");
-      return;
-    }
     await openPaymentModal();
   };
 
@@ -1478,7 +1482,29 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
         setCustomer(updatedCustomer);
       }
       resetCompanyRepresentativeState();
-      await openPaymentModal();
+      if (pendingPaymentSaveRef.current) {
+        const pending = pendingPaymentSaveRef.current;
+        await otcApiClient.savePaymentData(pending.payload);
+        if (pending.payload.kind === "crypto") {
+          emitFrontendTelemetry("frontend_wallet_saved", {
+            payment_kind: "crypto",
+            is_update: Boolean(paymentData),
+            risk_check: pending.riskCheck,
+            saved_payment_data: pending.payload
+          });
+        } else {
+          emitFrontendTelemetry("frontend_wallet_saved", {
+            payment_kind: "bank",
+            is_update: Boolean(paymentData),
+            saved_payment_data: pending.payload
+          });
+        }
+        setPaymentData(pending.payload);
+        setPaymentSlotError(null);
+        setPendingPaymentSave(null);
+        pendingPaymentSaveRef.current = null;
+        setStep("none");
+      }
       setBlockingUi(null);
     } catch {
       emitFrontendTelemetry("frontend_biometry_status_updated", {
@@ -1510,10 +1536,18 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
         return;
       }
       if (tradeSide === "buy") {
-        if (!walletAddress.trim() || !network.trim()) {
+        const trimmedWallet = walletAddress.trim();
+        const trimmedNetwork = network.trim();
+        if (!trimmedWallet || !trimmedNetwork) {
           return;
         }
-        const check = await otcApiClient.walletKytCheck(walletAddress.trim(), network.trim());
+        const withdrawNetwork = findWithdrawNetworkByCode(networksAndFees, trimmedNetwork);
+        if (withdrawNetwork?.addressRegex && !validateAgainstRegexPattern(trimmedWallet, withdrawNetwork.addressRegex)) {
+          setWalletValidationMessage(t("payment.walletInvalid").replace("{network}", withdrawNetwork.network));
+          return;
+        }
+        setWalletValidationMessage(null);
+        const check = await otcApiClient.walletKytCheck(trimmedWallet, trimmedNetwork);
         if (!check.approved) {
           alert(t("payment.kytRejected"));
           return;
@@ -1524,9 +1558,24 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
           asset,
           country,
           kind: "crypto",
-          network,
-          walletAddress
+          network: trimmedNetwork,
+          walletAddress: trimmedWallet
         };
+        if (!sessionBiometryDone) {
+          const pending = { payload, riskCheck: check };
+          pendingPaymentSaveRef.current = pending;
+          setPendingPaymentSave(pending);
+          setStep("none");
+          paymentBiometryDocRetryConsumedRef.current = false;
+          if (isCompanyDocumentType(customer.personType ?? customer.documentType ?? "")) {
+            await beginCompanyRepresentativePaymentFlow();
+            return;
+          }
+          setBiometricIdentityOverride(null);
+          setBiometryReason("payment");
+          setStep("bio");
+          return;
+        }
         await otcApiClient.savePaymentData(payload);
         emitFrontendTelemetry("frontend_wallet_saved", {
           payment_kind: "crypto",
@@ -1554,6 +1603,21 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
         bankKeyType,
         bankKeyValue
       };
+      if (!sessionBiometryDone) {
+        const pending = { payload };
+        pendingPaymentSaveRef.current = pending;
+        setPendingPaymentSave(pending);
+        setStep("none");
+        paymentBiometryDocRetryConsumedRef.current = false;
+        if (isCompanyDocumentType(customer.personType ?? customer.documentType ?? "")) {
+          await beginCompanyRepresentativePaymentFlow();
+          return;
+        }
+        setBiometricIdentityOverride(null);
+        setBiometryReason("payment");
+        setStep("bio");
+        return;
+      }
       await otcApiClient.savePaymentData(payload);
       emitFrontendTelemetry("frontend_wallet_saved", {
         payment_kind: "bank",
@@ -1853,6 +1917,8 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
     setTransactionalFetchError(false);
     setPaymentData(null);
     setPaymentSlotError(null);
+    setPendingPaymentSave(null);
+    pendingPaymentSaveRef.current = null;
     setPendingKyc(null);
     setDocumentType("");
     setDocumentNumber("");
@@ -2376,7 +2442,13 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
             <>
               <div className="modal-field">
                 <label>{t("common.network")}</label>
-                <select value={network} onChange={(e: { target: { value: string } }) => setNetwork(e.target.value)}>
+                <select
+                  value={network}
+                  onChange={(e: { target: { value: string } }) => {
+                    setNetwork(e.target.value);
+                    setWalletValidationMessage(null);
+                  }}
+                >
                   {networksAndFees.map((item: OtcWithdrawNetwork) => (
                     <option key={item.network} value={item.network}>
                       {item.userFriendlyNetworkName} - Taxa: {formatNetworkFeeAmount(item.withdrawFee)} {asset}
@@ -2385,9 +2457,16 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
                   ))}
                 </select>
               </div>
-              <div className="modal-field">
+              <div className={`modal-field${walletValidationMessage ? " modal-field--error" : ""}`}>
                 <label>{t("common.wallet")}</label>
-                <input value={walletAddress} onChange={(e: { target: { value: string } }) => setWalletAddress(e.target.value)} />
+                <input
+                  value={walletAddress}
+                  onChange={(e: { target: { value: string } }) => {
+                    setWalletAddress(e.target.value);
+                    setWalletValidationMessage(null);
+                  }}
+                />
+                {walletValidationMessage ? <p className="modal-field-error">{walletValidationMessage}</p> : null}
               </div>
             </>
           ) : (
