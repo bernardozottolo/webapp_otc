@@ -2137,8 +2137,8 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
                               {paymentSummary ? t("form.edit") : t("form.add")}
                             </button>
                           </div>
-                          {showPaymentSlotError ? <p className="field-feedback field-feedback--error">{paymentSlotError}</p> : null}
                         </div>
+                        {showPaymentSlotError ? <p className="field-feedback field-feedback--error">{paymentSlotError}</p> : null}
                       </div>
                     </>
                   )}
