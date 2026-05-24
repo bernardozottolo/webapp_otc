@@ -3,7 +3,7 @@ import { useEffect } from "react";
 import { FlowPage } from "../modules/flow/FlowPage";
 import { OrderStatusPage } from "../modules/order/OrderStatusPage";
 import type { BrandConfig } from "../whitelabel/config";
-import { applyRuntimeBrandTheme } from "../whitelabel/runtimeConfig";
+import { applyRuntimeBrandFavicon, applyRuntimeBrandTheme } from "../whitelabel/runtimeConfig";
 import type { Country, Locale } from "../shared/types";
 import { useI18n } from "../shared/i18n";
 import { configureOtcApi } from "../shared/api/client";
@@ -24,6 +24,7 @@ export function App({ brand }: AppProps) {
   useEffect(() => {
     configureOtcApi(brand);
     applyRuntimeBrandTheme(brand);
+    applyRuntimeBrandFavicon(brand.faviconUrl);
     document.title = brand.companyName;
   }, [brand]);
 

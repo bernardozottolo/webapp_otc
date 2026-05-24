@@ -81,6 +81,25 @@ export async function loadRuntimeBrandConfig(): Promise<BrandConfig> {
   }
 }
 
+export function applyRuntimeBrandFavicon(faviconUrl?: string) {
+  const selector = 'link[data-brand-favicon="true"]';
+  const existing = document.querySelector<HTMLLinkElement>(selector);
+  const href = faviconUrl?.trim();
+
+  if (!href) {
+    existing?.remove();
+    return;
+  }
+
+  const link = existing ?? document.createElement("link");
+  link.rel = "icon";
+  link.href = href;
+  link.setAttribute("data-brand-favicon", "true");
+  if (!existing) {
+    document.head.appendChild(link);
+  }
+}
+
 export function applyRuntimeBrandTheme(brand: BrandConfig) {
   const root = document.documentElement;
 

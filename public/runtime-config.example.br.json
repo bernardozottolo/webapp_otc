@@ -2,6 +2,7 @@
   "id": "cliente-exemplo",
   "companyName": "Empresa Exemplo",
   "logoUrl": "/logo-example.png",
+  "faviconUrl": "/favicon.ico",
   "headline": "Cotação OTC com segurança e agilidade",
   "subheadline": "Cotação em tempo real, validação de identidade e liquidação segura.",
   "secondarySubheadline": "Atendimento especializado para operações OTC.",

@@ -210,6 +210,8 @@ export interface BrandConfig {
   id: string;
   companyName: string;
   logoUrl?: string;
+  /** URL do favicon (`.ico`, `.png`, `.svg`, etc.). */
+  faviconUrl?: string;
   headline: string;
   subheadline: string;
   secondarySubheadline?: string;
@@ -962,6 +964,7 @@ export function normalizeRuntimeBrandConfig(raw: unknown, fallback: BrandConfig 
     id: asString(raw.id, fallback.id),
     companyName: asString(raw.companyName, fallback.companyName),
     logoUrl: asOptionalString(raw.logoUrl),
+    faviconUrl: asOptionalString(raw.faviconUrl),
     headline: asString(raw.headline, fallback.headline),
     subheadline: asString(raw.subheadline, fallback.subheadline),
     secondarySubheadline: asOptionalString(raw.secondarySubheadline),
