@@ -2138,10 +2138,18 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
                             </button>
                           </div>
                         </div>
-                        {showPaymentSlotError ? <p className="field-feedback field-feedback--error">{paymentSlotError}</p> : null}
+                        {showPaymentSlotError ? (
+                          <p
+                            className="field-feedback field-feedback--error"
+                            style={{ marginTop: "3px" }}
+                          >
+                            {paymentSlotError}
+                          </p>
+                        ) : null}
                       </div>
                     </>
                   )}
+             
 
                   <button
                     type="button"
