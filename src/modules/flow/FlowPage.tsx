@@ -5,6 +5,11 @@ import type { CompanyKycOwnerInfo, KycSubmitResult } from "../../shared/api/cont
 import { useI18n } from "../../shared/i18n";
 import { deriveQuoteResponseFromUnitPrice } from "../../shared/api/pricing";
 import { sendFrontendTelemetryEvent } from "../../shared/api/telemetry";
+import { QuoteRefreshIndicator, QUOTE_REFRESH_INTERVAL_MS } from "./QuoteRefreshIndicator";
+import {
+  type DocumentValidationError,
+  validateDocumentNumberForType
+} from "../../whitelabel/documentTypes";
 import type {
   Country,
   Customer,
@@ -316,6 +321,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
   const [selectedRepresentativeDocumentNumber, setSelectedRepresentativeDocumentNumber] = useState("");
   const [occupationValidationMessage, setOccupationValidationMessage] = useState<string | null>(null);
   const [representativeValidationMessage, setRepresentativeValidationMessage] = useState<string | null>(null);
+  const [documentValidationMessage, setDocumentValidationMessage] = useState<string | null>(null);
   const [biometricIdentityOverride, setBiometricIdentityOverride] = useState<BiometricIdentityOverride | null>(null);
   const [kycRejectedModalOpen, setKycRejectedModalOpen] = useState(false);
 
@@ -332,6 +338,19 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
   const companyDocumentTypes = useMemo(
     () => brand.companyDocumentTypes[country] ?? brand.companyDocumentTypes[brand.defaultCountry] ?? [],
     [brand, country]
+  );
+  const documentTypeConfigs = useMemo(
+    () => brand.documentTypesByCountry[country] ?? brand.documentTypesByCountry[brand.defaultCountry] ?? [],
+    [brand, country]
+  );
+  const formatDocumentValidationError = useCallback(
+    (error: DocumentValidationError, docType: string) => {
+      if (error === "required") {
+        return t("kyc.documentRequired");
+      }
+      return t("kyc.documentInvalid").replace("{type}", docType);
+    },
+    [t]
   );
   const occupations = useMemo(() => brand.occupations, [brand]);
   const occupationsAvailable = useMemo(() => brand.occupationsAvailable, [brand]);
@@ -1011,6 +1030,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
         resetCompanyRepresentativeState();
       }
       setDocumentType(value);
+      setDocumentValidationMessage(null);
     },
     [companyRepresentativeContext, resetCompanyRepresentativeState]
   );
@@ -1021,6 +1041,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
         resetCompanyRepresentativeState();
       }
       setDocumentNumber(value);
+      setDocumentValidationMessage(null);
     },
     [companyRepresentativeContext, resetCompanyRepresentativeState]
   );
@@ -1064,6 +1085,18 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
       return;
     }
     const normalizedRepresentativeDocument = normalizeDocumentValue(selectedRepresentativeDocumentNumber);
+    const representativeDocumentError = validateDocumentNumberForType(
+      documentTypeConfigs,
+      selectedRepresentativeDocumentType,
+      normalizedRepresentativeDocument,
+      normalizeDocumentValue
+    );
+    if (representativeDocumentError) {
+      setRepresentativeValidationMessage(
+        formatDocumentValidationError(representativeDocumentError, selectedRepresentativeDocumentType)
+      );
+      return;
+    }
     const matchedOwner = companyRepresentativeContext.ownersInfo.find((owner) =>
       sameDocumentValue(owner.document, normalizedRepresentativeDocument)
     );
@@ -1086,6 +1119,8 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
     selectedOccupation,
     selectedRepresentativeDocumentNumber,
     selectedRepresentativeDocumentType,
+    documentTypeConfigs,
+    formatDocumentValidationError,
     t
   ]);
 
@@ -1099,6 +1134,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
     setEmail(normalizedEmail);
     setDocumentTypes(docs);
     resetCompanyRepresentativeState();
+    setDocumentValidationMessage(null);
     setDocumentType(profileCustomer?.personType ?? profileCustomer?.documentType ?? docs[0] ?? "");
     setDocumentNumber(profileCustomer?.documentNumber ?? "");
     setCounterpartyKycMode(mode);
@@ -1172,7 +1208,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
     lastPricingSuccessKeyRef.current = "";
     setQuote(null);
     void refreshQuote();
-    const timer = window.setInterval(() => void refreshQuote(), 20_000);
+    const timer = window.setInterval(() => void refreshQuote(), QUOTE_REFRESH_INTERVAL_MS);
     return () => window.clearInterval(timer);
   }, [quoteStructuralKey, refreshQuote]);
 
@@ -1265,6 +1301,17 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
     await runWithBlockingUi(async () => {
       const normalizedDocument = normalizeDocumentValue(documentNumber);
       const normalizedPersonType = documentType.trim();
+      const documentError = validateDocumentNumberForType(
+        documentTypeConfigs,
+        normalizedPersonType,
+        normalizedDocument,
+        normalizeDocumentValue
+      );
+      if (documentError) {
+        setDocumentValidationMessage(formatDocumentValidationError(documentError, normalizedPersonType));
+        return;
+      }
+      setDocumentValidationMessage(null);
       const kyc = await submitCounterpartyKyc({
         emailValue: email,
         documentTypeValue: normalizedPersonType,
@@ -1997,12 +2044,15 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
                   </div>
 
                   <div className="quote-inline-summary">
-                    <p className="quote-bad">{quoteLoading ? t("common.loading") : t("quote.willUpdate")}</p>
+                    <p className="quote-bad">
+                      <span>{quoteLoading ? t("common.loading") : t("quote.willUpdate")}</span>
+                      <QuoteRefreshIndicator updatedAt={displayQuote?.updatedAt} loading={quoteLoading} />
+                    </p>
 
                     <div className="quote-line">
                       <span>{rateText}</span>
                       <span>
-                        {t("quote.updatedAt")}:{" "}
+                        {t("quote.updatedAt")}{" "}
                         {actionableQuote ? new Date(actionableQuote.updatedAt).toLocaleTimeString() : "--:--"}
                       </span>
                     </div>
@@ -2021,7 +2071,10 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
                     <div className="details-content">
                       <div className="quote-mobile-summary">
                         <div className="details-row">
-                          <strong>{quoteLoading ? t("common.loading") : t("quote.willUpdate")}</strong>
+                          <strong className="quote-status-label">
+                            <span>{quoteLoading ? t("common.loading") : t("quote.willUpdate")}</span>
+                            <QuoteRefreshIndicator updatedAt={displayQuote?.updatedAt} loading={quoteLoading} />
+                          </strong>
                           <span>{rateText}</span>
                         </div>
                         <div className="details-row">
@@ -2072,18 +2125,20 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
                   </div>
 
                   {identified && paymentContext && (
-                    <div className={`payment-slot${showPaymentSlotError ? " payment-slot--error" : ""}`}>
-                      <div>
-                        <strong>{paymentLabel}</strong>
-                        <span>{paymentSummary ?? paymentMissingText}</span>
-                        {showPaymentSlotError ? <p className="field-feedback field-feedback--error">{paymentSlotError}</p> : null}
+                    <>
+                      <div className={`payment-slot${showPaymentSlotError ? " payment-slot--error" : ""}`}>
+                        <div>
+                          <strong>{paymentLabel}</strong>
+                          <span>{paymentSummary ?? paymentMissingText}</span>
+                        </div>
+                        <div className="payment-slot-actions">
+                          <button type="button" className="icon-button" onClick={handlePaymentAction}>
+                            {paymentSummary ? t("form.edit") : t("form.add")}
+                          </button>
+                        </div>
                       </div>
-                      <div className="payment-slot-actions">
-                        <button type="button" className="icon-button" onClick={handlePaymentAction}>
-                          {paymentSummary ? t("form.edit") : t("form.add")}
-                        </button>
-                      </div>
-                    </div>
+                      {showPaymentSlotError ? <p className="field-feedback field-feedback--error">{paymentSlotError}</p> : null}
+                    </>
                   )}
 
                   <button
@@ -2218,7 +2273,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
           <p className="modal-description">
             {isCompanyRepresentativeStep ? t("modal.kyc.companyDescription") : t("modal.kyc.description")}
           </p>
-          <div className="modal-field">
+          <div className={`modal-field${documentValidationMessage && !isCompanyRepresentativeStep ? " modal-field--error" : ""}`}>
             <label>{t("common.document")}</label>
             <div className="field-shell modal-document-shell">
               <select
@@ -2238,6 +2293,9 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
                 onChange={(e: { target: { value: string } }) => handleDocumentNumberChange(e.target.value)}
               />
             </div>
+            {documentValidationMessage && !isCompanyRepresentativeStep ? (
+              <p className="modal-field-error">{documentValidationMessage}</p>
+            ) : null}
           </div>
           {companyRepresentativeContext ? (
             <>

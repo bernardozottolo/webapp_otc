@@ -27,7 +27,17 @@ export const runtimeBrandConfigSchema = z.object({
   }),
 
   documentTypesByCountry: z.object({
-    BR: z.array(nonEmptyString).min(1)
+    BR: z
+      .array(
+        z.union([
+          nonEmptyString,
+          z.object({
+            type: nonEmptyString,
+            pattern: z.string().optional()
+          })
+        ])
+      )
+      .min(1)
   }),
 
   companyDocumentTypes: z.object({

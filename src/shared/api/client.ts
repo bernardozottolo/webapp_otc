@@ -131,7 +131,8 @@ export const otcApiClient: OtcApi = {
   sendOtp: (email, timestamp) =>
     useMockClientsDatabase() ? mockApi.sendOtp(email, timestamp) : sendOtpEmailHttp(clientsDatabaseConfig, email, timestamp),
   verifyOtp: (email, code) => (useMockClientsDatabase() ? mockApi.verifyOtp(email, code) : verifyOtpEmailHttp(email, code)),
-  getDocumentTypes: (country) => Promise.resolve(documentTypesByCountry[country] ?? []),
+  getDocumentTypes: (country) =>
+    Promise.resolve((documentTypesByCountry[country] ?? []).map((item) => item.type)),
   submitKyc: (payload) => (useMockPricing() ? mockApi.submitKyc(payload) : submitCounterpartyKycHttp(pricingConfig, payload)),
   runBiometric: mockApi.runBiometric,
   finalizeApprovedCustomerOnboarding: (payload) =>

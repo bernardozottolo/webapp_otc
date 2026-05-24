@@ -186,7 +186,7 @@ body::after {
 }
 
 .promo-copy {
-  max-width: 620px;
+  max-width: 50vw;
 }
 
 .promo-copy h1 {
@@ -531,8 +531,52 @@ button {
 
 .quote-bad {
   margin-block-start: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   color: var(--form-muted-text-color);
   font-size: clamp(0.8rem, 1.35vh, 0.95rem);
+}
+
+.quote-status-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.quote-refresh-indicator {
+  display: inline-flex;
+  flex-shrink: 0;
+  line-height: 0;
+}
+
+.quote-refresh-indicator__track {
+  fill: none;
+  stroke: color-mix(in srgb, var(--form-muted-text-color) 35%, transparent);
+  stroke-width: 2;
+}
+
+.quote-refresh-indicator__progress {
+  fill: none;
+  stroke: var(--brand-color);
+  stroke-width: 2;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.1s linear;
+}
+
+.quote-refresh-indicator--loading .quote-refresh-indicator__progress {
+  transition: none;
+}
+
+.quote-refresh-indicator--loading svg {
+  transform-origin: center;
+  animation: quote-refresh-indicator-spin 0.75s linear infinite;
+}
+
+@keyframes quote-refresh-indicator-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .quote-mobile-summary {

@@ -1,4 +1,7 @@
 import type { Country, Locale } from "../shared/types";
+import type { DocumentTypeConfig } from "./documentTypes";
+
+export type { DocumentTypeConfig } from "./documentTypes";
 
 export type PaymentKind = "crypto" | "bank";
 export type ThemeVariableName =
@@ -229,7 +232,7 @@ export interface BrandConfig {
   enabledCountries: Country[];
   enabledPaymentKinds: PaymentKind[];
   bankLabelByCountry: Record<Country, string>;
-  documentTypesByCountry: Record<Country, string[]>;
+  documentTypesByCountry: Record<Country, DocumentTypeConfig[]>;
   companyDocumentTypes: Record<Country, string[]>;
   occupations: string[];
   occupationsAvailable: string[];
@@ -331,8 +334,8 @@ export const defaultBankLabelByCountry: Record<Country, string> = {
   BR: "PIX"
 };
 
-export const defaultDocumentTypesByCountry: Record<Country, string[]> = {
-  BR: ["CPF", "CNPJ"]
+export const defaultDocumentTypesByCountry: Record<Country, DocumentTypeConfig[]> = {
+  BR: [{ type: "CPF" }, { type: "CNPJ" }]
 };
 
 export const defaultCompanyDocumentTypes: Record<Country, string[]> = {
@@ -637,6 +640,58 @@ function asCountryStringArrayMap(value: unknown, fallback: Record<Country, strin
 
   return {
     BR: asStringArray(value.BR, fallback.BR)
+  };
+}
+
+function asDocumentTypeConfig(value: unknown): DocumentTypeConfig | null {
+  if (typeof value === "string") {
+    const type = value.trim();
+    return type ? { type } : null;
+  }
+
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const type = asString(value.type, "").trim();
+  if (!type) {
+    return null;
+  }
+
+  const pattern = asOptionalString(value.pattern)?.trim();
+  if (!pattern) {
+    return { type };
+  }
+
+  try {
+    // eslint-disable-next-line no-new -- validate pattern at config load time
+    new RegExp(pattern);
+    return { type, pattern };
+  } catch {
+    return { type };
+  }
+}
+
+function asDocumentTypeConfigArray(value: unknown, fallback: DocumentTypeConfig[]): DocumentTypeConfig[] {
+  if (!Array.isArray(value)) {
+    return fallback;
+  }
+
+  const normalized = value.flatMap((item) => {
+    const config = asDocumentTypeConfig(item);
+    return config ? [config] : [];
+  });
+
+  return normalized.length > 0 ? normalized : fallback;
+}
+
+function asDocumentTypesByCountryMap(value: unknown, fallback: Record<Country, DocumentTypeConfig[]>) {
+  if (!isRecord(value)) {
+    return fallback;
+  }
+
+  return {
+    BR: asDocumentTypeConfigArray(value.BR, fallback.BR)
   };
 }
 
@@ -978,7 +1033,7 @@ export function normalizeRuntimeBrandConfig(raw: unknown, fallback: BrandConfig 
     enabledCountries: asCountryArray(raw.enabledCountries, fallback.enabledCountries),
     enabledPaymentKinds: asPaymentKinds(raw.enabledPaymentKinds, fallback.enabledPaymentKinds),
     bankLabelByCountry: asCountryStringMap(raw.bankLabelByCountry, fallback.bankLabelByCountry),
-    documentTypesByCountry: asCountryStringArrayMap(raw.documentTypesByCountry, fallback.documentTypesByCountry),
+    documentTypesByCountry: asDocumentTypesByCountryMap(raw.documentTypesByCountry, fallback.documentTypesByCountry),
     companyDocumentTypes: asCountryStringArrayMap(raw.companyDocumentTypes, fallback.companyDocumentTypes),
     occupations,
     occupationsAvailable: asOccupationsAvailable(
