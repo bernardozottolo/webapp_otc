@@ -2126,18 +2126,20 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
 
                   {identified && paymentContext && (
                     <>
-                      <div className={`payment-slot${showPaymentSlotError ? " payment-slot--error" : ""}`}>
-                        <div>
-                          <strong>{paymentLabel}</strong>
-                          <span>{paymentSummary ?? paymentMissingText}</span>
-                        </div>
-                        <div className="payment-slot-actions">
-                          <button type="button" className="icon-button" onClick={handlePaymentAction}>
-                            {paymentSummary ? t("form.edit") : t("form.add")}
-                          </button>
+                      <div>
+                        <div className={`payment-slot${showPaymentSlotError ? " payment-slot--error" : ""}`}>
+                          <div>
+                            <strong>{paymentLabel}</strong>
+                            <span>{paymentSummary ?? paymentMissingText}</span>
+                          </div>
+                          <div className="payment-slot-actions">
+                            <button type="button" className="icon-button" onClick={handlePaymentAction}>
+                              {paymentSummary ? t("form.edit") : t("form.add")}
+                            </button>
+                          </div>
+                          {showPaymentSlotError ? <p className="field-feedback field-feedback--error">{paymentSlotError}</p> : null}
                         </div>
                       </div>
-                      {showPaymentSlotError ? <p className="field-feedback field-feedback--error">{paymentSlotError}</p> : null}
                     </>
                   )}
 
