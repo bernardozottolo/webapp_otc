@@ -18,7 +18,9 @@ from .didit_client import DiditClient
 from .logging_middleware import RequestLoggingMiddleware
 from .otc_client import OtcUpstreamClient
 from .order_store import InMemoryOrderStore
+from .biometry_pending.worker import BiometryPendingWorker
 from .routes.admin_security import router as admin_security_router
+from .routes.biometry_pending import router as biometry_pending_router
 from .routes.clients_database import router as clients_database_router
 from .routes.didit import router as didit_router
 from .routes.otc import router as otc_router
@@ -43,6 +45,7 @@ elif settings.rate_limit_enabled or settings.ip_blacklist_enabled:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     audit_worker: AuditLogWorker | None = None
+    biometry_worker: BiometryPendingWorker | None = None
     if settings.audit_log_enabled:
         if redis_client is not None:
             audit_worker = AuditLogWorker(redis_client, settings)
@@ -58,7 +61,24 @@ async def lifespan(app: FastAPI):
             logging.getLogger("didit_proxy").warning(
                 "AUDIT_LOG_ENABLED but REDIS_URL is empty; audit events will be written synchronously to daily JSONL files."
             )
+    if redis_client is not None:
+        clients_db_client = getattr(app.state, "clients_database_upstream_client", None)
+        biometry_worker = BiometryPendingWorker(
+            redis_client,
+            settings,
+            app.state.didit_client,
+            clients_db_client,
+        )
+        biometry_worker.start()
+        app.state.biometry_pending_worker = biometry_worker
+    else:
+        logging.getLogger("didit_proxy").warning(
+            "REDIS_URL is empty; biometry pending review queue and worker are disabled."
+        )
     yield
+    if biometry_worker is not None:
+        await biometry_worker.stop()
+        logging.getLogger("didit_proxy").info("Biometry pending worker stopped")
     if audit_worker is not None:
         await audit_worker.stop()
         logging.getLogger("didit_proxy").info("Audit log worker stopped")
@@ -103,6 +123,7 @@ app.add_middleware(SecurityMiddleware)
 app.add_middleware(RequestLoggingMiddleware)
 
 app.include_router(didit_router)
+app.include_router(biometry_pending_router)
 app.include_router(order_updates_router)
 app.include_router(telemetry_router)
 app.include_router(admin_security_router)

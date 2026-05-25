@@ -232,6 +232,65 @@ class DiditClient:
         )
         return response.json()
 
+    async def update_session_status(
+        self,
+        session_id: str,
+        *,
+        new_status: str,
+        comment: str | None = None,
+    ) -> dict[str, Any]:
+        url = f"{self.api_base_url}/v3/session/{session_id}/update-status/"
+        payload: dict[str, Any] = {"new_status": new_status}
+        if comment:
+            payload["comment"] = comment
+        req_logged = self._preview_json(payload)
+        request_id = get_request_id()
+        t0 = time.perf_counter()
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.patch(
+                    url,
+                    headers={
+                        **self._headers_real(),
+                        "content-type": "application/json",
+                    },
+                    json=payload,
+                )
+        except Exception as exc:
+            ms = (time.perf_counter() - t0) * 1000.0
+            _log_upstream("PATCH", _url_for_display(url), None, ms, request_id, request_body=req_logged, error=str(exc))
+            raise
+
+        ms = (time.perf_counter() - t0) * 1000.0
+        try:
+            response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            snippet = decode_body_preview(
+                exc.response.content if exc.response is not None else b"",
+            )
+            _log_upstream(
+                "PATCH",
+                _url_for_display(url),
+                response.status_code,
+                ms,
+                request_id,
+                request_body=req_logged,
+                error=f"HTTPStatusError ({snippet[:400]})",
+            )
+            raise
+
+        txt = decode_body_preview(response.content)
+        _log_upstream(
+            "PATCH",
+            _url_for_display(url),
+            response.status_code,
+            ms,
+            request_id,
+            request_body=req_logged,
+            response_body=txt,
+        )
+        return response.json()
+
     async def image_url_to_base64(self, image_url: str) -> str:
         if image_url.startswith("data:"):
             return image_url.split(",", 1)[1] if "," in image_url else image_url

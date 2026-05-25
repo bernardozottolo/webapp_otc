@@ -46,8 +46,7 @@ def _parse_notification_statuses(raw: str) -> frozenset[str]:
     return frozenset(item for item in items if item)
 
 
-def _load_runtime_backend_identity(repo_root: Path, runtime_config_path: str) -> tuple[str, str]:
-    """Lê backend.companyKey e backend.platform do runtime-config (mesmo valor do frontend)."""
+def _load_runtime_json(repo_root: Path, runtime_config_path: str) -> dict | None:
     candidates: list[Path] = []
     if runtime_config_path:
         candidates.append(_resolve_path(runtime_config_path, repo_root))
@@ -64,14 +63,102 @@ def _load_runtime_backend_identity(repo_root: Path, runtime_config_path: str) ->
             raw = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             continue
+        if isinstance(raw, dict):
+            return raw
+    return None
+
+
+def _load_runtime_backend_identity(repo_root: Path, runtime_config_path: str) -> tuple[str, str]:
+    """Lê backend.companyKey e backend.platform do runtime-config (mesmo valor do frontend)."""
+    raw = _load_runtime_json(repo_root, runtime_config_path)
+    if raw is not None:
         backend = raw.get("backend")
-        if not isinstance(backend, dict):
-            continue
-        company_key = str(backend.get("companyKey", "")).strip()
-        platform = str(backend.get("platform", "")).strip() or "webapp"
-        if company_key:
-            return company_key, platform
+        if isinstance(backend, dict):
+            company_key = str(backend.get("companyKey", "")).strip()
+            platform = str(backend.get("platform", "")).strip() or "webapp"
+            if company_key:
+                return company_key, platform
     return "", "webapp"
+
+
+@dataclass(slots=True)
+class BiometryReviewSettings:
+    pending_user_message: str
+    ttl_hours: int
+    duplicate_onboarding_message: str
+    duplicate_wallet_message: str
+    email_message_type_approved_onboarding: str
+    email_message_type_declined_onboarding: str
+    email_message_type_expired_onboarding: str
+    email_message_type_approved_wallet: str
+    email_message_type_declined_wallet: str
+    email_message_type_expired_wallet: str
+
+
+def _default_biometry_review_settings() -> BiometryReviewSettings:
+    return BiometryReviewSettings(
+        pending_user_message=(
+            "Sua biometria está em análise. Você será notificado por e-mail em até 48 horas."
+        ),
+        ttl_hours=48,
+        duplicate_onboarding_message=(
+            "Já existe uma biometria em análise para este e-mail. Aguarde o resultado antes de continuar."
+        ),
+        duplicate_wallet_message=(
+            "Já existe uma biometria em análise para cadastrar carteira deste ativo. Aguarde o resultado."
+        ),
+        email_message_type_approved_onboarding="biometry_onboarding_approved",
+        email_message_type_declined_onboarding="biometry_onboarding_declined",
+        email_message_type_expired_onboarding="biometry_onboarding_expired",
+        email_message_type_approved_wallet="biometry_wallet_approved",
+        email_message_type_declined_wallet="biometry_wallet_declined",
+        email_message_type_expired_wallet="biometry_wallet_expired",
+    )
+
+
+def _load_runtime_biometry_review(repo_root: Path, runtime_config_path: str) -> BiometryReviewSettings:
+    defaults = _default_biometry_review_settings()
+    raw = _load_runtime_json(repo_root, runtime_config_path)
+    if raw is None:
+        return defaults
+    section = raw.get("biometryReview")
+    if not isinstance(section, dict):
+        return defaults
+
+    def _str(key: str, fallback: str) -> str:
+        value = section.get(key)
+        return str(value).strip() if isinstance(value, str) and str(value).strip() else fallback
+
+    ttl_raw = section.get("ttlHours", defaults.ttl_hours)
+    try:
+        ttl_hours = max(1, int(ttl_raw))
+    except (TypeError, ValueError):
+        ttl_hours = defaults.ttl_hours
+
+    return BiometryReviewSettings(
+        pending_user_message=_str("pendingUserMessage", defaults.pending_user_message),
+        ttl_hours=ttl_hours,
+        duplicate_onboarding_message=_str("duplicateOnboardingMessage", defaults.duplicate_onboarding_message),
+        duplicate_wallet_message=_str("duplicateWalletMessage", defaults.duplicate_wallet_message),
+        email_message_type_approved_onboarding=_str(
+            "emailMessageTypeApprovedOnboarding", defaults.email_message_type_approved_onboarding
+        ),
+        email_message_type_declined_onboarding=_str(
+            "emailMessageTypeDeclinedOnboarding", defaults.email_message_type_declined_onboarding
+        ),
+        email_message_type_expired_onboarding=_str(
+            "emailMessageTypeExpiredOnboarding", defaults.email_message_type_expired_onboarding
+        ),
+        email_message_type_approved_wallet=_str(
+            "emailMessageTypeApprovedWallet", defaults.email_message_type_approved_wallet
+        ),
+        email_message_type_declined_wallet=_str(
+            "emailMessageTypeDeclinedWallet", defaults.email_message_type_declined_wallet
+        ),
+        email_message_type_expired_wallet=_str(
+            "emailMessageTypeExpiredWallet", defaults.email_message_type_expired_wallet
+        ),
+    )
 
 
 def _resolve_path(path_value: str, repo_root: Path) -> Path:
@@ -149,6 +236,9 @@ class Settings:
     order_notification_dedup_ttl_seconds: int
     order_notification_local_payment_timeout_ms: int
     order_notification_local_order_update_timeout_ms: int
+    biometry_review: BiometryReviewSettings
+    biometry_pending_ttl_hours: int
+    biometry_pending_poll_interval_seconds: int
 
 
 def get_settings() -> Settings:
@@ -168,6 +258,17 @@ def get_settings() -> Settings:
     )
     runtime_config_path = os.getenv("RUNTIME_CONFIG_PATH", "").strip()
     runtime_company_key, runtime_platform = _load_runtime_backend_identity(repo_root, runtime_config_path)
+    biometry_review = _load_runtime_biometry_review(repo_root, runtime_config_path)
+    biometry_pending_ttl_hours = _env_int(
+        "BIOMETRY_PENDING_TTL_HOURS",
+        biometry_review.ttl_hours,
+        minimum=1,
+    )
+    biometry_pending_poll_interval_seconds = _env_int(
+        "BIOMETRY_PENDING_POLL_INTERVAL_SECONDS",
+        300,
+        minimum=60,
+    )
     backend_company_key = (
         os.getenv("BACKEND_COMPANY_KEY", "").strip()
         or os.getenv("ORDER_NOTIFICATION_COMPANY_KEY", "").strip()
@@ -249,4 +350,7 @@ def get_settings() -> Settings:
             300_000,
             minimum=0,
         ),
+        biometry_review=biometry_review,
+        biometry_pending_ttl_hours=biometry_pending_ttl_hours,
+        biometry_pending_poll_interval_seconds=biometry_pending_poll_interval_seconds,
     )

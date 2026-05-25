@@ -113,6 +113,38 @@ async def send_email_proxy(
     if not normalized_email:
         raise HTTPException(status_code=400, detail="email is required")
 
+    message_type = str(payload.get("message_type", "")).strip()
+    if message_type.startswith("biometry_"):
+        payload["email"] = normalized_email
+        payload["id"] = _normalize_email(str(payload.get("id", normalized_email)))
+        if settings.backend_company_key:
+            payload["company_key"] = settings.backend_company_key
+            payload["country"] = settings.backend_company_key
+        if settings.backend_platform:
+            payload["platform"] = settings.backend_platform
+        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        try:
+            async with httpx.AsyncClient(timeout=30) as client:
+                upstream = await client.post(
+                    settings.send_email_url,
+                    content=body,
+                    headers={"content-type": request.headers.get("content-type", "application/json")},
+                )
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail="send_email upstream unavailable") from exc
+        if upstream.status_code >= 400:
+            return httpx_to_starlette_response(upstream)
+        await write_audit_event(
+            request,
+            "biometry_notification_email",
+            {
+                "email": normalized_email,
+                "message_type": message_type,
+            },
+            sanitize=False,
+        )
+        return JSONResponse({"ok": True})
+
     verification_code = _generate_verification_code()
     otp_payload = {
         "code": verification_code,

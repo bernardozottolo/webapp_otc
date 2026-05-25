@@ -198,6 +198,19 @@ export interface FooterColorsConfig {
   iconBackgroundColor: string;
 }
 
+export interface BiometryReviewConfig {
+  pendingUserMessage: string;
+  ttlHours: number;
+  duplicateOnboardingMessage: string;
+  duplicateWalletMessage: string;
+  emailMessageTypeApprovedOnboarding: string;
+  emailMessageTypeDeclinedOnboarding: string;
+  emailMessageTypeExpiredOnboarding: string;
+  emailMessageTypeApprovedWallet: string;
+  emailMessageTypeDeclinedWallet: string;
+  emailMessageTypeExpiredWallet: string;
+}
+
 export interface FooterConfig {
   title: string;
   description: string;
@@ -237,6 +250,7 @@ export interface BrandConfig {
   occupations: string[];
   occupationsAvailable: string[];
   tradeAvailabilityTexts: TradeAvailabilityTextsConfig;
+  biometryReview: BiometryReviewConfig;
   footer: FooterConfig;
   backend: {
     companyKey: string;
@@ -342,6 +356,22 @@ export const defaultCompanyDocumentTypes: Record<Country, string[]> = {
   BR: ["CNPJ"]
 };
 
+export const defaultBiometryReviewConfig: BiometryReviewConfig = {
+  pendingUserMessage:
+    "Sua biometria está em análise. Você será notificado por e-mail em até 48 horas.",
+  ttlHours: 48,
+  duplicateOnboardingMessage:
+    "Já existe uma biometria em análise para este e-mail. Aguarde o resultado antes de continuar.",
+  duplicateWalletMessage:
+    "Já existe uma biometria em análise para cadastrar carteira deste ativo. Aguarde o resultado.",
+  emailMessageTypeApprovedOnboarding: "biometry_onboarding_approved",
+  emailMessageTypeDeclinedOnboarding: "biometry_onboarding_declined",
+  emailMessageTypeExpiredOnboarding: "biometry_onboarding_expired",
+  emailMessageTypeApprovedWallet: "biometry_wallet_approved",
+  emailMessageTypeDeclinedWallet: "biometry_wallet_declined",
+  emailMessageTypeExpiredWallet: "biometry_wallet_expired"
+};
+
 export const defaultFooterConfig: FooterConfig = {
   title: "Fale Conosco",
   description: "Entre em contato com nossa equipe para mais informações ou para saber como aumentar seu limite transacional.",
@@ -388,6 +418,7 @@ export const defaultBrandConfig: BrandConfig = {
     buyUnavailable: "Compra não está disponível no momento.",
     sellUnavailable: "Venda não está disponível no momento."
   },
+  biometryReview: defaultBiometryReviewConfig,
   footer: defaultFooterConfig,
   backend: {
     companyKey: "origin",
@@ -988,6 +1019,40 @@ function asFooterColorsConfig(value: unknown, fallback: FooterColorsConfig): Foo
   };
 }
 
+function asBiometryReviewConfig(value: unknown, fallback: BiometryReviewConfig): BiometryReviewConfig {
+  if (!isRecord(value)) {
+    return fallback;
+  }
+  const ttlHours = Math.max(1, asNonNegativeNumber(value.ttlHours, fallback.ttlHours));
+  return {
+    pendingUserMessage: asString(value.pendingUserMessage, fallback.pendingUserMessage),
+    ttlHours,
+    duplicateOnboardingMessage: asString(value.duplicateOnboardingMessage, fallback.duplicateOnboardingMessage),
+    duplicateWalletMessage: asString(value.duplicateWalletMessage, fallback.duplicateWalletMessage),
+    emailMessageTypeApprovedOnboarding: asString(
+      value.emailMessageTypeApprovedOnboarding,
+      fallback.emailMessageTypeApprovedOnboarding
+    ),
+    emailMessageTypeDeclinedOnboarding: asString(
+      value.emailMessageTypeDeclinedOnboarding,
+      fallback.emailMessageTypeDeclinedOnboarding
+    ),
+    emailMessageTypeExpiredOnboarding: asString(
+      value.emailMessageTypeExpiredOnboarding,
+      fallback.emailMessageTypeExpiredOnboarding
+    ),
+    emailMessageTypeApprovedWallet: asString(
+      value.emailMessageTypeApprovedWallet,
+      fallback.emailMessageTypeApprovedWallet
+    ),
+    emailMessageTypeDeclinedWallet: asString(
+      value.emailMessageTypeDeclinedWallet,
+      fallback.emailMessageTypeDeclinedWallet
+    ),
+    emailMessageTypeExpiredWallet: asString(value.emailMessageTypeExpiredWallet, fallback.emailMessageTypeExpiredWallet)
+  };
+}
+
 function asFooterConfig(value: unknown, fallback: FooterConfig): FooterConfig {
   if (!isRecord(value)) {
     return fallback;
@@ -1042,6 +1107,7 @@ export function normalizeRuntimeBrandConfig(raw: unknown, fallback: BrandConfig 
       occupations
     ),
     tradeAvailabilityTexts: asTradeAvailabilityTextsConfig(raw.tradeAvailabilityTexts, fallback.tradeAvailabilityTexts),
+    biometryReview: asBiometryReviewConfig(raw.biometryReview, fallback.biometryReview),
     footer: asFooterConfig(raw.footer, fallback.footer),
     backend: {
       companyKey: asString(backend.companyKey, fallback.backend.companyKey),

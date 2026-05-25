@@ -4,6 +4,7 @@ import { setWindowOrderPayload } from "../../shared/api/orderCache";
 import type { CompanyKycOwnerInfo, KycSubmitResult } from "../../shared/api/contracts";
 import { useI18n } from "../../shared/i18n";
 import { deriveQuoteResponseFromUnitPrice } from "../../shared/api/pricing";
+import { checkBiometryPending, registerBiometryPending } from "../../shared/api/biometryPending";
 import { sendFrontendTelemetryEvent } from "../../shared/api/telemetry";
 import { QuoteRefreshIndicator, QUOTE_REFRESH_INTERVAL_MS } from "./QuoteRefreshIndicator";
 import {
@@ -22,6 +23,7 @@ import type {
   OtcTransactionalAllowance,
   PaymentData,
   QuoteRequest,
+  DiditBiometricResult,
   QuoteResponse,
   TradeSide
 } from "../../shared/types";
@@ -365,6 +367,10 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
       return t("kyc.documentInvalid").replace("{type}", docType);
     },
     [t]
+  );
+  const biometryPendingUserMessage = useMemo(
+    () => brand.biometryReview.pendingUserMessage.trim() || t("biometry.pendingReview"),
+    [brand.biometryReview.pendingUserMessage, t]
   );
   const occupations = useMemo(() => brand.occupations, [brand]);
   const occupationsAvailable = useMemo(() => brand.occupationsAvailable, [brand]);
@@ -921,6 +927,74 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
     setBiometricIdentityOverride(null);
   }, []);
 
+  const handleBiometryInReview = useCallback(
+    async (biometric: DiditBiometricResult, targetEmail: string) => {
+      if (!biometric.sessionId) {
+        alert(biometryPendingUserMessage);
+        setStep("none");
+        return;
+      }
+      const action = biometryReason === "onboarding" ? "onboarding" : "wallet_save";
+      let actionPayload: Record<string, unknown> = {};
+      if (action === "onboarding") {
+        if (!pendingKyc) {
+          alert(biometryPendingUserMessage);
+          setStep("none");
+          return;
+        }
+        actionPayload = {
+          email: targetEmail,
+          document_number: pendingKyc.documentNumber,
+          person_type: pendingKyc.personType,
+          kyc_name: pendingKyc.kycName,
+          birth_date: pendingKyc.birthDate,
+          approved_kyc_result: pendingKyc.approvedKycResult,
+          kyc_date: pendingKyc.kycDate,
+          biometric_identity_override: biometricIdentityOverride
+        };
+      } else {
+        const pending = pendingPaymentSaveRef.current;
+        if (!pending) {
+          alert(biometryPendingUserMessage);
+          setStep("none");
+          return;
+        }
+        actionPayload = {
+          payment_data: pending.payload,
+          risk_check: pending.riskCheck ?? null
+        };
+      }
+      try {
+        const result = await registerBiometryPending({
+          sessionId: biometric.sessionId,
+          sessionStatus: "In Review",
+          action,
+          email: targetEmail,
+          asset: tradeSide === "buy" ? asset : undefined,
+          actionPayload
+        });
+        alert(result.message || biometryPendingUserMessage);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : biometryPendingUserMessage;
+        alert(message);
+      }
+      paymentBiometryDocRetryConsumedRef.current = false;
+      resetCompanyRepresentativeState();
+      setPendingPaymentSave(null);
+      pendingPaymentSaveRef.current = null;
+      setStep("none");
+    },
+    [
+      asset,
+      biometryPendingUserMessage,
+      biometryReason,
+      biometricIdentityOverride,
+      pendingKyc,
+      resetCompanyRepresentativeState,
+      tradeSide
+    ]
+  );
+
   const isCompanyDocumentType = useCallback(
     (value: string) => companyDocumentTypes.includes(value.trim()),
     [companyDocumentTypes]
@@ -1204,6 +1278,17 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
   const handlePaymentAction = async () => {
     if (!customer) return;
     setPaymentSlotError(null);
+    if (tradeSide === "buy") {
+      try {
+        const pendingCheck = await checkBiometryPending("wallet_save", customer.email, asset);
+        if (pendingCheck.blocked) {
+          alert(pendingCheck.message ?? brand.biometryReview.duplicateWalletMessage);
+          return;
+        }
+      } catch {
+        // Redis/API indisponível: não bloqueia abertura do modal.
+      }
+    }
     await openPaymentModal();
   };
 
@@ -1278,6 +1363,15 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
         return;
       }
       setPendingKyc(null);
+      try {
+        const pendingCheck = await checkBiometryPending("onboarding", email);
+        if (pendingCheck.blocked) {
+          alert(pendingCheck.message ?? brand.biometryReview.duplicateOnboardingMessage);
+          return;
+        }
+      } catch {
+        // Redis/API indisponível: não bloqueia cadastro.
+      }
       const send = await otcApiClient.sendOtp(email, Date.now());
       emitFrontendTelemetry("frontend_email_unregistered", {
         lookup_response: lookup,
@@ -1429,7 +1523,11 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
           alert(t("biometry.documentVerificationMissing"));
           return;
         }
-        if (biometric.sessionStatus === "In Review" || biometric.sessionStatus === "Pending") {
+        if (biometric.sessionStatus === "In Review") {
+          await handleBiometryInReview(biometric, targetEmail);
+          return;
+        }
+        if (biometric.sessionStatus === "Pending") {
           if (biometryReason === "payment") {
             paymentBiometryDocRetryConsumedRef.current = false;
           }
@@ -1562,6 +1660,15 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
           walletAddress: trimmedWallet
         };
         if (!sessionBiometryDone) {
+          try {
+            const pendingCheck = await checkBiometryPending("wallet_save", customer.email, asset);
+            if (pendingCheck.blocked) {
+              alert(pendingCheck.message ?? brand.biometryReview.duplicateWalletMessage);
+              return;
+            }
+          } catch {
+            // Redis/API indisponível: segue para biometria.
+          }
           const pending = { payload, riskCheck: check };
           pendingPaymentSaveRef.current = pending;
           setPendingPaymentSave(pending);

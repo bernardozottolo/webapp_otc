@@ -47,6 +47,18 @@
     "buyUnavailable": "Essa funcionalidade volta em breve ✨",
     "sellUnavailable": "Essa funcionalidade volta em breve ✨"
   },
+  "biometryReview": {
+    "pendingUserMessage": "Sua biometria está em análise. Você será notificado por e-mail em até 48 horas.",
+    "ttlHours": 48,
+    "duplicateOnboardingMessage": "Já existe uma biometria em análise para este e-mail. Aguarde o resultado antes de continuar.",
+    "duplicateWalletMessage": "Já existe uma biometria em análise para cadastrar carteira deste ativo. Aguarde o resultado.",
+    "emailMessageTypeApprovedOnboarding": "biometry_onboarding_approved",
+    "emailMessageTypeDeclinedOnboarding": "biometry_onboarding_declined",
+    "emailMessageTypeExpiredOnboarding": "biometry_onboarding_expired",
+    "emailMessageTypeApprovedWallet": "biometry_wallet_approved",
+    "emailMessageTypeDeclinedWallet": "biometry_wallet_declined",
+    "emailMessageTypeExpiredWallet": "biometry_wallet_expired"
+  },
   "footer": {
     "title": "Fale Conosco",
     "description": "Entre em contato com nossa equipe para mais informações ou para saber como aumentar seu limite transacional.",
