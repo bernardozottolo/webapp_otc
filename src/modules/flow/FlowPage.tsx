@@ -34,6 +34,7 @@ import { startBiometricSession } from "../customer/diditAdapter";
 
 type Step = "none" | "email" | "otp" | "kyc" | "bio" | "payment";
 type BiometryReason = "onboarding" | "payment";
+type BiometryPreConfirmVariant = "onboarding" | "payment";
 type CounterpartyKycMode = "onboarding" | "refresh";
 type PendingKycApproval = Pick<KycSubmitResult, "approvedKycResult" | "kycDate" | "personType" | "kycName" | "birthDate"> & {
   documentNumber: string;
@@ -335,6 +336,10 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
   const [documentValidationMessage, setDocumentValidationMessage] = useState<string | null>(null);
   const [biometricIdentityOverride, setBiometricIdentityOverride] = useState<BiometricIdentityOverride | null>(null);
   const [kycRejectedModalOpen, setKycRejectedModalOpen] = useState(false);
+  const [biometryReviewModalOpen, setBiometryReviewModalOpen] = useState(false);
+  const [biometryReviewModalMessage, setBiometryReviewModalMessage] = useState("");
+  const [biometryPreConfirmOpen, setBiometryPreConfirmOpen] = useState(false);
+  const [biometryPreConfirmVariant, setBiometryPreConfirmVariant] = useState<BiometryPreConfirmVariant | null>(null);
 
   const [network, setNetwork] = useState("");
   const [walletAddress, setWalletAddress] = useState("");
@@ -372,6 +377,34 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
     () => brand.biometryReview.pendingUserMessage.trim() || t("biometry.pendingReview"),
     [brand.biometryReview.pendingUserMessage, t]
   );
+  const openBiometryReviewModal = useCallback((message: string) => {
+    setBiometryReviewModalMessage(message);
+    setBiometryReviewModalOpen(true);
+  }, []);
+  const biometryPreConfirmContent = useMemo(() => {
+    const config = brand.biometryPreConfirm;
+    if (biometryPreConfirmVariant === "payment") {
+      return { title: config.paymentTitle, description: config.paymentDescription };
+    }
+    if (biometryPreConfirmVariant === "onboarding") {
+      return { title: config.onboardingTitle, description: config.onboardingDescription };
+    }
+    return { title: "", description: "" };
+  }, [biometryPreConfirmVariant, brand.biometryPreConfirm]);
+  const openBiometryPreConfirm = useCallback((variant: BiometryPreConfirmVariant) => {
+    setStep("none");
+    setBiometryPreConfirmVariant(variant);
+    setBiometryPreConfirmOpen(true);
+  }, []);
+  const cancelBiometryPreConfirm = useCallback(() => {
+    setBiometryPreConfirmOpen(false);
+    setBiometryPreConfirmVariant(null);
+  }, []);
+  const proceedBiometryPreConfirm = useCallback(() => {
+    setBiometryPreConfirmOpen(false);
+    setBiometryPreConfirmVariant(null);
+    setStep("bio");
+  }, []);
   const occupations = useMemo(() => brand.occupations, [brand]);
   const occupationsAvailable = useMemo(() => brand.occupationsAvailable, [brand]);
   const personalDocumentTypes = useMemo(
@@ -929,17 +962,19 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
 
   const handleBiometryInReview = useCallback(
     async (biometric: DiditBiometricResult, targetEmail: string) => {
-      if (!biometric.sessionId) {
-        alert(biometryPendingUserMessage);
+      const showBiometryReviewMessage = (message: string) => {
         setStep("none");
+        openBiometryReviewModal(message);
+      };
+      if (!biometric.sessionId) {
+        showBiometryReviewMessage(biometryPendingUserMessage);
         return;
       }
       const action = biometryReason === "onboarding" ? "onboarding" : "wallet_save";
       let actionPayload: Record<string, unknown> = {};
       if (action === "onboarding") {
         if (!pendingKyc) {
-          alert(biometryPendingUserMessage);
-          setStep("none");
+          showBiometryReviewMessage(biometryPendingUserMessage);
           return;
         }
         actionPayload = {
@@ -955,8 +990,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
       } else {
         const pending = pendingPaymentSaveRef.current;
         if (!pending) {
-          alert(biometryPendingUserMessage);
-          setStep("none");
+          showBiometryReviewMessage(biometryPendingUserMessage);
           return;
         }
         actionPayload = {
@@ -973,22 +1007,23 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
           asset: tradeSide === "buy" ? asset : undefined,
           actionPayload
         });
-        alert(result.message || biometryPendingUserMessage);
+        showBiometryReviewMessage(result.message || biometryPendingUserMessage);
       } catch (error) {
         const message = error instanceof Error ? error.message : biometryPendingUserMessage;
-        alert(message);
+        showBiometryReviewMessage(message);
+        return;
       }
       paymentBiometryDocRetryConsumedRef.current = false;
       resetCompanyRepresentativeState();
       setPendingPaymentSave(null);
       pendingPaymentSaveRef.current = null;
-      setStep("none");
     },
     [
       asset,
       biometryPendingUserMessage,
       biometryReason,
       biometricIdentityOverride,
+      openBiometryReviewModal,
       pendingKyc,
       resetCompanyRepresentativeState,
       tradeSide
@@ -1200,9 +1235,11 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
       birthDate: matchedOwner.birthDate,
       companyDocumentNumber: companyRepresentativeContext.companyDocumentNumber
     });
-    setStep("bio");
+    openBiometryPreConfirm(biometryReason === "onboarding" ? "onboarding" : "payment");
   }, [
+    biometryReason,
     companyRepresentativeContext,
+    openBiometryPreConfirm,
     occupationsAvailable,
     selectedOccupation,
     selectedRepresentativeDocumentNumber,
@@ -1282,7 +1319,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
       try {
         const pendingCheck = await checkBiometryPending("wallet_save", customer.email, asset);
         if (pendingCheck.blocked) {
-          alert(pendingCheck.message ?? brand.biometryReview.duplicateWalletMessage);
+          openBiometryReviewModal(pendingCheck.message ?? brand.biometryReview.duplicateWalletMessage);
           return;
         }
       } catch {
@@ -1366,7 +1403,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
       try {
         const pendingCheck = await checkBiometryPending("onboarding", email);
         if (pendingCheck.blocked) {
-          alert(pendingCheck.message ?? brand.biometryReview.duplicateOnboardingMessage);
+          openBiometryReviewModal(pendingCheck.message ?? brand.biometryReview.duplicateOnboardingMessage);
           return;
         }
       } catch {
@@ -1459,7 +1496,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
       }
       setBiometricIdentityOverride(null);
       setBiometryReason("onboarding");
-      setStep("bio");
+      openBiometryPreConfirm("onboarding");
     }, t("loading.validatingIdentity"));
   };
 
@@ -1531,7 +1568,8 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
           if (biometryReason === "payment") {
             paymentBiometryDocRetryConsumedRef.current = false;
           }
-          alert(t("biometry.pendingReview"));
+          setStep("none");
+          openBiometryReviewModal(biometryPendingUserMessage);
           return;
         }
         if (biometryReason === "payment") {
@@ -1663,7 +1701,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
           try {
             const pendingCheck = await checkBiometryPending("wallet_save", customer.email, asset);
             if (pendingCheck.blocked) {
-              alert(pendingCheck.message ?? brand.biometryReview.duplicateWalletMessage);
+              openBiometryReviewModal(pendingCheck.message ?? brand.biometryReview.duplicateWalletMessage);
               return;
             }
           } catch {
@@ -1680,7 +1718,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
           }
           setBiometricIdentityOverride(null);
           setBiometryReason("payment");
-          setStep("bio");
+          openBiometryPreConfirm("payment");
           return;
         }
         await otcApiClient.savePaymentData(payload);
@@ -1722,7 +1760,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
         }
         setBiometricIdentityOverride(null);
         setBiometryReason("payment");
-        setStep("bio");
+        openBiometryPreConfirm("payment");
         return;
       }
       await otcApiClient.savePaymentData(payload);
@@ -2032,6 +2070,10 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
     setDocumentTypes([]);
     resetCompanyRepresentativeState();
     setKycRejectedModalOpen(false);
+    setBiometryReviewModalOpen(false);
+    setBiometryReviewModalMessage("");
+    setBiometryPreConfirmOpen(false);
+    setBiometryPreConfirmVariant(null);
     setNetwork("");
     setWalletAddress("");
     setBankKeyType("Telefone");
@@ -2534,6 +2576,43 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
           <p className="modal-description modal-description--preline">{kycRejectedMessage}</p>
           <div className="modal-actions">
             <button type="button" className="primary-button modal-primary-button" onClick={() => setKycRejectedModalOpen(false)}>
+              {t("common.close")}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        open={biometryPreConfirmOpen}
+        title={biometryPreConfirmContent.title}
+        onClose={cancelBiometryPreConfirm}
+      >
+        <div className="modal-body modal-body--form">
+          <p className="modal-description modal-description--preline">{biometryPreConfirmContent.description}</p>
+          <div className="modal-actions modal-actions--dual">
+            <button type="button" className="modal-secondary-button" onClick={cancelBiometryPreConfirm}>
+              {t("common.cancel")}
+            </button>
+            <button type="button" className="primary-button modal-primary-button" onClick={proceedBiometryPreConfirm}>
+              {t("common.proceed")}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        open={biometryReviewModalOpen}
+        title="Biometria em análise"
+        onClose={() => setBiometryReviewModalOpen(false)}
+      >
+        <div className="modal-body modal-body--form">
+          <p className="modal-description modal-description--preline">{biometryReviewModalMessage}</p>
+          <div className="modal-actions">
+            <button
+              type="button"
+              className="primary-button modal-primary-button"
+              onClick={() => setBiometryReviewModalOpen(false)}
+            >
               {t("common.close")}
             </button>
           </div>

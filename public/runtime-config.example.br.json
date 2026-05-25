@@ -59,6 +59,12 @@
     "emailMessageTypeDeclinedWallet": "biometry_wallet_declined",
     "emailMessageTypeExpiredWallet": "biometry_wallet_expired"
   },
+  "biometryPreConfirm": {
+    "onboardingTitle": "Envio de documento e verificação biométrica",
+    "onboardingDescription": "Para concluir seu cadastro, será necessário enviar um documento de identificação e realizar uma selfie em tempo real",
+    "paymentTitle": "Verificação biométrica",
+    "paymentDescription": "Precisamos validar sua identidade por reconhecimento facial"
+  },
   "footer": {
     "title": "Fale Conosco",
     "description": "Entre em contato com nossa equipe para mais informações ou para saber como aumentar seu limite transacional.",

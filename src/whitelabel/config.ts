@@ -211,6 +211,13 @@ export interface BiometryReviewConfig {
   emailMessageTypeExpiredWallet: string;
 }
 
+export interface BiometryPreConfirmConfig {
+  onboardingTitle: string;
+  onboardingDescription: string;
+  paymentTitle: string;
+  paymentDescription: string;
+}
+
 export interface FooterConfig {
   title: string;
   description: string;
@@ -251,6 +258,7 @@ export interface BrandConfig {
   occupationsAvailable: string[];
   tradeAvailabilityTexts: TradeAvailabilityTextsConfig;
   biometryReview: BiometryReviewConfig;
+  biometryPreConfirm: BiometryPreConfirmConfig;
   footer: FooterConfig;
   backend: {
     companyKey: string;
@@ -356,6 +364,14 @@ export const defaultCompanyDocumentTypes: Record<Country, string[]> = {
   BR: ["CNPJ"]
 };
 
+export const defaultBiometryPreConfirmConfig: BiometryPreConfirmConfig = {
+  onboardingTitle: "Envio de documento e verificação biométrica",
+  onboardingDescription:
+    "Para concluir seu cadastro, será necessário enviar um documento de identificação e realizar uma selfie em tempo real",
+  paymentTitle: "Verificação biométrica",
+  paymentDescription: "Precisamos validar sua identidade por reconhecimento facial"
+};
+
 export const defaultBiometryReviewConfig: BiometryReviewConfig = {
   pendingUserMessage:
     "Sua biometria está em análise. Você será notificado por e-mail em até 48 horas.",
@@ -419,6 +435,7 @@ export const defaultBrandConfig: BrandConfig = {
     sellUnavailable: "Venda não está disponível no momento."
   },
   biometryReview: defaultBiometryReviewConfig,
+  biometryPreConfirm: defaultBiometryPreConfirmConfig,
   footer: defaultFooterConfig,
   backend: {
     companyKey: "origin",
@@ -1019,6 +1036,18 @@ function asFooterColorsConfig(value: unknown, fallback: FooterColorsConfig): Foo
   };
 }
 
+function asBiometryPreConfirmConfig(value: unknown, fallback: BiometryPreConfirmConfig): BiometryPreConfirmConfig {
+  if (!isRecord(value)) {
+    return fallback;
+  }
+  return {
+    onboardingTitle: asString(value.onboardingTitle, fallback.onboardingTitle),
+    onboardingDescription: asString(value.onboardingDescription, fallback.onboardingDescription),
+    paymentTitle: asString(value.paymentTitle, fallback.paymentTitle),
+    paymentDescription: asString(value.paymentDescription, fallback.paymentDescription)
+  };
+}
+
 function asBiometryReviewConfig(value: unknown, fallback: BiometryReviewConfig): BiometryReviewConfig {
   if (!isRecord(value)) {
     return fallback;
@@ -1108,6 +1137,7 @@ export function normalizeRuntimeBrandConfig(raw: unknown, fallback: BrandConfig 
     ),
     tradeAvailabilityTexts: asTradeAvailabilityTextsConfig(raw.tradeAvailabilityTexts, fallback.tradeAvailabilityTexts),
     biometryReview: asBiometryReviewConfig(raw.biometryReview, fallback.biometryReview),
+    biometryPreConfirm: asBiometryPreConfirmConfig(raw.biometryPreConfirm, fallback.biometryPreConfirm),
     footer: asFooterConfig(raw.footer, fallback.footer),
     backend: {
       companyKey: asString(backend.companyKey, fallback.backend.companyKey),
