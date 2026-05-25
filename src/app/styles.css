@@ -908,8 +908,7 @@ button {
 .modal-secondary-button {
   min-height: clamp(44px, 5vh, 52px);
   font-size: var(--form-button-size);
-  background: var(--ghost-button-background);
-  color: var(--form-text-color);
+  background: #ff2c2c;
   border: 1px solid var(--ghost-button-border);
   border-radius: 12px;
 }

@@ -1543,7 +1543,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
       if (!biometric.approved) {
         if (biometric.errorCode === "cancelled") {
           paymentBiometryDocRetryConsumedRef.current = false;
-          alert(t("biometry.cancelled"));
+          setBlockingUi(null);
           return;
         }
         if (biometric.errorCode === "document_verification_missing" || biometric.errorCode === "portrait_missing") {
