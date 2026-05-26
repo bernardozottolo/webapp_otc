@@ -2457,8 +2457,8 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
       {hasFooterContent ? (
         <footer className="home-page-footer">
           <section className="home-contact-footer" style={footerWrapperStyle}>
-            <div className="home-contact-footer__layout">
-              <div className="home-contact-footer__side home-contact-footer__side--left">
+            <div className="home-contact-footer__row">
+              <div className="home-contact-footer__col home-contact-footer__col--left">
                 {brand.footer.legalInfoLeft.trim() ? (
                   <div
                     className="home-contact-footer__legal-info"
@@ -2468,7 +2468,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
                 ) : null}
               </div>
 
-              <div className="home-contact-footer__center">
+              <div className="home-contact-footer__col home-contact-footer__col--center">
                 {brand.footer.title ? (
                   <h2 className="home-contact-footer__title" style={footerTitleStyle}>
                     {brand.footer.title}
@@ -2502,7 +2502,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
                 ) : null}
               </div>
 
-              <div className="home-contact-footer__side home-contact-footer__side--right">
+              <div className="home-contact-footer__col home-contact-footer__col--right">
                 {brand.footer.legalInfoRight.trim() ? (
                   <div
                     className="home-contact-footer__legal-info"

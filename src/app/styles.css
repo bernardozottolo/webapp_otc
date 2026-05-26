@@ -224,8 +224,6 @@ body::after {
 
 .home-contact-footer {
   width: 100%;
-  display: flex;
-  flex-direction: column;
   padding: 28px clamp(18px, 4vw, 40px);
   border: 1px solid transparent;
   border-left: 0;
@@ -236,38 +234,35 @@ body::after {
   box-sizing: border-box;
 }
 
-.home-contact-footer__layout {
+.home-contact-footer__row {
   width: 100%;
   max-width: 1280px;
   margin: 0 auto;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 40vw) minmax(0, 1fr);
-  align-items: start;
-  gap: clamp(16px, 2.5vw, 32px);
+  grid-template-columns: 1fr minmax(0, 40vw) 1fr;
+  align-items: center;
+  gap: clamp(16px, 3vw, 32px);
 }
 
-.home-contact-footer__side {
-  min-width: 0;
-  display: flex;
+.home-contact-footer__col--left {
+  text-align: left;
+  justify-self: start;
 }
 
-.home-contact-footer__side--left {
-  justify-content: flex-start;
-}
-
-.home-contact-footer__side--right {
-  justify-content: flex-end;
-}
-
-.home-contact-footer__center {
-  width: 100%;
-  max-width: 40vw;
-  justify-self: center;
+.home-contact-footer__col--center {
   display: flex;
   flex-direction: column;
   gap: 16px;
   align-items: center;
   text-align: center;
+  width: 100%;
+  max-width: 40vw;
+  justify-self: center;
+}
+
+.home-contact-footer__col--right {
+  text-align: right;
+  justify-self: end;
 }
 
 .home-contact-footer__title {
@@ -335,14 +330,6 @@ body::after {
   font-size: 0.82rem;
   line-height: 1.55;
   overflow-wrap: anywhere;
-}
-
-.home-contact-footer__side--left .home-contact-footer__legal-info {
-  text-align: left;
-}
-
-.home-contact-footer__side--right .home-contact-footer__legal-info {
-  text-align: right;
 }
 
 .home-contact-footer__legal-info a {
@@ -1610,29 +1597,26 @@ button {
     padding: 24px 16px;
   }
 
-  .home-contact-footer__layout {
+  .home-contact-footer__row {
     grid-template-columns: 1fr;
     gap: 20px;
   }
 
-  .home-contact-footer__center {
+  .home-contact-footer__col--center {
     order: 1;
     max-width: none;
   }
 
-  .home-contact-footer__side--left {
+  .home-contact-footer__col--left {
     order: 2;
-    justify-content: flex-start;
-  }
-
-  .home-contact-footer__side--right {
-    order: 3;
-    justify-content: flex-start;
-  }
-
-  .home-contact-footer__side--left .home-contact-footer__legal-info,
-  .home-contact-footer__side--right .home-contact-footer__legal-info {
     text-align: left;
+    justify-self: stretch;
+  }
+
+  .home-contact-footer__col--right {
+    order: 3;
+    text-align: left;
+    justify-self: stretch;
   }
 }
 
