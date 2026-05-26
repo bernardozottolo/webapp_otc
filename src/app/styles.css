@@ -226,7 +226,6 @@ body::after {
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 16px;
   padding: 28px clamp(18px, 4vw, 40px);
   border: 1px solid transparent;
   border-left: 0;
@@ -237,10 +236,33 @@ body::after {
   box-sizing: border-box;
 }
 
-.home-contact-footer__inner {
+.home-contact-footer__layout {
   width: 100%;
   max-width: 1280px;
   margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 40vw) minmax(0, 1fr);
+  align-items: start;
+  gap: clamp(16px, 2.5vw, 32px);
+}
+
+.home-contact-footer__side {
+  min-width: 0;
+  display: flex;
+}
+
+.home-contact-footer__side--left {
+  justify-content: flex-start;
+}
+
+.home-contact-footer__side--right {
+  justify-content: flex-end;
+}
+
+.home-contact-footer__center {
+  width: 100%;
+  max-width: 40vw;
+  justify-self: center;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -308,16 +330,6 @@ body::after {
   overflow-wrap: anywhere;
 }
 
-.home-contact-footer__legal-row {
-  width: 100%;
-  max-width: 1280px;
-  margin: 8px auto 0;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 24px;
-}
-
 .home-contact-footer__legal-info {
   min-width: 0;
   font-size: 0.82rem;
@@ -325,13 +337,11 @@ body::after {
   overflow-wrap: anywhere;
 }
 
-.home-contact-footer__legal-info--left {
-  flex: 1;
+.home-contact-footer__side--left .home-contact-footer__legal-info {
   text-align: left;
 }
 
-.home-contact-footer__legal-info--right {
-  margin-left: auto;
+.home-contact-footer__side--right .home-contact-footer__legal-info {
   text-align: right;
 }
 
@@ -1600,13 +1610,28 @@ button {
     padding: 24px 16px;
   }
 
-  .home-contact-footer__legal-row {
-    flex-direction: column;
-    gap: 16px;
+  .home-contact-footer__layout {
+    grid-template-columns: 1fr;
+    gap: 20px;
   }
 
-  .home-contact-footer__legal-info--right {
-    margin-left: 0;
+  .home-contact-footer__center {
+    order: 1;
+    max-width: none;
+  }
+
+  .home-contact-footer__side--left {
+    order: 2;
+    justify-content: flex-start;
+  }
+
+  .home-contact-footer__side--right {
+    order: 3;
+    justify-content: flex-start;
+  }
+
+  .home-contact-footer__side--left .home-contact-footer__legal-info,
+  .home-contact-footer__side--right .home-contact-footer__legal-info {
     text-align: left;
   }
 }

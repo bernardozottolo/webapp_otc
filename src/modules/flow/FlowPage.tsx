@@ -2457,57 +2457,61 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
       {hasFooterContent ? (
         <footer className="home-page-footer">
           <section className="home-contact-footer" style={footerWrapperStyle}>
-            <div className="home-contact-footer__inner">
-              {brand.footer.title ? (
-                <h2 className="home-contact-footer__title" style={footerTitleStyle}>
-                  {brand.footer.title}
-                </h2>
-              ) : null}
-              {brand.footer.description ? (
-                <p className="home-contact-footer__description" style={footerDescriptionStyle}>
-                  {brand.footer.description}
-                </p>
-              ) : null}
-              {footerContacts.length ? (
-                <div className="home-contact-footer__contacts">
-                  {footerContacts.map((contact) => (
-                    <a
-                      key={contact.kind}
-                      className="home-contact-footer__contact"
-                      href={contact.href}
-                      style={footerContactStyle}
-                      target={contact.openInNewTab ? "_blank" : undefined}
-                      rel={contact.openInNewTab ? "noreferrer" : undefined}
-                    >
-                      <span className="home-contact-footer__icon" style={footerIconStyle}>
-                        {renderFooterContactIcon(contact.kind)}
-                      </span>
-                      <span className="home-contact-footer__contact-text">
-                        <span>{contact.value}</span>
-                      </span>
-                    </a>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-            {brand.footer.legalInfoLeft.trim() || brand.footer.legalInfoRight.trim() ? (
-              <div className="home-contact-footer__legal-row">
+            <div className="home-contact-footer__layout">
+              <div className="home-contact-footer__side home-contact-footer__side--left">
                 {brand.footer.legalInfoLeft.trim() ? (
                   <div
-                    className="home-contact-footer__legal-info home-contact-footer__legal-info--left"
+                    className="home-contact-footer__legal-info"
                     style={footerLegalInfoStyle}
                     dangerouslySetInnerHTML={{ __html: brand.footer.legalInfoLeft }}
                   />
                 ) : null}
+              </div>
+
+              <div className="home-contact-footer__center">
+                {brand.footer.title ? (
+                  <h2 className="home-contact-footer__title" style={footerTitleStyle}>
+                    {brand.footer.title}
+                  </h2>
+                ) : null}
+                {brand.footer.description ? (
+                  <p className="home-contact-footer__description" style={footerDescriptionStyle}>
+                    {brand.footer.description}
+                  </p>
+                ) : null}
+                {footerContacts.length ? (
+                  <div className="home-contact-footer__contacts">
+                    {footerContacts.map((contact) => (
+                      <a
+                        key={contact.kind}
+                        className="home-contact-footer__contact"
+                        href={contact.href}
+                        style={footerContactStyle}
+                        target={contact.openInNewTab ? "_blank" : undefined}
+                        rel={contact.openInNewTab ? "noreferrer" : undefined}
+                      >
+                        <span className="home-contact-footer__icon" style={footerIconStyle}>
+                          {renderFooterContactIcon(contact.kind)}
+                        </span>
+                        <span className="home-contact-footer__contact-text">
+                          <span>{contact.value}</span>
+                        </span>
+                      </a>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="home-contact-footer__side home-contact-footer__side--right">
                 {brand.footer.legalInfoRight.trim() ? (
                   <div
-                    className="home-contact-footer__legal-info home-contact-footer__legal-info--right"
+                    className="home-contact-footer__legal-info"
                     style={footerLegalInfoStyle}
                     dangerouslySetInnerHTML={{ __html: brand.footer.legalInfoRight }}
                   />
                 ) : null}
               </div>
-            ) : null}
+            </div>
           </section>
         </footer>
       ) : null}
