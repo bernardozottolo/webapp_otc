@@ -2119,6 +2119,9 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
   ) : (
     `1 ${asset} ≈ 0 ${brand.fiatCurrency}`
   );
+  const quoteUpdatedAtTitle = actionableQuote?.updatedAt
+    ? `${t("quote.updatedAt")} ${new Date(actionableQuote.updatedAt).toLocaleTimeString()}`
+    : undefined;
   const couponVisualState =
     !couponDirty && appliedCouponTrimmed
       ? couponFeedback === "valid"
@@ -2374,19 +2377,16 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
                   </div>
 
                   <div className="quote-inline-summary">
-                    <p className="quote-bad">
-                      <span>{quoteLoading ? t("common.loading") : t("quote.willUpdate")}</span>
-                      <QuoteRefreshIndicator updatedAt={displayQuote?.updatedAt} loading={quoteLoading} />
-                    </p>
-
                     <div className="quote-line">
-                      <span>{rateText}</span>
-                      <span>
-                        {t("quote.updatedAt")}{" "}
-                        {actionableQuote ? new Date(actionableQuote.updatedAt).toLocaleTimeString() : "--:--"}
+                      <span className="quote-rate-with-indicator">
+                        {rateText}
+                        <QuoteRefreshIndicator
+                          updatedAt={displayQuote?.updatedAt}
+                          loading={quoteLoading}
+                          title={quoteLoading ? t("common.loading") : quoteUpdatedAtTitle}
+                        />
                       </span>
                     </div>
-
                   </div>
 
                   {identified && transactionalLoading ? (
@@ -2401,15 +2401,15 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
                     <div className="details-content">
                       <div className="quote-mobile-summary">
                         <div className="details-row">
-                          <strong className="quote-status-label">
-                            <span>{quoteLoading ? t("common.loading") : t("quote.willUpdate")}</span>
-                            <QuoteRefreshIndicator updatedAt={displayQuote?.updatedAt} loading={quoteLoading} />
-                          </strong>
-                          <span>{rateText}</span>
-                        </div>
-                        <div className="details-row">
-                          <strong>{t("quote.updatedAt")}</strong>
-                          <span>{actionableQuote ? new Date(actionableQuote.updatedAt).toLocaleTimeString() : "--:--"}</span>
+                          <strong>{t("common.rate")}</strong>
+                          <span className="quote-rate-with-indicator">
+                            {rateText}
+                            <QuoteRefreshIndicator
+                              updatedAt={displayQuote?.updatedAt}
+                              loading={quoteLoading}
+                              title={quoteLoading ? t("common.loading") : quoteUpdatedAtTitle}
+                            />
+                          </span>
                         </div>
                       </div>
                       {identified && tradeSide === "buy" && hasPaymentReady ? (

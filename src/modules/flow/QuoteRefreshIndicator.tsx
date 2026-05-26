@@ -8,9 +8,11 @@ const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 interface QuoteRefreshIndicatorProps {
   updatedAt?: string | null;
   loading: boolean;
+  /** Shown on hover (native tooltip), e.g. last quote update time. */
+  title?: string;
 }
 
-export function QuoteRefreshIndicator({ updatedAt, loading }: QuoteRefreshIndicatorProps) {
+export function QuoteRefreshIndicator({ updatedAt, loading, title }: QuoteRefreshIndicatorProps) {
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
@@ -42,7 +44,9 @@ export function QuoteRefreshIndicator({ updatedAt, loading }: QuoteRefreshIndica
   return (
     <span
       className={`quote-refresh-indicator${loading ? " quote-refresh-indicator--loading" : ""}`}
-      aria-hidden="true"
+      title={title}
+      aria-label={title}
+      role={title ? "img" : undefined}
     >
       <svg viewBox="0 0 18 18" width="16" height="16">
         <circle className="quote-refresh-indicator__track" cx="9" cy="9" r={RING_RADIUS} />

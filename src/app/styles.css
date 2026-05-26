@@ -526,10 +526,16 @@ button {
 .quote-line {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
   font-size: clamp(0.8rem, 1.35vh, 0.95rem);
   color: var(--form-secondary-text-color);
+}
+
+.quote-rate-with-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .quote-rate {
@@ -549,25 +555,11 @@ button {
   margin: 4px 0 0;
 }
 
-.quote-bad {
-  margin-block-start: 0;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--form-muted-text-color);
-  font-size: clamp(0.8rem, 1.35vh, 0.95rem);
-}
-
-.quote-status-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
 .quote-refresh-indicator {
   display: inline-flex;
   flex-shrink: 0;
   line-height: 0;
+  cursor: default;
 }
 
 .quote-refresh-indicator__track {
@@ -1686,7 +1678,6 @@ button {
   }
 
   .trade-form label,
-  .quote-bad,
   .quote-line,
   .details-content,
   .payment-slot,
