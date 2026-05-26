@@ -192,6 +192,7 @@ async def send_email_proxy(
             "companyKey": settings.backend_company_key or payload.get("company_key") or payload.get("country"),
             "platform": settings.backend_platform or payload.get("platform"),
             "message_type": payload.get("message_type"),
+            "user_registered": payload.get("user_registered"),
         },
     )
     return JSONResponse({"ok": True, "codePreview": ""})

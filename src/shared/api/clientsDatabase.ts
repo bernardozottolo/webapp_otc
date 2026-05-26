@@ -280,7 +280,8 @@ export async function lookupCustomerByEmailHttp(config: ClientsDatabaseConfig, e
 export async function sendOtpEmailHttp(
   config: ClientsDatabaseConfig,
   email: string,
-  timestamp: number
+  timestamp: number,
+  userRegistered: boolean
 ): Promise<{ ok: boolean; codePreview: string }> {
   void timestamp;
   const normalizedEmail = normalizeEmail(email);
@@ -298,6 +299,7 @@ export async function sendOtpEmailHttp(
       country: config.companyKey,
       message_type: "email_verification",
       email: normalizedEmail,
+      user_registered: userRegistered,
       client_data: clientData
     })
   });

@@ -128,8 +128,10 @@ export const otcApiClient: OtcApi = {
         }),
   lookupCustomerByEmail: (email) =>
     useMockClientsDatabase() ? mockApi.lookupCustomerByEmail(email) : lookupCustomerByEmailHttp(clientsDatabaseConfig, email),
-  sendOtp: (email, timestamp) =>
-    useMockClientsDatabase() ? mockApi.sendOtp(email, timestamp) : sendOtpEmailHttp(clientsDatabaseConfig, email, timestamp),
+  sendOtp: (email, timestamp, userRegistered) =>
+    useMockClientsDatabase()
+      ? mockApi.sendOtp(email, timestamp, userRegistered)
+      : sendOtpEmailHttp(clientsDatabaseConfig, email, timestamp, userRegistered),
   verifyOtp: (email, code) => (useMockClientsDatabase() ? mockApi.verifyOtp(email, code) : verifyOtpEmailHttp(email, code)),
   getDocumentTypes: (country) =>
     Promise.resolve((documentTypesByCountry[country] ?? []).map((item) => item.type)),

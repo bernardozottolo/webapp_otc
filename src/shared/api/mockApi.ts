@@ -65,10 +65,13 @@ export async function getQuote(req: QuoteRequest): Promise<QuoteResponse> {
 export async function lookupCustomerByEmail(email: string) {
   await wait();
   const customer = db.customers.get(email.toLowerCase());
-  return { exists: Boolean(customer), customer: customer ?? null };
+  const isFullyApproved = Boolean(
+    customer?.emailVerified && customer.kycApproved && customer.biometricApproved
+  );
+  return { exists: isFullyApproved, customer: customer ?? null };
 }
 
-export async function sendOtp(email: string, timestamp: number) {
+export async function sendOtp(email: string, timestamp: number, _userRegistered: boolean) {
   await wait();
   const code = String((timestamp % 900000) + 100000).slice(0, 6);
   db.otpByEmail.set(email.toLowerCase(), { code, timestamp });

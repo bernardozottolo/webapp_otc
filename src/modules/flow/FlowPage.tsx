@@ -37,6 +37,7 @@ type Step = "none" | "email" | "otp" | "kyc" | "bio" | "payment";
 type BiometryReason = "onboarding" | "payment";
 type BiometryPreConfirmVariant = "onboarding" | "payment";
 type CounterpartyKycMode = "onboarding" | "refresh";
+type EmailAuthIntent = "login" | "onboarding" | "kyc_refresh";
 type PendingKycApproval = Pick<KycSubmitResult, "approvedKycResult" | "kycDate" | "personType" | "kycName" | "birthDate"> & {
   documentNumber: string;
 };
@@ -204,6 +205,23 @@ function hasExpiredCounterpartyKyc(customer: Customer | null, otcKycValidityDays
   return Date.now() - customer.kycDate > otcKycValidityDays * 24 * 60 * 60 * 1000;
 }
 
+function resolveEmailAuthIntent(
+  lookup: { exists: boolean; customer: Customer | null },
+  otcKycValidityDays: number
+): EmailAuthIntent {
+  const { customer, exists } = lookup;
+  if (!customer) {
+    return "onboarding";
+  }
+  if (exists && !hasExpiredCounterpartyKyc(customer, otcKycValidityDays)) {
+    return "login";
+  }
+  if (hasApprovedCounterpartyKyc(customer.approvedKycResult) && hasExpiredCounterpartyKyc(customer, otcKycValidityDays)) {
+    return "kyc_refresh";
+  }
+  return "onboarding";
+}
+
 function formatFiatAmount(locale: Locale, currencyCode: string, amount: number) {
   try {
     return new Intl.NumberFormat(locale, { style: "currency", currency: currencyCode }).format(amount);
@@ -319,6 +337,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
   const [paymentSlotError, setPaymentSlotError] = useState<string | null>(null);
   const [pendingPaymentSave, setPendingPaymentSave] = useState<PendingPaymentSave | null>(null);
   const pendingPaymentSaveRef = useRef<PendingPaymentSave | null>(null);
+  const pendingEmailAuthRef = useRef<{ intent: EmailAuthIntent; customer: Customer | null } | null>(null);
   const [pendingKyc, setPendingKyc] = useState<PendingKycApproval | null>(null);
 
   /** One silent re-run for payment biometry when doc verification/portrait path needs to start without alerting. */
@@ -930,10 +949,15 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
     }
   }
 
-  const resetOtpState = useCallback(() => {
+  const resetOtpFields = useCallback(() => {
     setOtpCode("");
     setOtpPreview("");
   }, []);
+
+  const resetOtpState = useCallback(() => {
+    resetOtpFields();
+    pendingEmailAuthRef.current = null;
+  }, [resetOtpFields]);
 
   const loadPaymentForCurrentContext = async (emailValue: string) => {
     const payment = await otcApiClient.getPaymentData({
@@ -1386,41 +1410,29 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
     if (!email) return;
     await runWithBlockingUi(async () => {
       const lookup = await otcApiClient.lookupCustomerByEmail(email);
-      const hasStoredApprovedKyc = hasApprovedCounterpartyKyc(lookup.customer?.approvedKycResult);
-      const requiresStoredKycRefresh = hasExpiredCounterpartyKyc(lookup.customer ?? null, brand.backend.otcKycValidityDays);
+      const intent = resolveEmailAuthIntent(lookup, brand.backend.otcKycValidityDays);
 
-      if (lookup.customer && (lookup.exists || !hasStoredApprovedKyc || requiresStoredKycRefresh)) {
-        const profile = await loadIdentityContext(lookup.customer.email, "existing_lookup");
-        if (!hasApprovedCounterpartyKyc(profile.customer.approvedKycResult)) {
-          setIdentified(false);
-          setStep("none");
-          alert(t("kyc.internalBlocked"));
-          return;
+      if (intent === "onboarding") {
+        setPendingKyc(null);
+        try {
+          const pendingCheck = await checkBiometryPending("onboarding", email);
+          if (pendingCheck.blocked) {
+            openBiometryReviewModal(pendingCheck.message ?? brand.biometryReview.duplicateOnboardingMessage);
+            return;
+          }
+        } catch {
+          // Redis/API indisponível: não bloqueia cadastro.
         }
-        if (hasExpiredCounterpartyKyc(profile.customer, brand.backend.otcKycValidityDays)) {
-          setIdentified(false);
-          await prepareCounterpartyKycStep("refresh", profile.customer.email, profile.customer);
-          alert(t("kyc.refreshRequired"));
-          return;
-        }
-        return;
       }
-      setPendingKyc(null);
-      try {
-        const pendingCheck = await checkBiometryPending("onboarding", email);
-        if (pendingCheck.blocked) {
-          openBiometryReviewModal(pendingCheck.message ?? brand.biometryReview.duplicateOnboardingMessage);
-          return;
-        }
-      } catch {
-        // Redis/API indisponível: não bloqueia cadastro.
-      }
-      const send = await otcApiClient.sendOtp(email, Date.now());
-      emitFrontendTelemetry("frontend_email_unregistered", {
+
+      const send = await otcApiClient.sendOtp(email, Date.now(), lookup.exists);
+      emitFrontendTelemetry(intent === "login" ? "frontend_email_login_otp_sent" : "frontend_email_unregistered", {
         lookup_response: lookup,
-        send_otp_response: send
+        send_otp_response: send,
+        auth_intent: intent
       });
-      resetOtpState();
+      resetOtpFields();
+      pendingEmailAuthRef.current = { intent, customer: lookup.customer };
       setOtpPreview(send.codePreview);
       setStep("otp");
     }, t("loading.checkingEmail"));
@@ -1433,6 +1445,40 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
         alert(t("otp.invalid"));
         return;
       }
+      const pending = pendingEmailAuthRef.current;
+      if (!pending) {
+        resetOtpState();
+        return;
+      }
+
+      if (pending.intent === "login") {
+        const profile = await loadIdentityContext(pending.customer?.email ?? email, "existing_lookup");
+        if (!hasApprovedCounterpartyKyc(profile.customer.approvedKycResult)) {
+          setIdentified(false);
+          setStep("none");
+          resetOtpState();
+          alert(t("kyc.internalBlocked"));
+          return;
+        }
+        if (hasExpiredCounterpartyKyc(profile.customer, brand.backend.otcKycValidityDays)) {
+          setIdentified(false);
+          await prepareCounterpartyKycStep("refresh", profile.customer.email, profile.customer);
+          resetOtpState();
+          alert(t("kyc.refreshRequired"));
+          return;
+        }
+        resetOtpState();
+        return;
+      }
+
+      if (pending.intent === "kyc_refresh") {
+        setIdentified(false);
+        await prepareCounterpartyKycStep("refresh", pending.customer?.email ?? email, pending.customer ?? undefined);
+        resetOtpState();
+        alert(t("kyc.refreshRequired"));
+        return;
+      }
+
       resetOtpState();
       await prepareCounterpartyKycStep("onboarding", email);
     }, t("loading.verifyingCode"));

@@ -99,7 +99,7 @@ export interface OtcApi {
   getNegotiationAssets(input: { country: Country; customer?: Customer | null }): Promise<NegotiationAssetInfo[]>;
   getTransactionalAllowance(input: TransactionalAllowanceInput): Promise<OtcTransactionalAllowance>;
   lookupCustomerByEmail(email: string): Promise<{ exists: boolean; customer: Customer | null }>;
-  sendOtp(email: string, timestamp: number): Promise<{ ok: boolean; codePreview: string }>;
+  sendOtp(email: string, timestamp: number, userRegistered: boolean): Promise<{ ok: boolean; codePreview: string }>;
   verifyOtp(email: string, code: string): Promise<{ ok: boolean }>;
   getDocumentTypes(country: Country): Promise<string[]>;
   submitKyc(payload: KycSubmitPayload): Promise<KycSubmitResult>;
