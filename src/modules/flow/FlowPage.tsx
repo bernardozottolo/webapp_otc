@@ -31,6 +31,7 @@ import { Modal } from "../../shared/ui/Modal";
 import type { BrandConfig } from "../../whitelabel/config";
 import { createOrderLoadingDocument, createOrderStatusMessageDocument } from "../../whitelabel/orderLoadingDocument";
 import { startBiometricSession } from "../customer/diditAdapter";
+import { getExpectedDetails } from "../../shared/api/diditProxy";
 
 type Step = "none" | "email" | "otp" | "kyc" | "bio" | "payment";
 type BiometryReason = "onboarding" | "payment";
@@ -1521,14 +1522,39 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
       });
       setStep("none");
       let verificationOpened = false;
+      let kycName =
+        biometricIdentityOverride?.kycName ?? pendingKyc?.kycName ?? customer?.kycName ?? customer?.fullName ?? null;
+      let birthDate = biometricIdentityOverride?.birthDate ?? pendingKyc?.birthDate ?? customer?.birthDate ?? null;
+      if (!getExpectedDetails(kycName, birthDate) && customer?.documentNumber) {
+        const documentTypeValue = (customer.personType ?? customer.documentType ?? documentType).trim();
+        if (documentTypeValue) {
+          try {
+            const kyc = await otcApiClient.submitKyc({
+              email: targetEmail,
+              documentType: documentTypeValue,
+              documentNumber: targetDocument,
+              locale,
+              country
+            });
+            if (kyc.kycName) {
+              kycName = kyc.kycName;
+            }
+            if (kyc.birthDate) {
+              birthDate = kyc.birthDate;
+            }
+          } catch {
+            // Sem birthDate do KYC: createDiditSession falhará com mensagem clara no adapter.
+          }
+        }
+      }
       const biometric = await startBiometricSession({
         email: targetEmail,
         documentNumber: targetDocument,
         locale,
         reason: biometryReason,
         asset: biometryReason === "payment" ? asset : undefined,
-        kycName: biometricIdentityOverride?.kycName ?? pendingKyc?.kycName ?? customer?.kycName ?? customer?.fullName ?? null,
-        birthDate: biometricIdentityOverride?.birthDate ?? pendingKyc?.birthDate ?? customer?.birthDate ?? null,
+        kycName,
+        birthDate,
         companyDocumentNumber: biometricIdentityOverride?.companyDocumentNumber ?? null,
         lastSuccessfulBiometric: customer?.lastSuccessfulBiometric ?? null,
         onVerificationOpened: () => {
@@ -1592,6 +1618,16 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
           paymentBiometryDocRetryConsumedRef.current = false;
         }
         alert(t("biometry.rejected"));
+        return;
+      }
+
+      if (
+        biometryReason === "payment" &&
+        biometric.approved &&
+        biometric.flowKind === "document_verification"
+      ) {
+        paymentBiometryDocRetryConsumedRef.current = false;
+        void handleBiometric();
         return;
       }
 

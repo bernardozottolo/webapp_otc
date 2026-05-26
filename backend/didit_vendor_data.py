@@ -22,6 +22,17 @@ def resolve_didit_action(*, action: DiditPendingAction, asset: str | None = None
     return f"register_wallet_{normalized_asset}"
 
 
+def resolve_didit_action_for_flow(
+    *,
+    action: DiditPendingAction,
+    verification_type: DiditVerificationType,
+    asset: str | None = None,
+) -> str:
+    if verification_type == "document_verification":
+        return REGISTER_CLIENT_ACTION
+    return resolve_didit_action(action=action, asset=asset)
+
+
 def build_didit_vendor_data(
     document_number: str,
     verification_type: DiditVerificationType,
@@ -32,7 +43,11 @@ def build_didit_vendor_data(
     normalized_document = normalize_document_number(document_number)
     if not normalized_document:
         raise ValueError("document_number is required")
-    action_slug = resolve_didit_action(action=action, asset=asset)
+    action_slug = resolve_didit_action_for_flow(
+        action=action,
+        verification_type=verification_type,
+        asset=asset,
+    )
     return f"{normalized_document}_{verification_type}_{action_slug}"
 
 

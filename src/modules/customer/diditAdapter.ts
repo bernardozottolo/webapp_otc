@@ -87,17 +87,6 @@ export async function startBiometricSession(input: StartDiditBiometricInput): Pr
   const useBiometricValidation = shouldUseBiometricValidation(input.reason, Boolean(approvedDocumentVerification));
   const flowKind = useBiometricValidation ? "biometric_validation" : "document_verification";
 
-  if (input.reason === "payment" && !useBiometricValidation) {
-    return {
-      approved: false,
-      provider: "Didit SDK",
-      flowKind: "biometric_validation",
-      sessionStatus: "Declined",
-      errorCode: "document_verification_missing",
-      decision: null
-    };
-  }
-
   if (!useBiometricValidation && !getExpectedDetails(input.kycName, input.birthDate)) {
     return {
       approved: false,

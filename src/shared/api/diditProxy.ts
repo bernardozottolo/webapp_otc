@@ -420,6 +420,17 @@ export function resolveDiditAction(reason: DiditBiometryReason, asset?: string):
   return `register_wallet_${normalizedAsset}`;
 }
 
+export function resolveDiditActionForFlow(
+  reason: DiditBiometryReason,
+  flowKind: DiditFlowKind,
+  asset?: string
+): string {
+  if (flowKind === "document_verification") {
+    return "register_client";
+  }
+  return resolveDiditAction(reason, asset);
+}
+
 export function buildDiditVendorData(
   documentNumber: string,
   flowKind: DiditFlowKind,
@@ -446,7 +457,7 @@ function resolveVendorData(
   reason: DiditBiometryReason,
   asset?: string
 ) {
-  return buildDiditVendorData(documentNumber, flowKind, resolveDiditAction(reason, asset));
+  return buildDiditVendorData(documentNumber, flowKind, resolveDiditActionForFlow(reason, flowKind, asset));
 }
 
 export function configureDiditProxy(brand: BrandConfig) {
