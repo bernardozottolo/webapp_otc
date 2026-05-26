@@ -640,34 +640,62 @@ export function documentVerificationPassesAgeCheck(
   return Date.now() - completedAtMs <= maxAgeMs;
 }
 
-export async function findApprovedDocumentVerification(documentNumber: string) {
-  const sessions = await listDiditSessions({
-    search: buildDiditSearch(documentNumber, "document_verification", "register_client"),
-    status: "Approved",
-    limit: LIST_APPROVED_DOCUMENT_VERIFICATIONS_LIMIT
-  });
+function isDocumentVerificationVendorData(vendorData: string, normalizedDocument: string) {
+  const normalizedVendor = vendorData.trim().toLowerCase();
+  const docPrefix = `${normalizedDocument}_document_verification`;
+  return normalizedVendor.startsWith(docPrefix);
+}
 
-  const session = sessions.find((item) => isApprovedStatus(item.status));
-  if (!session) {
-    return null;
-  }
-
+async function loadApprovedDocumentVerificationFromSessions(
+  sessions: DiditSessionSummary[],
+  normalizedDocument: string
+) {
   const validityDays = diditProxyConfig.documentVerificationValidityDays;
-  const decision = await getDiditSessionDecision(session.sessionId);
-  const idVerification = decision.idVerifications[0];
-  if (!idVerification?.portraitImage) {
+  for (const session of sessions) {
+    if (!isApprovedStatus(session.status)) {
+      continue;
+    }
+    if (!isDocumentVerificationVendorData(session.vendorData, normalizedDocument)) {
+      continue;
+    }
+    const decision = await getDiditSessionDecision(session.sessionId);
+    const idVerification = decision.idVerifications[0];
+    if (!idVerification?.portraitImage) {
+      continue;
+    }
+    const completedMs = decision.verificationCompletedAtMs ?? session.verificationCompletedAtMs ?? null;
+    if (!documentVerificationPassesAgeCheck(completedMs, validityDays)) {
+      continue;
+    }
+    return { session, decision };
+  }
+  return null;
+}
+
+export async function findApprovedDocumentVerification(documentNumber: string) {
+  const normalizedDocument = normalizeDocument(documentNumber);
+  if (!normalizedDocument) {
     return null;
   }
 
-  const completedMs = decision.verificationCompletedAtMs ?? session.verificationCompletedAtMs ?? null;
-  if (!documentVerificationPassesAgeCheck(completedMs, validityDays)) {
-    return null;
+  const searchTerms = [
+    buildDiditSearch(documentNumber, "document_verification", "register_client"),
+    `${normalizedDocument}_document_verification`
+  ];
+
+  for (const search of searchTerms) {
+    const sessions = await listDiditSessions({
+      search,
+      status: "Approved",
+      limit: LIST_APPROVED_DOCUMENT_VERIFICATIONS_LIMIT
+    });
+    const match = await loadApprovedDocumentVerificationFromSessions(sessions, normalizedDocument);
+    if (match) {
+      return match;
+    }
   }
 
-  return {
-    session,
-    decision
-  };
+  return null;
 }
 
 export function shouldUseBiometricValidation(_reason: DiditBiometryReason, hasApprovedDocumentVerification: boolean) {

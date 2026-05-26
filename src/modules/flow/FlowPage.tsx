@@ -1552,7 +1552,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
           setBlockingUi(null);
           return;
         }
-        if (biometric.errorCode === "document_verification_missing" || biometric.errorCode === "portrait_missing") {
+        if (biometric.errorCode === "portrait_missing") {
           if (biometryReason === "payment") {
             if (!paymentBiometryDocRetryConsumedRef.current) {
               paymentBiometryDocRetryConsumedRef.current = true;
@@ -1560,9 +1560,19 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
               return;
             }
             paymentBiometryDocRetryConsumedRef.current = false;
-            setStep("bio");
+            setBlockingUi(null);
+            setStep("none");
+            alert(t("biometry.documentVerificationMissing"));
             return;
           }
+          setBlockingUi(null);
+          alert(t("biometry.documentVerificationMissing"));
+          return;
+        }
+        if (biometric.errorCode === "document_verification_missing") {
+          paymentBiometryDocRetryConsumedRef.current = false;
+          setBlockingUi(null);
+          setStep("none");
           alert(t("biometry.documentVerificationMissing"));
           return;
         }
