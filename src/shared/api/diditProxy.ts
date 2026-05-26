@@ -422,12 +422,9 @@ export function resolveDiditAction(reason: DiditBiometryReason, asset?: string):
 
 export function resolveDiditActionForFlow(
   reason: DiditBiometryReason,
-  flowKind: DiditFlowKind,
+  _flowKind: DiditFlowKind,
   asset?: string
 ): string {
-  if (flowKind === "document_verification") {
-    return "register_client";
-  }
   return resolveDiditAction(reason, asset);
 }
 
@@ -590,10 +587,10 @@ export async function createBiometricSessionFromDocument(input: {
     },
     body: JSON.stringify({
       language: mapLocaleToDiditLanguage(input.locale),
-      document_verification_vendor_data: resolveVendorData(
+      document_verification_vendor_data: buildDiditSearch(
         input.documentNumber,
         "document_verification",
-        "onboarding"
+        "register_client"
       ),
       biometric_validation_vendor_data: resolveVendorData(
         input.documentNumber,

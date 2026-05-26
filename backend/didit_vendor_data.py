@@ -28,8 +28,7 @@ def resolve_didit_action_for_flow(
     verification_type: DiditVerificationType,
     asset: str | None = None,
 ) -> str:
-    if verification_type == "document_verification":
-        return REGISTER_CLIENT_ACTION
+    del verification_type
     return resolve_didit_action(action=action, asset=asset)
 
 
