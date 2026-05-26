@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { useEffect } from "react";
 import { FlowPage } from "../modules/flow/FlowPage";
+import { LegalPageView } from "../modules/legal/LegalPageView";
 import { OrderStatusPage } from "../modules/order/OrderStatusPage";
 import type { BrandConfig } from "../whitelabel/config";
 import { applyRuntimeBrandFavicon, applyRuntimeBrandTheme } from "../whitelabel/runtimeConfig";
@@ -41,6 +42,7 @@ export function App({ brand }: AppProps) {
         }
       />
       <Route path="/order/:id" element={<OrderStatusPage brand={brand} />} />
+      <Route path="/:pageSlug" element={<LegalPageView />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

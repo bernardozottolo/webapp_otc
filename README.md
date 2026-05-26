@@ -117,6 +117,15 @@ Com isso o Vite encaminha **`/otc/*`**, **`/webhook/*`**, **`/api/*`** e **`/hea
 3. **Vite :5173**: confirme `.env.development` com `VITE_APP_BACKEND_ORIGIN` e bases reais vazias no runtime-config.
 4. Se qualquer request de dados ainda mostrar `https://<dominio-externo>` na Rede, ainda existe bypass de configuracao no frontend.
 
+## Páginas HTML estáticas (termos, políticas, etc.)
+Cada instalação pode publicar páginas HTML próprias em `public/legal-pages/`.
+- Coloque arquivos como `termos_de_uso.html` nessa pasta (o repositório base mantém a pasta vazia).
+- O nome do arquivo vira a rota **sem** `.html`: `termos_de_uso.html` → `/termos_de_uso`.
+- Use apenas letras minúsculas, números e underscore no nome (`a-z`, `0-9`, `_`).
+- No footer (`footer.legalInfoRight` do runtime-config), link direto: `href="/termos_de_uso"`.
+- Cada HTML pode ser um documento completo (`<!DOCTYPE html>`, `<head>`, estilos próprios); a app exibe o conteúdo em tela cheia.
+Após adicionar ou remover HTML em desenvolvimento, o Vite recarrega automaticamente a lista de rotas disponíveis.
+
 ## Cores e tema
 
 As cores ficam no bloco `theme.cssVariables` do JSON local. As chaves seguem os nomes das variaveis CSS globais do `:root` em `src/app/styles.css`.
