@@ -53,6 +53,8 @@ export interface StartDiditBiometricInput {
   documentNumber: string;
   locale: Locale;
   reason: DiditBiometryReason;
+  /** Required when reason is payment (register_wallet_{ASSET}). */
+  asset?: string;
   kycName?: string | null;
   birthDate?: string | null;
   companyDocumentNumber?: string | null;

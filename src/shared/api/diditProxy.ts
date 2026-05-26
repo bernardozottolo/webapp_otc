@@ -93,10 +93,14 @@ interface DiditDecisionResponse {
   }>;
 }
 
+export type DiditPendingAction = "onboarding" | "wallet_save";
+
 export interface CreateDiditSessionInput {
   flowKind: DiditFlowKind;
   documentNumber: string;
   locale: Locale;
+  reason: DiditBiometryReason;
+  asset?: string;
   email?: string;
   kycName?: string | null;
   birthDate?: string | null;
@@ -383,10 +387,44 @@ function unwrapDiditDecisionPayload(payload: unknown): DiditDecisionResponse {
   return record as DiditDecisionResponse;
 }
 
-function resolveVendorData(documentNumber: string, flowKind: DiditFlowKind) {
+export function resolveDiditAction(reason: DiditBiometryReason, asset?: string): string {
+  if (reason === "onboarding") {
+    return "register_client";
+  }
+  const normalizedAsset = (asset ?? "").trim().toUpperCase();
+  if (!normalizedAsset) {
+    throw new Error("asset is required for payment Didit biometry");
+  }
+  return `register_wallet_${normalizedAsset}`;
+}
+
+export function buildDiditVendorData(
+  documentNumber: string,
+  flowKind: DiditFlowKind,
+  action: string
+): string {
   const normalized = normalizeDocument(documentNumber);
-  const suffix = flowKind === "document_verification" ? "document_verification" : "biometric_validation";
-  return `${normalized}_${suffix}`;
+  if (!normalized) {
+    throw new Error("documentNumber is required");
+  }
+  return `${normalized}_${flowKind}_${action}`;
+}
+
+export function buildDiditSearch(
+  documentNumber: string,
+  flowKind: DiditFlowKind,
+  action: string
+): string {
+  return buildDiditVendorData(documentNumber, flowKind, action);
+}
+
+function resolveVendorData(
+  documentNumber: string,
+  flowKind: DiditFlowKind,
+  reason: DiditBiometryReason,
+  asset?: string
+) {
+  return buildDiditVendorData(documentNumber, flowKind, resolveDiditAction(reason, asset));
 }
 
 export function configureDiditProxy(brand: BrandConfig) {
@@ -409,10 +447,6 @@ export function getDiditSdkMode() {
   return diditProxyConfig.sdkMode;
 }
 
-export function buildDiditVendorData(documentNumber: string, flowKind: DiditFlowKind) {
-  return resolveVendorData(documentNumber, flowKind);
-}
-
 export async function createDiditSession(input: CreateDiditSessionInput): Promise<CreateDiditSessionResult> {
   const response = await fetch(buildDiditUrl(diditProxyConfig.apiBaseUrl, "/webhook/didit/session"), {
     method: "POST",
@@ -423,7 +457,7 @@ export async function createDiditSession(input: CreateDiditSessionInput): Promis
     body: JSON.stringify({
       flow_kind: input.flowKind,
       language: mapLocaleToDiditLanguage(input.locale),
-      vendor_data: resolveVendorData(input.documentNumber, input.flowKind),
+      vendor_data: resolveVendorData(input.documentNumber, input.flowKind, input.reason, input.asset),
       expected_details: getExpectedDetails(input.kycName, input.birthDate),
       metadata: {
         email: input.email,
@@ -457,12 +491,12 @@ export async function createDiditSession(input: CreateDiditSessionInput): Promis
 }
 
 export async function listDiditSessions(options: {
-  vendorData: string;
+  search: string;
   status?: DiditSessionStatus;
   limit?: number;
 }): Promise<DiditSessionSummary[]> {
   const url = buildDiditUrlForUrlConstructor(diditProxyConfig.apiBaseUrl, "/webhook/didit/sessions");
-  url.searchParams.set("vendor_data", options.vendorData);
+  url.searchParams.set("search", options.search);
   if (options.status) {
     url.searchParams.set("status", options.status.trim());
   }
@@ -498,6 +532,8 @@ export async function getDiditSessionDecision(sessionId: string): Promise<DiditD
 export async function createBiometricSessionFromDocument(input: {
   documentNumber: string;
   locale: Locale;
+  reason: DiditBiometryReason;
+  asset?: string;
   email?: string;
   kycName?: string | null;
   birthDate?: string | null;
@@ -512,8 +548,17 @@ export async function createBiometricSessionFromDocument(input: {
     },
     body: JSON.stringify({
       language: mapLocaleToDiditLanguage(input.locale),
-      document_verification_vendor_data: resolveVendorData(input.documentNumber, "document_verification"),
-      biometric_validation_vendor_data: resolveVendorData(input.documentNumber, "biometric_validation"),
+      document_verification_vendor_data: resolveVendorData(
+        input.documentNumber,
+        "document_verification",
+        "onboarding"
+      ),
+      biometric_validation_vendor_data: resolveVendorData(
+        input.documentNumber,
+        "biometric_validation",
+        input.reason,
+        input.asset
+      ),
       expected_details: getExpectedDetails(input.kycName, input.birthDate),
       metadata: {
         email: input.email,
@@ -566,7 +611,7 @@ export function documentVerificationPassesAgeCheck(
 
 export async function findApprovedDocumentVerification(documentNumber: string) {
   const sessions = await listDiditSessions({
-    vendorData: resolveVendorData(documentNumber, "document_verification"),
+    search: buildDiditSearch(documentNumber, "document_verification", "register_client"),
     status: "Approved",
     limit: LIST_APPROVED_DOCUMENT_VERIFICATIONS_LIMIT
   });

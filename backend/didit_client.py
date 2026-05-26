@@ -129,12 +129,12 @@ class DiditClient:
     async def list_sessions(
         self,
         *,
-        vendor_data: str,
+        search: str,
         status: str | None = None,
         limit: int | None = None,
     ) -> dict[str, Any]:
         params: dict[str, str] = {
-            "vendor_data": vendor_data,
+            "search": search,
         }
         if status:
             params["status"] = status

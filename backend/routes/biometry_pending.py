@@ -67,9 +67,15 @@ async def check_biometry_pending(
     action: Literal["onboarding", "wallet_save"],
     email: str,
     asset: str | None = None,
+    document_number: str | None = None,
     service: BiometryPendingService = Depends(_service_dependency),
 ) -> dict[str, Any]:
-    return await service.check_blocked(action=action, email=email, asset=asset)
+    return await service.check_blocked(
+        action=action,
+        email=email,
+        asset=asset,
+        document_number=document_number,
+    )
 
 
 @router.post("/register")

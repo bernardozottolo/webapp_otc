@@ -10,6 +10,7 @@ from redis.asyncio import Redis
 from ..clients_database_client import ClientsDatabaseUpstreamClient
 from ..config import BiometryReviewSettings, Settings, _load_runtime_json, _repo_root
 from ..didit_client import DiditClient
+from ..didit_vendor_data import build_didit_search
 from .email_notify import send_biometry_notification_email
 from .executors import execute_onboarding, execute_wallet_save
 from .store import BiometryPendingAction, BiometryPendingRecord, BiometryPendingStore
@@ -17,6 +18,7 @@ from .store import BiometryPendingAction, BiometryPendingRecord, BiometryPending
 logger = logging.getLogger("didit_proxy.biometry_pending.service")
 
 WAIT_STATUSES = frozenset({"In Review", "Pending", "In Progress"})
+DIDIT_WAIT_STATUSES = ("In Review", "Pending", "In Progress")
 APPROVED_STATUSES = frozenset({"Approved"})
 DECLINED_STATUSES = frozenset({"Declined", "Abandoned", "Expired", "Kyc Expired"})
 
@@ -60,31 +62,81 @@ class BiometryPendingService:
     def review_settings(self) -> BiometryReviewSettings:
         return self._review
 
+    def _blocked_response(
+        self,
+        *,
+        action: BiometryPendingAction,
+        session_id: str | None = None,
+    ) -> dict[str, Any]:
+        message = (
+            self._review.duplicate_onboarding_message
+            if action == "onboarding"
+            else self._review.duplicate_wallet_message
+        )
+        payload: dict[str, Any] = {"blocked": True, "message": message}
+        if session_id:
+            payload["sessionId"] = session_id
+        return payload
+
+    async def _has_didit_waiting_session(
+        self,
+        *,
+        document_number: str,
+        action: BiometryPendingAction,
+        asset: str | None = None,
+    ) -> str | None:
+        normalized_asset = asset.strip().upper() if asset else None
+        search = build_didit_search(
+            document_number,
+            "biometric_validation",
+            action=action,
+            asset=normalized_asset,
+        )
+        for wait_status in DIDIT_WAIT_STATUSES:
+            try:
+                payload = await self._didit.list_sessions(search=search, status=wait_status, limit=1)
+            except Exception as exc:
+                logger.warning("Didit list_sessions failed for search=%s status=%s: %s", search, wait_status, exc)
+                continue
+            results = payload.get("results", [])
+            if not isinstance(results, list) or not results:
+                continue
+            first = results[0]
+            if not isinstance(first, dict):
+                continue
+            session_id = first.get("session_id") or first.get("sessionId")
+            if isinstance(session_id, str) and session_id.strip():
+                return session_id.strip()
+        return None
+
     async def check_blocked(
         self,
         *,
         action: BiometryPendingAction,
         email: str,
         asset: str | None = None,
+        document_number: str | None = None,
     ) -> dict[str, Any]:
         normalized_email = _normalize_email(email)
+        normalized_asset = asset.strip().upper() if asset else None
         existing_session_id = await self._store.get_dedup_session_id(
             action=action,
             email=normalized_email,
-            asset=asset.strip().upper() if asset else None,
+            asset=normalized_asset,
         )
-        if not existing_session_id:
-            return {"blocked": False}
-        message = (
-            self._review.duplicate_onboarding_message
-            if action == "onboarding"
-            else self._review.duplicate_wallet_message
-        )
-        return {
-            "blocked": True,
-            "message": message,
-            "sessionId": existing_session_id,
-        }
+        if existing_session_id:
+            return self._blocked_response(action=action, session_id=existing_session_id)
+
+        if document_number and document_number.strip():
+            didit_session_id = await self._has_didit_waiting_session(
+                document_number=document_number,
+                action=action,
+                asset=normalized_asset,
+            )
+            if didit_session_id:
+                return self._blocked_response(action=action, session_id=didit_session_id)
+
+        return {"blocked": False}
 
     async def register(
         self,

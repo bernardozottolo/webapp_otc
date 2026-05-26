@@ -41,7 +41,8 @@ async function parseJsonResponse<T>(response: Response): Promise<T> {
 export async function checkBiometryPending(
   action: BiometryPendingAction,
   email: string,
-  asset?: string
+  asset?: string,
+  documentNumber?: string
 ): Promise<BiometryPendingCheckResult> {
   const params = new URLSearchParams({
     action,
@@ -49,6 +50,9 @@ export async function checkBiometryPending(
   });
   if (asset?.trim()) {
     params.set("asset", asset.trim().toUpperCase());
+  }
+  if (documentNumber?.trim()) {
+    params.set("document_number", documentNumber.trim());
   }
   const response = await fetch(`/webhook/biometry-pending/check?${params.toString()}`, {
     method: "GET",

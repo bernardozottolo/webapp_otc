@@ -93,6 +93,8 @@ export async function startBiometricSession(input: StartDiditBiometricInput): Pr
         ? await createBiometricSessionFromDocument({
             documentNumber: input.documentNumber,
             locale: input.locale,
+            reason: input.reason,
+            asset: input.asset,
             email: input.email,
             kycName: input.kycName,
             birthDate: input.birthDate,
@@ -108,6 +110,8 @@ export async function startBiometricSession(input: StartDiditBiometricInput): Pr
           flowKind,
           documentNumber: input.documentNumber,
           locale: input.locale,
+          reason: input.reason,
+          asset: input.asset,
           email: input.email,
           kycName: input.kycName,
           birthDate: input.birthDate,

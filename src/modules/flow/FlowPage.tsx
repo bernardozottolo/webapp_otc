@@ -1317,7 +1317,12 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
     setPaymentSlotError(null);
     if (tradeSide === "buy") {
       try {
-        const pendingCheck = await checkBiometryPending("wallet_save", customer.email, asset);
+        const pendingCheck = await checkBiometryPending(
+          "wallet_save",
+          customer.email,
+          asset,
+          customer.documentNumber ?? undefined
+        );
         if (pendingCheck.blocked) {
           openBiometryReviewModal(pendingCheck.message ?? brand.biometryReview.duplicateWalletMessage);
           return;
@@ -1521,6 +1526,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
         documentNumber: targetDocument,
         locale,
         reason: biometryReason,
+        asset: biometryReason === "payment" ? asset : undefined,
         kycName: biometricIdentityOverride?.kycName ?? pendingKyc?.kycName ?? customer?.kycName ?? customer?.fullName ?? null,
         birthDate: biometricIdentityOverride?.birthDate ?? pendingKyc?.birthDate ?? customer?.birthDate ?? null,
         companyDocumentNumber: biometricIdentityOverride?.companyDocumentNumber ?? null,
@@ -1699,7 +1705,12 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
         };
         if (!sessionBiometryDone) {
           try {
-            const pendingCheck = await checkBiometryPending("wallet_save", customer.email, asset);
+            const pendingCheck = await checkBiometryPending(
+              "wallet_save",
+              customer.email,
+              asset,
+              customerDocument
+            );
             if (pendingCheck.blocked) {
               openBiometryReviewModal(pendingCheck.message ?? brand.biometryReview.duplicateWalletMessage);
               return;
@@ -1749,6 +1760,20 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
         bankKeyValue
       };
       if (!sessionBiometryDone) {
+        try {
+          const pendingCheck = await checkBiometryPending(
+            "wallet_save",
+            customer.email,
+            asset,
+            customerDocument
+          );
+          if (pendingCheck.blocked) {
+            openBiometryReviewModal(pendingCheck.message ?? brand.biometryReview.duplicateWalletMessage);
+            return;
+          }
+        } catch {
+          // Redis/API indisponível: segue para biometria.
+        }
         const pending = { payload };
         pendingPaymentSaveRef.current = pending;
         setPendingPaymentSave(pending);

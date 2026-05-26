@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from ..audit.audit_logger import write_audit_event
 from ..config import Settings
 from ..didit_client import DiditClient
+from ..didit_vendor_data import is_biometric_vendor_data, is_document_vendor_data
 from ..security.client_ip import get_client_ip
 
 router = APIRouter(prefix="/webhook/didit", tags=["didit"])
@@ -102,14 +103,6 @@ def _biometric_rate_limiter_dependency(request: Request) -> Any:
     return limiter
 
 
-def _is_biometric_vendor_data(vendor_data: str) -> bool:
-    return vendor_data.strip().endswith("_biometric_validation")
-
-
-def _is_document_vendor_data(vendor_data: str) -> bool:
-    return vendor_data.strip().endswith("_document_verification")
-
-
 def _enforce_biometric_rate_limit(request: Request, limiter: Any) -> None:
     decision = limiter.consume(get_client_ip(request))
     if decision.allowed:
@@ -143,10 +136,10 @@ def _resolve_waiting_url(metadata: dict[str, Any], settings: Settings) -> dict[s
 
 
 def _resolve_workflow_id(vendor_data: str, settings: Settings) -> str:
-    if _is_biometric_vendor_data(vendor_data) and settings.didit_biometric_validation_workflow_id:
+    if is_biometric_vendor_data(vendor_data) and settings.didit_biometric_validation_workflow_id:
         return settings.didit_biometric_validation_workflow_id
 
-    if _is_document_vendor_data(vendor_data) and settings.didit_document_verification_workflow_id:
+    if is_document_vendor_data(vendor_data) and settings.didit_document_verification_workflow_id:
         return settings.didit_document_verification_workflow_id
 
     raise HTTPException(status_code=503, detail="Didit workflow ID not configured")
@@ -273,7 +266,7 @@ async def create_session(
     biometric_rate_limiter: Any = Depends(_biometric_rate_limiter_dependency),
     settings: Settings = Depends(_settings_dependency),
 ) -> dict[str, Any]:
-    if _is_biometric_vendor_data(payload.vendor_data):
+    if is_biometric_vendor_data(payload.vendor_data):
         _enforce_biometric_rate_limit(request, biometric_rate_limiter)
     resolved_payload = payload.model_dump(exclude_none=True)
     resolved_payload["workflow_id"] = _resolve_workflow_id(payload.vendor_data, settings)
@@ -306,14 +299,14 @@ async def create_session(
 
 @router.get("/sessions")
 async def list_sessions(
-    vendor_data: str,
+    search: str,
     status: str | None = None,
     limit: int | None = None,
     didit_client: DiditClient = Depends(_didit_client_dependency),
 ) -> dict[str, Any]:
     try:
         payload = await didit_client.list_sessions(
-            vendor_data=vendor_data,
+            search=search.strip(),
             status=status.strip() if status else None,
             limit=limit,
         )
@@ -364,7 +357,7 @@ async def create_biometric_session_from_document(
 ) -> dict[str, Any]:
     try:
         sessions_payload = await didit_client.list_sessions(
-            vendor_data=payload.document_verification_vendor_data,
+            search=payload.document_verification_vendor_data,
             status="Approved",
             limit=1,
         )

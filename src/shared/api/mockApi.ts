@@ -138,18 +138,28 @@ export async function submitKyc(payload: {
   };
 }
 
+function mockDiditVendorData(input: StartDiditBiometricInput, flowKind: "document_verification" | "biometric_validation") {
+  const normalizedDocument = input.documentNumber.replace(/\D/g, "");
+  const action =
+    input.reason === "payment"
+      ? `register_wallet_${(input.asset ?? "ASSET").trim().toUpperCase()}`
+      : "register_client";
+  return `${normalizedDocument}_${flowKind}_${action}`;
+}
+
 export async function runBiometric(input: StartDiditBiometricInput): Promise<DiditBiometricResult> {
   await wait(900);
+  const flowKind = input.reason === "payment" ? "biometric_validation" : "document_verification";
   return {
     approved: true,
     provider: "Didit (mock)",
-    flowKind: input.reason === "payment" ? "biometric_validation" : "document_verification",
+    flowKind,
     sessionId: `mock-${input.reason}-${Date.now()}`,
     sessionStatus: "Approved",
     decision: {
       sessionId: `mock-${input.reason}`,
       status: "Approved",
-      vendorData: `${input.documentNumber}_${input.reason === "payment" ? "biometric_validation" : "document_verification"}`,
+      vendorData: mockDiditVendorData(input, flowKind),
       idVerifications: [
         {
           status: "Approved",
