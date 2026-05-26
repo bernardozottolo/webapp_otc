@@ -67,6 +67,26 @@ def _expected_details_from_id_verification(id_verification: dict[str, Any]) -> d
     return None
 
 
+def _normalize_expected_details(value: dict[str, Any] | None) -> dict[str, str] | None:
+    if not isinstance(value, dict):
+        return None
+    first_name = str(value.get("first_name", "")).strip()
+    date_of_birth = str(value.get("date_of_birth", "")).strip()
+    if not first_name or not date_of_birth:
+        return None
+    return {"first_name": first_name, "date_of_birth": date_of_birth}
+
+
+def _require_document_expected_details(expected_details: dict[str, Any] | None) -> dict[str, str]:
+    normalized = _normalize_expected_details(expected_details)
+    if normalized is None:
+        raise HTTPException(
+            status_code=400,
+            detail="expected_details with first_name and date_of_birth is required for document verification.",
+        )
+    return normalized
+
+
 def _merge_expected_details(
     payload_details: dict[str, Any] | None, decision: dict[str, Any]
 ) -> dict[str, str] | None:
@@ -268,11 +288,22 @@ async def create_session(
 ) -> dict[str, Any]:
     if is_biometric_vendor_data(payload.vendor_data):
         _enforce_biometric_rate_limit(request, biometric_rate_limiter)
+
+    is_document_session = is_document_vendor_data(payload.vendor_data) or (
+        (payload.flow_kind or "").strip() == "document_verification"
+    )
+    if is_document_session:
+        document_expected_details = _require_document_expected_details(payload.expected_details)
+    else:
+        document_expected_details = None
+
     resolved_payload = payload.model_dump(exclude_none=True)
     resolved_payload["workflow_id"] = _resolve_workflow_id(payload.vendor_data, settings)
     resolved_payload["callback"] = _resolve_callback(settings)
     resolved_payload["metadata"] = _resolve_waiting_url(dict(payload.metadata), settings)
-    
+    if document_expected_details is not None:
+        resolved_payload["expected_details"] = document_expected_details
+
     try:
         session = await didit_client.create_session(resolved_payload)
     except httpx.HTTPStatusError as error:

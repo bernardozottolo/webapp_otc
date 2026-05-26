@@ -6,7 +6,8 @@ import {
   findApprovedDocumentVerification,
   getDiditSdkMode,
   getDiditSessionDecision,
-  shouldUseBiometricValidation,
+  getExpectedDetails,
+   shouldUseBiometricValidation,
   useMockDiditProxy
 } from "../../shared/api/diditProxy";
 import { sendFrontendTelemetryEvent } from "../../shared/api/telemetry";
@@ -86,6 +87,17 @@ export async function startBiometricSession(input: StartDiditBiometricInput): Pr
   const useBiometricValidation = shouldUseBiometricValidation(input.reason, Boolean(approvedDocumentVerification));
   const flowKind = useBiometricValidation ? "biometric_validation" : "document_verification";
 
+  if (!useBiometricValidation && !getExpectedDetails(input.kycName, input.birthDate)) {
+    return {
+      approved: false,
+      provider: "Didit SDK",
+      flowKind,
+      sessionStatus: "Declined",
+      errorCode: "document_verification_missing",
+      decision: null
+    };
+  }
+
   let session;
   try {
     session = useBiometricValidation
@@ -119,13 +131,24 @@ export async function startBiometricSession(input: StartDiditBiometricInput): Pr
           lastSuccessfulBiometric: input.lastSuccessfulBiometric
         });
   } catch (error) {
-    if (error instanceof Error && (error as Error & { code?: string }).code === "portrait_missing") {
+    const errorCode = error instanceof Error ? (error as Error & { code?: string }).code : undefined;
+    if (errorCode === "portrait_missing") {
       return {
         approved: false,
         provider: "Didit SDK",
         flowKind,
         sessionStatus: "Declined",
         errorCode: "portrait_missing",
+        decision: null
+      };
+    }
+    if (errorCode === "expected_details_required") {
+      return {
+        approved: false,
+        provider: "Didit SDK",
+        flowKind,
+        sessionStatus: "Declined",
+        errorCode: "document_verification_missing",
         decision: null
       };
     }

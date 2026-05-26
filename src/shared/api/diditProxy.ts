@@ -115,7 +115,15 @@ export interface CreateDiditSessionResult {
   status: DiditSessionStatus;
 }
 
-function getExpectedDetails(name: string | null | undefined, birthDate: string | null | undefined) {
+export type DiditExpectedDetails = {
+  first_name: string;
+  date_of_birth: string;
+};
+
+export function getExpectedDetails(
+  name: string | null | undefined,
+  birthDate: string | null | undefined
+): DiditExpectedDetails | undefined {
   const firstName = (name ?? "").trim().split(/\s+/).filter(Boolean)[0] ?? "";
   const normalizedBirthDate = (birthDate ?? "").trim();
   if (!firstName || !normalizedBirthDate) {
@@ -125,6 +133,20 @@ function getExpectedDetails(name: string | null | undefined, birthDate: string |
     first_name: firstName,
     date_of_birth: normalizedBirthDate
   };
+}
+
+export function requireExpectedDetails(
+  name: string | null | undefined,
+  birthDate: string | null | undefined
+): DiditExpectedDetails {
+  const details = getExpectedDetails(name, birthDate);
+  if (!details) {
+    throw Object.assign(
+      new Error("first_name and date_of_birth are required for document verification."),
+      { code: "expected_details_required" as const }
+    );
+  }
+  return details;
 }
 
 let diditProxyConfig: DiditProxyConfig = {
@@ -448,25 +470,34 @@ export function getDiditSdkMode() {
 }
 
 export async function createDiditSession(input: CreateDiditSessionInput): Promise<CreateDiditSessionResult> {
+  const expectedDetails =
+    input.flowKind === "document_verification"
+      ? requireExpectedDetails(input.kycName, input.birthDate)
+      : getExpectedDetails(input.kycName, input.birthDate);
+
+  const sessionBody: Record<string, unknown> = {
+    flow_kind: input.flowKind,
+    language: mapLocaleToDiditLanguage(input.locale),
+    vendor_data: resolveVendorData(input.documentNumber, input.flowKind, input.reason, input.asset),
+    metadata: {
+      email: input.email,
+      name: input.kycName,
+      document: normalizeDocument(input.documentNumber),
+      cnpj: input.companyDocumentNumber ? normalizeDocument(input.companyDocumentNumber) : undefined,
+      last_successful_biometric: input.lastSuccessfulBiometric
+    }
+  };
+  if (expectedDetails) {
+    sessionBody.expected_details = expectedDetails;
+  }
+
   const response = await fetch(buildDiditUrl(diditProxyConfig.apiBaseUrl, "/webhook/didit/session"), {
     method: "POST",
     headers: {
       Accept: "application/json",
       "Content-Type": "application/json"
     },
-    body: JSON.stringify({
-      flow_kind: input.flowKind,
-      language: mapLocaleToDiditLanguage(input.locale),
-      vendor_data: resolveVendorData(input.documentNumber, input.flowKind, input.reason, input.asset),
-      expected_details: getExpectedDetails(input.kycName, input.birthDate),
-      metadata: {
-        email: input.email,
-        name: input.kycName,
-        document: normalizeDocument(input.documentNumber),
-        cnpj: input.companyDocumentNumber ? normalizeDocument(input.companyDocumentNumber) : undefined,
-        last_successful_biometric: input.lastSuccessfulBiometric
-      }
-    })
+    body: JSON.stringify(sessionBody)
   });
 
   const payload = await parseProxyResponse<DiditSessionResponse>(response);
