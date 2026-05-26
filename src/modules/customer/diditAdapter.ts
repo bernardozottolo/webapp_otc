@@ -11,7 +11,12 @@ import {
   useMockDiditProxy
 } from "../../shared/api/diditProxy";
 import { sendFrontendTelemetryEvent } from "../../shared/api/telemetry";
-import type { DiditBiometricResult, DiditSessionStatus, StartDiditBiometricInput } from "../../shared/types";
+import type {
+  DiditBiometricResult,
+  DiditFlowKind,
+  DiditSessionStatus,
+  StartDiditBiometricInput
+} from "../../shared/types";
 
 interface DiditSdkCompletionResult {
   type: "completed" | "cancelled" | "failed";
@@ -84,10 +89,11 @@ export async function startBiometricSession(input: StartDiditBiometricInput): Pr
   }
 
   const approvedDocumentVerification = await findApprovedDocumentVerification(input.documentNumber);
-  const useBiometricValidation = shouldUseBiometricValidation(input.reason, Boolean(approvedDocumentVerification));
-  const flowKind = useBiometricValidation ? "biometric_validation" : "document_verification";
+  const portraitImage = approvedDocumentVerification?.decision.idVerifications[0]?.portraitImage ?? null;
+  const useFaceMatchOnly = shouldUseBiometricValidation(input.reason, Boolean(portraitImage));
+  const flowKind: DiditFlowKind = useFaceMatchOnly ? "biometric_validation" : "document_verification";
 
-  if (!useBiometricValidation && !getExpectedDetails(input.kycName, input.birthDate)) {
+  if (!useFaceMatchOnly && !getExpectedDetails(input.kycName, input.birthDate)) {
     return {
       approved: false,
       provider: "Didit SDK",
@@ -98,50 +104,28 @@ export async function startBiometricSession(input: StartDiditBiometricInput): Pr
     };
   }
 
+  const sessionInput = {
+    documentNumber: input.documentNumber,
+    locale: input.locale,
+    reason: input.reason,
+    asset: input.asset,
+    email: input.email,
+    kycName: input.kycName,
+    birthDate: input.birthDate,
+    companyDocumentNumber: input.companyDocumentNumber,
+    lastSuccessfulBiometric: input.lastSuccessfulBiometric
+  };
+
   let session;
   try {
-    session = useBiometricValidation
-      ? approvedDocumentVerification?.decision.idVerifications[0]?.portraitImage
-        ? await createBiometricSessionFromDocument({
-            documentNumber: input.documentNumber,
-            locale: input.locale,
-            reason: input.reason,
-            asset: input.asset,
-            email: input.email,
-            kycName: input.kycName,
-            birthDate: input.birthDate,
-            companyDocumentNumber: input.companyDocumentNumber,
-            lastSuccessfulBiometric: input.lastSuccessfulBiometric
-          })
-        : (() => {
-            throw Object.assign(new Error("Portrait image missing for biometric validation."), {
-              code: "portrait_missing"
-            });
-          })()
+    session = useFaceMatchOnly
+      ? await createBiometricSessionFromDocument(sessionInput)
       : await createDiditSession({
-          flowKind,
-          documentNumber: input.documentNumber,
-          locale: input.locale,
-          reason: input.reason,
-          asset: input.asset,
-          email: input.email,
-          kycName: input.kycName,
-          birthDate: input.birthDate,
-          companyDocumentNumber: input.companyDocumentNumber,
-          lastSuccessfulBiometric: input.lastSuccessfulBiometric
+          flowKind: "document_verification",
+          ...sessionInput
         });
   } catch (error) {
     const errorCode = error instanceof Error ? (error as Error & { code?: string }).code : undefined;
-    if (errorCode === "portrait_missing") {
-      return {
-        approved: false,
-        provider: "Didit SDK",
-        flowKind,
-        sessionStatus: "Declined",
-        errorCode: "portrait_missing",
-        decision: null
-      };
-    }
     if (errorCode === "expected_details_required") {
       return {
         approved: false,
@@ -166,7 +150,7 @@ export async function startBiometricSession(input: StartDiditBiometricInput): Pr
     payload: {
       reason: input.reason,
       flow_kind: flowKind,
-      used_approved_document_verification: Boolean(approvedDocumentVerification),
+      used_approved_document_verification: useFaceMatchOnly,
       session,
       approved_document_verification: approvedDocumentVerification
     }

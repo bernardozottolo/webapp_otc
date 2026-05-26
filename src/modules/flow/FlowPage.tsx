@@ -1525,6 +1525,28 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
       let kycName =
         biometricIdentityOverride?.kycName ?? pendingKyc?.kycName ?? customer?.kycName ?? customer?.fullName ?? null;
       let birthDate = biometricIdentityOverride?.birthDate ?? pendingKyc?.birthDate ?? customer?.birthDate ?? null;
+      const pendingAction = biometryReason === "onboarding" ? "onboarding" : "wallet_save";
+      try {
+        const pendingCheck = await checkBiometryPending(
+          pendingAction,
+          targetEmail,
+          biometryReason === "payment" ? asset : undefined,
+          targetDocument
+        );
+        if (pendingCheck.blocked) {
+          setBlockingUi(null);
+          openBiometryReviewModal(
+            pendingCheck.message ??
+              (pendingAction === "onboarding"
+                ? brand.biometryReview.duplicateOnboardingMessage
+                : brand.biometryReview.duplicateWalletMessage)
+          );
+          return;
+        }
+      } catch {
+        // Redis/Didit indisponível: segue para abrir sessão.
+      }
+
       if (!getExpectedDetails(kycName, birthDate) && customer?.documentNumber) {
         const documentTypeValue = (customer.personType ?? customer.documentType ?? documentType).trim();
         if (documentTypeValue) {
@@ -1578,24 +1600,10 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
           setBlockingUi(null);
           return;
         }
-        if (biometric.errorCode === "portrait_missing") {
-          if (biometryReason === "payment") {
-            if (!paymentBiometryDocRetryConsumedRef.current) {
-              paymentBiometryDocRetryConsumedRef.current = true;
-              void handleBiometric();
-              return;
-            }
-            paymentBiometryDocRetryConsumedRef.current = false;
-            setBlockingUi(null);
-            setStep("none");
-            alert(t("biometry.documentVerificationMissing"));
-            return;
-          }
-          setBlockingUi(null);
-          alert(t("biometry.documentVerificationMissing"));
-          return;
-        }
-        if (biometric.errorCode === "document_verification_missing") {
+        if (
+          biometric.errorCode === "portrait_missing" ||
+          biometric.errorCode === "document_verification_missing"
+        ) {
           paymentBiometryDocRetryConsumedRef.current = false;
           setBlockingUi(null);
           setStep("none");
@@ -1618,16 +1626,6 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
           paymentBiometryDocRetryConsumedRef.current = false;
         }
         alert(t("biometry.rejected"));
-        return;
-      }
-
-      if (
-        biometryReason === "payment" &&
-        biometric.approved &&
-        biometric.flowKind === "document_verification"
-      ) {
-        paymentBiometryDocRetryConsumedRef.current = false;
-        void handleBiometric();
         return;
       }
 
