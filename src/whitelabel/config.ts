@@ -259,6 +259,11 @@ export interface BrandConfig {
   tradeAvailabilityTexts: TradeAvailabilityTextsConfig;
   biometryReview: BiometryReviewConfig;
   biometryPreConfirm: BiometryPreConfirmConfig;
+  /**
+   * Texto ao lado do checkbox no modal de e-mail (HTML permitido).
+   * Vazio ou ausente: checkbox não é exibido.
+   */
+  emailConsentLabel?: string;
   footer: FooterConfig;
   backend: {
     companyKey: string;
@@ -436,6 +441,7 @@ export const defaultBrandConfig: BrandConfig = {
   },
   biometryReview: defaultBiometryReviewConfig,
   biometryPreConfirm: defaultBiometryPreConfirmConfig,
+  emailConsentLabel: "",
   footer: defaultFooterConfig,
   backend: {
     companyKey: "origin",
@@ -1138,6 +1144,7 @@ export function normalizeRuntimeBrandConfig(raw: unknown, fallback: BrandConfig 
     tradeAvailabilityTexts: asTradeAvailabilityTextsConfig(raw.tradeAvailabilityTexts, fallback.tradeAvailabilityTexts),
     biometryReview: asBiometryReviewConfig(raw.biometryReview, fallback.biometryReview),
     biometryPreConfirm: asBiometryPreConfirmConfig(raw.biometryPreConfirm, fallback.biometryPreConfirm),
+    emailConsentLabel: asOptionalString(raw.emailConsentLabel) ?? "",
     footer: asFooterConfig(raw.footer, fallback.footer),
     backend: {
       companyKey: asString(backend.companyKey, fallback.backend.companyKey),

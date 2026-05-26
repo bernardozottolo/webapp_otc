@@ -755,6 +755,11 @@ button {
   font-size: var(--form-button-size);
 }
 
+.primary-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .card {
   border: 1px solid var(--tab-border-color);
   border-radius: 18px;
@@ -840,6 +845,36 @@ button {
   background: var(--details-background);
   border: 1px solid var(--details-border-color);
   color: var(--form-secondary-text-color);
+}
+
+.modal-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0;
+  cursor: pointer;
+  color: var(--form-secondary-text-color);
+  font-size: clamp(0.86rem, 1.3vh, 0.95rem);
+  line-height: 1.5;
+}
+
+.modal-consent__checkbox {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin: 2px 0 0;
+  accent-color: var(--brand-color);
+  cursor: pointer;
+}
+
+.modal-consent__text {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.modal-consent__text a {
+  color: inherit;
+  text-decoration: underline;
 }
 
 .modal-field {

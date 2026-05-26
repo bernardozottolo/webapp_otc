@@ -321,6 +321,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
 
   const [step, setStep] = useState<Step>("none");
   const [email, setEmail] = useState("");
+  const [emailConsentAccepted, setEmailConsentAccepted] = useState(false);
   const [otpCode, setOtpCode] = useState("");
   const [otpPreview, setOtpPreview] = useState("");
   const [biometryReason, setBiometryReason] = useState<BiometryReason>("onboarding");
@@ -1406,8 +1407,12 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
     void handleBiometric();
   }, [step]);
 
+  const emailConsentLabel = brand.emailConsentLabel?.trim() ?? "";
+  const requiresEmailConsent = emailConsentLabel.length > 0;
+
   const handleEmailLookup = async () => {
     if (!email) return;
+    if (requiresEmailConsent && !emailConsentAccepted) return;
     await runWithBlockingUi(async () => {
       const lookup = await otcApiClient.lookupCustomerByEmail(email);
       const intent = resolveEmailAuthIntent(lookup, brand.backend.otcKycValidityDays);
@@ -2147,6 +2152,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
   const payFieldHasError = belowMinimumNegotiationValue || exceedsLimit;
   const openEmailModal = () => {
     resetOtpState();
+    setEmailConsentAccepted(false);
     setStep("email");
   };
   const applyCoupon = useCallback(() => {
@@ -2168,6 +2174,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
     pricingSnapRef.current = null;
     setQuoteLoading(false);
     setEmail("");
+    setEmailConsentAccepted(false);
     resetOtpState();
     setBiometryReason("onboarding");
     setCounterpartyKycMode("onboarding");
@@ -2575,8 +2582,24 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
           <div className="modal-field">
             <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="nome@empresa.com" />
           </div>
+          {requiresEmailConsent ? (
+            <label className="modal-consent">
+              <input
+                type="checkbox"
+                className="modal-consent__checkbox"
+                checked={emailConsentAccepted}
+                onChange={(e) => setEmailConsentAccepted(e.target.checked)}
+              />
+              <span className="modal-consent__text" dangerouslySetInnerHTML={{ __html: emailConsentLabel }} />
+            </label>
+          ) : null}
           <div className="modal-actions">
-            <button type="button" className="primary-button modal-primary-button" onClick={handleEmailLookup}>
+            <button
+              type="button"
+              className="primary-button modal-primary-button"
+              disabled={!email.trim() || (requiresEmailConsent && !emailConsentAccepted)}
+              onClick={handleEmailLookup}
+            >
               {t("common.confirm")}
             </button>
           </div>

@@ -65,6 +65,7 @@
     "paymentTitle": "Verificação biométrica",
     "paymentDescription": "Precisamos validar sua identidade por reconhecimento facial"
   },
+  "emailConsentLabel": "Li e aceito os <a href=\"/termos_de_uso\" target=\"_blank\" rel=\"noreferrer\">Termos de Uso</a> e a Política de Privacidade.",
   "footer": {
     "title": "Fale Conosco",
     "description": "Entre em contato com nossa equipe para mais informações ou para saber como aumentar seu limite transacional.",
