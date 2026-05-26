@@ -19,6 +19,7 @@
   --text-accent-dark: #8a6400;
   --nav-text-color: var(--text-primary);
   --nav-text-muted-color: var(--text-secondary);
+  --promo-font-family: "Plus Jakarta Sans", Inter, Arial, sans-serif;
   --promo-headline-color: var(--text-primary);
   --promo-text-color: var(--text-secondary);
   --promo-muted-color: var(--text-muted);
@@ -183,6 +184,7 @@ body::after {
   gap: 28px;
   padding: 32px 12px 32px 8px;
   height: fit-content;
+  font-family: var(--promo-font-family);
 }
 
 .promo-copy {
@@ -192,15 +194,18 @@ body::after {
 .promo-copy h1 {
   margin: 18px 0 14px;
   font-size: clamp(2.8rem, 4vw, 4.6rem);
-  line-height: 0.98;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.02;
   color: var(--promo-headline-color);
 }
 
 .promo-copy p {
   margin: 0 0 14px;
   color: var(--promo-text-color);
-  font-size: 1.05rem;
-  line-height: 1.6;
+  font-size: clamp(1.12rem, 1.1vw + 0.72rem, 1.28rem);
+  font-weight: 500;
+  line-height: 1.65;
 }
 
 .promo-benefits {
@@ -635,7 +640,8 @@ button {
   padding: 0;
   list-style: none;
   color: var(--promo-soft-color);
-  font-size: clamp(0.82rem, 1.35vh, 0.95rem);
+  font-size: clamp(0.95rem, 1.5vh, 1.08rem);
+  font-weight: 500;
 }
 
 .benefits li {
@@ -1586,8 +1592,8 @@ button {
   }
 
   .promo-copy p {
-    font-size: 0.96rem;
-    line-height: 1.5;
+    font-size: clamp(1.05rem, 4.2vw, 1.18rem);
+    line-height: 1.55;
   }
 
   .home-contact-footer {
