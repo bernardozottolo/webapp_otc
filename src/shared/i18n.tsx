@@ -100,7 +100,7 @@ const ptBR: Dictionary = {
   "modal.email.title": "Informe seu e-mail",
   "modal.email.description": "O código de verificação será enviado para o e-mail informado.",
   "modal.otp.title": "Confirmação de e-mail (6 dígitos)",
-  "modal.otp.description": "Digite o código enviado para o seu e-mail para entrar ou continuar o cadastro. Caso não encontre, consulte sua caixa de spam.",
+  "modal.otp.description": "Digite o código enviado para o seu e-mail.",
   "modal.kyc.title": "Cadastro",
   "modal.kyc.description": "Informe seu documento para prosseguir com a validação de identidade.",
   "modal.kyc.companyDescription": "Validamos a empresa. Agora informe o cargo e o documento pessoal do representante que fará a biometria.",
