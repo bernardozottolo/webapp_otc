@@ -23,6 +23,13 @@ APPROVED_STATUSES = frozenset({"Approved"})
 DECLINED_STATUSES = frozenset({"Declined", "Abandoned", "Expired", "Kyc Expired"})
 
 
+class _ImmediateApprovalRecord:
+    """Stand-in for _email_message_type when the session was approved without Redis pending."""
+
+    def __init__(self, action: BiometryPendingAction) -> None:
+        self.action = action
+
+
 def _normalize_email(email: str) -> str:
     return email.strip().lower()
 
@@ -281,6 +288,34 @@ class BiometryPendingService:
             return "declined"
 
         return None
+
+    async def notify_immediate_approval(
+        self,
+        *,
+        action: BiometryPendingAction,
+        email: str,
+        asset: str | None = None,
+        session_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Send approval email when Didit approves in-session (no In Review polling path)."""
+        normalized_email = _normalize_email(email)
+        client_data: dict[str, Any] = {"action": action, "immediate": True}
+        if session_id and session_id.strip():
+            client_data["session_id"] = session_id.strip()
+        if asset and asset.strip():
+            client_data["asset"] = asset.strip().upper()
+
+        stub = _ImmediateApprovalRecord(action)
+        message_type = self._email_message_type(stub, "approved")
+        await send_biometry_notification_email(
+            self._settings,
+            email=normalized_email,
+            message_type=message_type,
+            company_key=self._settings.backend_company_key,
+            platform=self._settings.backend_platform,
+            client_data=client_data,
+        )
+        return {"ok": True, "messageType": message_type}
 
     async def poll_all(self) -> dict[str, int]:
         counts = {"approved": 0, "declined": 0, "expired": 0, "waiting": 0, "errors": 0}

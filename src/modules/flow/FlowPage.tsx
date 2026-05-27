@@ -4,7 +4,11 @@ import { setWindowOrderPayload } from "../../shared/api/orderCache";
 import type { CompanyKycOwnerInfo, KycSubmitResult } from "../../shared/api/contracts";
 import { I18nHtml, useI18n } from "../../shared/i18n";
 import { deriveQuoteResponseFromUnitPrice } from "../../shared/api/pricing";
-import { checkBiometryPending, registerBiometryPending } from "../../shared/api/biometryPending";
+import {
+  checkBiometryPending,
+  notifyBiometryImmediateApproval,
+  registerBiometryPending
+} from "../../shared/api/biometryPending";
 import { sendFrontendTelemetryEvent } from "../../shared/api/telemetry";
 import { QuoteRefreshIndicator, QUOTE_REFRESH_INTERVAL_MS } from "./QuoteRefreshIndicator";
 import {
@@ -1741,6 +1745,15 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
         setPendingPaymentSave(null);
         pendingPaymentSaveRef.current = null;
         setStep("none");
+      }
+      try {
+        await notifyBiometryImmediateApproval({
+          email: targetEmail,
+          asset: tradeSide === "buy" ? asset : undefined,
+          sessionId: biometric.sessionId
+        });
+      } catch {
+        // Falha no e-mail não bloqueia cadastro da wallet.
       }
       setBlockingUi(null);
     } catch {

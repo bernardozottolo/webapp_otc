@@ -61,6 +61,31 @@ export async function checkBiometryPending(
   return parseJsonResponse<BiometryPendingCheckResult>(response);
 }
 
+export interface NotifyImmediateBiometryApprovalInput {
+  email: string;
+  asset?: string;
+  sessionId?: string;
+}
+
+export async function notifyBiometryImmediateApproval(
+  input: NotifyImmediateBiometryApprovalInput
+): Promise<{ ok: boolean }> {
+  const response = await fetch("/webhook/biometry-pending/notify-immediate-approval", {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      action: "wallet_save",
+      email: input.email.trim().toLowerCase(),
+      asset: input.asset?.trim().toUpperCase(),
+      session_id: input.sessionId?.trim()
+    })
+  });
+  return parseJsonResponse<{ ok: boolean }>(response);
+}
+
 export async function registerBiometryPending(
   input: RegisterBiometryPendingInput
 ): Promise<RegisterBiometryPendingResult> {
