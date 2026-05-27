@@ -834,6 +834,11 @@ button {
   font-size: clamp(0.9rem, 1.35vh, 1rem);
 }
 
+.modal-description a {
+  color: inherit;
+  text-decoration: underline;
+}
+
 .modal-description--preline {
   white-space: pre-line;
 }

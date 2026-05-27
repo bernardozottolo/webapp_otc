@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { otcApiClient } from "../../shared/api/client";
 import { setWindowOrderPayload } from "../../shared/api/orderCache";
 import type { CompanyKycOwnerInfo, KycSubmitResult } from "../../shared/api/contracts";
-import { useI18n } from "../../shared/i18n";
+import { I18nHtml, useI18n } from "../../shared/i18n";
 import { deriveQuoteResponseFromUnitPrice } from "../../shared/api/pricing";
 import { checkBiometryPending, registerBiometryPending } from "../../shared/api/biometryPending";
 import { sendFrontendTelemetryEvent } from "../../shared/api/telemetry";
@@ -2615,7 +2615,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
         }}
       >
         <div className="modal-body modal-body--form">
-          <p className="modal-description">{t("modal.otp.description")}</p>
+          <I18nHtml messageKey="modal.otp.description" className="modal-description" />
           {otpPreview ? <p className="modal-helper">{t("otp.preview")}: {otpPreview}</p> : null}
           <div className="modal-field">
             <input className="otp-input" value={otpCode} onChange={(e) => setOtpCode(e.target.value)} maxLength={6} autoComplete="off" />

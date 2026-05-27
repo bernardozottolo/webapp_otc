@@ -276,3 +276,9 @@ export function useI18n() {
   }
   return ctx;
 }
+
+/** Renders an i18n string that may contain a limited HTML subset (e.g. br, i, a). */
+export function I18nHtml({ messageKey, className }: { messageKey: string; className?: string }) {
+  const { t } = useI18n();
+  return <p className={className} dangerouslySetInnerHTML={{ __html: t(messageKey) }} />;
+}
