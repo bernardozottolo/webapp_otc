@@ -10,7 +10,11 @@ from pydantic import BaseModel
 from ..audit.audit_logger import write_audit_event
 from ..config import Settings
 from ..didit_client import DiditClient
-from ..didit_vendor_data import is_biometric_vendor_data, is_document_vendor_data
+from ..didit_vendor_data import (
+    build_didit_document_verification_search,
+    is_biometric_vendor_data,
+    is_document_vendor_data,
+)
 from ..security.client_ip import get_client_ip
 
 router = APIRouter(prefix="/webhook/didit", tags=["didit"])
@@ -31,6 +35,20 @@ class CreateBiometricSessionFromDocumentRequest(BaseModel):
     biometric_validation_vendor_data: str
     expected_details: dict[str, Any] | None = None
     metadata: dict[str, Any]
+
+
+def _document_verification_list_search(payload: CreateBiometricSessionFromDocumentRequest) -> str:
+    """Always `{doc}_document_verification` for Didit list_sessions search (limit 1)."""
+    metadata = payload.metadata if isinstance(payload.metadata, dict) else {}
+    document = metadata.get("document")
+    if isinstance(document, str) and document.strip():
+        return build_didit_document_verification_search(document)
+    raw = payload.document_verification_vendor_data.strip()
+    marker = "_document_verification"
+    pos = raw.find(marker)
+    if pos > 0:
+        return raw[: pos + len(marker)]
+    return raw
 
 
 def _first_id_verification(decision: dict[str, Any]) -> dict[str, Any] | None:
@@ -387,8 +405,9 @@ async def create_biometric_session_from_document(
     settings: Settings = Depends(_settings_dependency),
 ) -> dict[str, Any]:
     try:
+        document_verification_search = _document_verification_list_search(payload)
         sessions_payload = await didit_client.list_sessions(
-            search=payload.document_verification_vendor_data,
+            search=document_verification_search,
             status="Approved",
             limit=1,
         )
@@ -447,6 +466,7 @@ async def create_biometric_session_from_document(
         "didit_biometric_session_created",
         {
             "request_body": payload.model_dump(exclude_none=True),
+            "document_verification_search": document_verification_search,
             "document_verification_vendor_data": payload.document_verification_vendor_data,
             "biometric_validation_vendor_data": payload.biometric_validation_vendor_data,
             "session_id": sanitized.get("session_id"),

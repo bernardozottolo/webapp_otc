@@ -448,6 +448,15 @@ export function buildDiditSearch(
   return buildDiditVendorData(documentNumber, flowKind, action);
 }
 
+/** Didit list_sessions search for approved document verification (no action suffix). */
+export function buildDiditDocumentVerificationSearch(documentNumber: string): string {
+  const normalized = normalizeDocument(documentNumber);
+  if (!normalized) {
+    throw new Error("documentNumber is required");
+  }
+  return `${normalized}_document_verification`;
+}
+
 function resolveVendorData(
   documentNumber: string,
   flowKind: DiditFlowKind,
@@ -587,11 +596,7 @@ export async function createBiometricSessionFromDocument(input: {
     },
     body: JSON.stringify({
       language: mapLocaleToDiditLanguage(input.locale),
-      document_verification_vendor_data: buildDiditSearch(
-        input.documentNumber,
-        "document_verification",
-        "register_client"
-      ),
+      document_verification_vendor_data: buildDiditDocumentVerificationSearch(input.documentNumber),
       biometric_validation_vendor_data: resolveVendorData(
         input.documentNumber,
         "biometric_validation",
@@ -686,24 +691,12 @@ export async function findApprovedDocumentVerification(documentNumber: string) {
     return null;
   }
 
-  const searchTerms = [
-    buildDiditSearch(documentNumber, "document_verification", "register_client"),
-    `${normalizedDocument}_document_verification`
-  ];
-
-  for (const search of searchTerms) {
-    const sessions = await listDiditSessions({
-      search,
-      status: "Approved",
-      limit: LIST_APPROVED_DOCUMENT_VERIFICATIONS_LIMIT
-    });
-    const match = await loadApprovedDocumentVerificationFromSessions(sessions, normalizedDocument);
-    if (match) {
-      return match;
-    }
-  }
-
-  return null;
+  const sessions = await listDiditSessions({
+    search: buildDiditDocumentVerificationSearch(documentNumber),
+    status: "Approved",
+    limit: LIST_APPROVED_DOCUMENT_VERIFICATIONS_LIMIT
+  });
+  return loadApprovedDocumentVerificationFromSessions(sessions, normalizedDocument);
 }
 
 export function shouldUseBiometricValidation(_reason: DiditBiometryReason, hasApprovedDocumentVerification: boolean) {

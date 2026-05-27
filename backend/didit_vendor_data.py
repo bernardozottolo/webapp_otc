@@ -65,6 +65,14 @@ def build_didit_search(
     )
 
 
+def build_didit_document_verification_search(document_number: str) -> str:
+    """Didit list_sessions search for approved document verification (no action suffix)."""
+    normalized_document = normalize_document_number(document_number)
+    if not normalized_document:
+        raise ValueError("document_number is required")
+    return f"{normalized_document}_document_verification"
+
+
 def is_biometric_vendor_data(vendor_data: str) -> bool:
     normalized = vendor_data.strip()
     if "_biometric_validation_" in normalized:
