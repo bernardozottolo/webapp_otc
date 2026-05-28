@@ -1710,6 +1710,15 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
         });
         await loadIdentityContext(targetEmail, "onboarding_completed");
         resetCompanyRepresentativeState();
+        try {
+          await notifyBiometryImmediateApproval({
+            action: "onboarding",
+            email: targetEmail,
+            sessionId: biometric.sessionId
+          });
+        } catch {
+          // Falha no e-mail não bloqueia conclusão do cadastro.
+        }
         setBlockingUi(null);
         return;
       }
@@ -1748,6 +1757,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
       }
       try {
         await notifyBiometryImmediateApproval({
+          action: "wallet_save",
           email: targetEmail,
           asset: tradeSide === "buy" ? asset : undefined,
           sessionId: biometric.sessionId

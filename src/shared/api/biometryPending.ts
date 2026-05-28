@@ -62,6 +62,7 @@ export async function checkBiometryPending(
 }
 
 export interface NotifyImmediateBiometryApprovalInput {
+  action: BiometryPendingAction;
   email: string;
   asset?: string;
   sessionId?: string;
@@ -77,9 +78,9 @@ export async function notifyBiometryImmediateApproval(
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
-      action: "wallet_save",
+      action: input.action,
       email: input.email.trim().toLowerCase(),
-      asset: input.asset?.trim().toUpperCase(),
+      asset: input.action === "wallet_save" ? input.asset?.trim().toUpperCase() : undefined,
       session_id: input.sessionId?.trim()
     })
   });

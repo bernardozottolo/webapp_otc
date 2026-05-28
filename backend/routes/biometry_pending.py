@@ -25,7 +25,7 @@ class RegisterBiometryPendingRequest(BaseModel):
 
 
 class NotifyImmediateBiometryApprovalRequest(BaseModel):
-    action: Literal["wallet_save"]
+    action: Literal["onboarding", "wallet_save"]
     email: str = Field(min_length=1)
     asset: str | None = None
     session_id: str | None = None
