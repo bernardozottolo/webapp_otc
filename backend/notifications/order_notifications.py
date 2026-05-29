@@ -83,9 +83,10 @@ def extract_create_order_summary(request_body: dict[str, Any]) -> dict[str, Any]
 
     trade_type = str(request_body.get("trade_type", "")).strip().upper() or None
     asset = str(request_body.get("asset", "")).strip() or None
-    amount_to_pay = _pick_pre_order_value(pre_order, "amount_to_pay")
+    amount_to_pay = _pick_pre_order_value(pre_order, "input_amount", "amount_to_pay")
     amount_to_receive = _pick_pre_order_value(
         pre_order,
+        "output_amount_net",
         "final_amount_to_receive",
         "total_amount_to_receive",
     )

@@ -57,6 +57,12 @@ export interface KycSubmitResult {
   responseDocument?: string | null;
 }
 
+export interface OtcKycInfoPayload {
+  name: string;
+  document: string;
+  kycResult: string;
+}
+
 export interface PreOrderValidationInput {
   asset: string;
   tradeType: "BUY";
@@ -69,6 +75,7 @@ export interface PreOrderValidationInput {
   amount: number;
   document: string;
   documentType: string;
+  kycInfo: OtcKycInfoPayload;
 }
 
 export interface CreateOrderInput {
@@ -86,11 +93,8 @@ export interface CreateOrderInput {
   amount: number;
   document: string;
   documentType: string;
-  kycInfo: {
-    name: string;
-    kycResult: string;
-    kycTs: number;
-  };
+  kycInfo: OtcKycInfoPayload;
+  kycTs: number;
   preOrder: OtcPreOrderValidation;
 }
 

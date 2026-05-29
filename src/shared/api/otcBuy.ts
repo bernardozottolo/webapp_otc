@@ -1,4 +1,10 @@
-import type { CreateOrderInput, KycSubmitPayload, KycSubmitResult, PreOrderValidationInput } from "./contracts";
+import type {
+  CreateOrderInput,
+  KycSubmitPayload,
+  KycSubmitResult,
+  OtcKycInfoPayload,
+  PreOrderValidationInput
+} from "./contracts";
 import { cacheOrder, getCachedOrder } from "./orderCache";
 import type { PricingConfig } from "./pricing";
 import type { OtcPreOrderValidation, OtcWalletRiskCheck, OtcWithdrawNetwork, Order } from "../types";
@@ -62,15 +68,14 @@ interface WalletRiskPayload {
 }
 
 interface PreOrderPayload {
-  amount_to_pay?: unknown;
   coupon_is_valid?: unknown;
-  current_valid_price?: unknown;
-  default_network_fee?: unknown;
-  default_network_fee_brl?: unknown;
-  final_network_fee?: unknown;
-  final_network_fee_brl?: unknown;
-  gross_total_asset?: unknown;
-  net_total_asset?: unknown;
+  fee_asset?: unknown;
+  fee_fiat?: unknown;
+  input_amount?: unknown;
+  input_asset?: unknown;
+  output_amount_gross?: unknown;
+  output_amount_net?: unknown;
+  output_asset?: unknown;
   price?: unknown;
   price_is_valid?: unknown;
 }
@@ -151,6 +156,51 @@ function asRecordUnknown(value: unknown): Record<string, unknown> {
     return value as Record<string, unknown>;
   }
   return {};
+}
+
+function serializeKycInfo(kyc: OtcKycInfoPayload) {
+  return {
+    name: kyc.name,
+    document: kyc.document,
+    kyc_result: kyc.kycResult
+  };
+}
+
+function serializePreOrderV2(
+  preOrder: OtcPreOrderValidation,
+  paymentInfo: { wallet: string; network: string }
+) {
+  return {
+    price_is_valid: preOrder.priceIsValid,
+    coupon_is_valid: preOrder.couponIsValid,
+    price: preOrder.price,
+    input_asset: preOrder.inputAsset,
+    input_amount: preOrder.inputAmount,
+    output_asset: preOrder.outputAsset,
+    output_amount_gross: preOrder.outputAmountGross,
+    fee_asset: preOrder.feeAsset,
+    fee_fiat: preOrder.feeFiat,
+    output_amount_net: preOrder.outputAmountNet,
+    payment_info: {
+      wallet: paymentInfo.wallet,
+      network: paymentInfo.network
+    }
+  };
+}
+
+function mapPreOrderPayload(data: PreOrderPayload, fallbackPrice: number): OtcPreOrderValidation {
+  return {
+    priceIsValid: asBoolean(data.price_is_valid),
+    couponIsValid: asBoolean(data.coupon_is_valid),
+    price: asNumber(data.price, fallbackPrice),
+    inputAsset: asString(data.input_asset),
+    inputAmount: asNumber(data.input_amount),
+    outputAsset: asString(data.output_asset),
+    outputAmountGross: asNumber(data.output_amount_gross),
+    feeAsset: asNumber(data.fee_asset),
+    feeFiat: asNumber(data.fee_fiat),
+    outputAmountNet: asNumber(data.output_amount_net)
+  };
 }
 
 /** OTC `create_order` expects `price` as a decimal string (e.g. `"4.938"`). */
@@ -271,6 +321,7 @@ export async function preOrderValidationHttp(
   input: PreOrderValidationInput
 ): Promise<OtcPreOrderValidation> {
   const data = await postOtcJson<PreOrderPayload>(config, "pre_order_validation", {
+    version: "v2",
     asset: input.asset,
     trade_type: input.tradeType,
     coupon: input.coupon?.trim() || undefined,
@@ -281,37 +332,24 @@ export async function preOrderValidationHttp(
     price: input.price,
     amount: input.amount,
     document: input.document,
-    document_type: input.documentType
+    document_type: input.documentType,
+    kyc_info: serializeKycInfo(input.kycInfo)
   });
-  return {
-    priceIsValid: asBoolean(data.price_is_valid),
-    couponIsValid: asBoolean(data.coupon_is_valid),
-    price: asNumber(data.price, input.price),
-    currentValidPrice: data.current_valid_price == null ? undefined : asNumber(data.current_valid_price, input.price),
-    amountToPay: asNumber(data.amount_to_pay, input.amount),
-    defaultNetworkFee: asNumber(data.default_network_fee),
-    defaultNetworkFeeBrl: asNumber(data.default_network_fee_brl),
-    finalNetworkFee: asNumber(data.final_network_fee),
-    finalNetworkFeeBrl: asNumber(data.final_network_fee_brl),
-    grossTotalAsset: asNumber(data.gross_total_asset),
-    netTotalAsset: asNumber(data.net_total_asset)
-  };
+  return mapPreOrderPayload(data, input.price);
 }
 
 export async function createOrderHttp(config: PricingConfig, input: CreateOrderInput): Promise<Order> {
   const emailNorm = input.email.trim().toLowerCase();
   const clientId = `${emailNorm}_webapp_${input.country.toLowerCase()}`;
   const data = await postOtcJson<CreateOrderPayload>(config, "create_order", {
+    version: "v2",
     asset: input.asset,
     trade_type: input.tradeType,
     document: input.document,
     document_type: input.documentType,
+    amount: input.amount,
     coupon: input.coupon?.trim() || undefined,
-    kyc_info: {
-      name: input.kycInfo.name,
-      kyc_result: input.kycInfo.kycResult,
-      kyc_ts: input.kycInfo.kycTs
-    },
+    kyc_info: serializeKycInfo(input.kycInfo),
     price: otcDecimalString(input.preOrder.price),
     client_id: clientId,
     payment_info: {
@@ -325,26 +363,11 @@ export async function createOrderHttp(config: PricingConfig, input: CreateOrderI
       person_type: input.documentType,
       kyc_name: input.kycInfo.name,
       approved_kyc_result: input.kycInfo.kycResult,
-      kyc_date: input.kycInfo.kycTs,
+      kyc_date: input.kycTs,
       country: input.country,
       platform: "webapp"
     },
-    pre_order: {
-      price_is_valid: input.preOrder.priceIsValid,
-      coupon_is_valid: input.preOrder.couponIsValid,
-      price: input.preOrder.price,
-      amount_to_pay: input.preOrder.amountToPay,
-      asset_to_pay: input.assetToPay.toLowerCase(),
-      total_amount_to_receive: input.preOrder.grossTotalAsset,
-      asset_to_receive: input.asset,
-      fee: input.preOrder.finalNetworkFee,
-      fee_brl: input.preOrder.finalNetworkFeeBrl,
-      final_amount_to_receive: input.preOrder.netTotalAsset,
-      payment_info: {
-        wallet: input.paymentInfo.wallet,
-        network: input.paymentInfo.network
-      }
-    }
+    pre_order: serializePreOrderV2(input.preOrder, input.paymentInfo)
   });
 
   const orderId = asString(data.order_details?.order_id);
@@ -357,11 +380,11 @@ export async function createOrderHttp(config: PricingConfig, input: CreateOrderI
     email: input.email,
     tradeSide: "buy",
     asset: input.asset,
-    amount: input.preOrder.netTotalAsset,
-    quoteTotal: input.preOrder.amountToPay,
+    amount: input.preOrder.outputAmountNet,
+    quoteTotal: input.preOrder.inputAmount,
     status: asString(data.order_details?.status, "waiting_for_payment"),
     createdAt: Date.now(),
-    amountToPay: input.preOrder.amountToPay,
+    amountToPay: input.preOrder.inputAmount,
     orderIsValid: asBoolean(data.order_is_valid, true),
     paymentData: {
       ...(data.order_details?.payment_data && typeof data.order_details.payment_data === "object"

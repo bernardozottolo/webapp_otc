@@ -371,24 +371,24 @@ export async function savePaymentData(paymentData: PaymentData) {
 export async function preValidateOrder(input: PreOrderValidationInput): Promise<OtcPreOrderValidation> {
   await wait(280);
   const price = input.price;
-  const amountToPay = input.amount;
+  const inputAmount = input.amount;
   const couponCode = input.coupon?.trim().toUpperCase() ?? "";
   const couponIsValid = couponCode === "VIP10" || couponCode === "OTC5";
-  const defaultNetworkFee = input.asset.toUpperCase() === "BTC" ? 0.0002 : 0.3;
-  const defaultNetworkFeeBrl = defaultNetworkFee * price;
-  const grossTotalAsset = amountToPay / price;
-  const netTotalAsset = Math.max(grossTotalAsset - defaultNetworkFee, 0);
+  const feeAsset = input.asset.toUpperCase() === "BTC" ? 0.0002 : 0.3;
+  const feeFiat = feeAsset * price;
+  const outputAmountGross = inputAmount / price;
+  const outputAmountNet = Math.max(outputAmountGross - feeAsset, 0);
   return {
     priceIsValid: true,
     couponIsValid,
     price,
-    amountToPay,
-    defaultNetworkFee,
-    defaultNetworkFeeBrl,
-    finalNetworkFee: defaultNetworkFee,
-    finalNetworkFeeBrl: defaultNetworkFeeBrl,
-    grossTotalAsset,
-    netTotalAsset
+    inputAsset: "brl",
+    inputAmount,
+    outputAsset: input.asset.toLowerCase(),
+    outputAmountGross,
+    feeAsset,
+    feeFiat,
+    outputAmountNet
   };
 }
 
@@ -400,11 +400,11 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
     email: input.email,
     tradeSide: "buy",
     asset: input.asset,
-    amount: input.preOrder.netTotalAsset,
-    quoteTotal: input.preOrder.amountToPay,
+    amount: input.preOrder.outputAmountNet,
+    quoteTotal: input.preOrder.inputAmount,
     status: "waiting_for_payment",
     createdAt: Date.now(),
-    amountToPay: input.preOrder.amountToPay,
+    amountToPay: input.preOrder.inputAmount,
     paymentData: {
       BeneficiaryBankName: "Banco Mock",
       BeneficiaryName: "Mesa OTC Mock",

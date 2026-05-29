@@ -137,14 +137,13 @@ export interface OtcPreOrderValidation {
   priceIsValid: boolean;
   couponIsValid: boolean;
   price: number;
-  currentValidPrice?: number;
-  amountToPay: number;
-  defaultNetworkFee: number;
-  defaultNetworkFeeBrl: number;
-  finalNetworkFee: number;
-  finalNetworkFeeBrl: number;
-  grossTotalAsset: number;
-  netTotalAsset: number;
+  inputAsset: string;
+  inputAmount: number;
+  outputAsset: string;
+  outputAmountGross: number;
+  feeAsset: number;
+  feeFiat: number;
+  outputAmountNet: number;
 }
 
 export interface Customer {

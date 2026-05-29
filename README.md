@@ -347,7 +347,7 @@ No fluxo `BUY`, o browser continua falando apenas com a mesma origem da aplicaca
 - Cliente com ultimo KYC nao aprovado nao consegue negociar.
 - `get_available_withdraw_networks` abastece o modal de wallet com taxa no ativo e estimativa em BRL.
 - `check_wallet_risk` roda antes de salvar a wallet; a wallet so e persistida se `risk_result === "approved"`.
-- `pre_order_validation` roda antes de `create_order`; se o preco estiver invalido, a UI atualiza a cotacao e pede nova confirmacao.
+- `pre_order_validation` e `create_order` usam contrato **v2** (`version: "v2"`, `kyc_info` com `name`/`document`/`kyc_result`; resposta de pre-order com `input_*`, `output_*`, `fee_*`). `pre_order_validation` roda antes de `create_order`; se `price_is_valid` for falso, a UI chama `get_pricing` de novo, atualiza a cotacao e pede nova confirmacao.
 - Quando `create_order` retorna com sucesso, o FastAPI guarda um snapshot temporario do pedido e a pagina `'/order/:id'` pode ser reaberta ate o TTL configurado.
 - Updates posteriores do OTC podem ser enviados para `POST /api/order-updates` e a pagina `'/order/:id'` faz polling em `GET /api/order-updates/{orderId}` para consolidar status, `txHash` e metadados de pagamento.
 - A tela `'/order/:id'` usa `order.createdAt + orderPage.timer.durationSeconds` para mostrar o countdown de pagamento e troca de visual quando o threshold configurado e atingido.

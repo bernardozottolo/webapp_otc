@@ -1990,20 +1990,30 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
         wallet: paymentData.walletAddress,
         network: paymentData.network
       };
-
-      let preOrder = await otcApiClient.preValidateOrder({
+      const kycInfo = {
+        name: kycName,
+        document,
+        kycResult: mapApprovedKycToCounterpartyPayload(customer.approvedKycResult)
+      };
+      const preValidateBase = {
         asset,
-        tradeType: "BUY",
+        tradeType: "BUY" as const,
         coupon: appliedCoupon.trim() || undefined,
         paymentInfo,
-        price: actionableQuote.unitPrice,
         amount: parsedAmount,
         document,
-        documentType
+        documentType,
+        kycInfo
+      };
+
+      let preOrder = await otcApiClient.preValidateOrder({
+        ...preValidateBase,
+        price: actionableQuote.unitPrice
       });
 
       if (!preOrder.priceIsValid) {
-        const nextValidPrice = preOrder.currentValidPrice ?? preOrder.price;
+        const refreshedQuote = await otcApiClient.getQuote(buildQuoteRequest());
+        const nextValidPrice = refreshedQuote.unitPrice;
         if (!(nextValidPrice > 0)) {
           orderTab.close();
           alert(t("order.validationFailed"));
@@ -2012,7 +2022,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
         pricingSnapRef.current = {
           standardUnitPrice: nextValidPrice,
           finalUnitPrice: nextValidPrice,
-          couponIsValid: preOrder.couponIsValid,
+          couponIsValid: refreshedQuote.couponIsValid ?? preOrder.couponIsValid,
           fetchedAtIso: new Date().toISOString(),
           tradeSide,
           asset,
@@ -2020,21 +2030,15 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
           country,
           pricingIdentityKey
         };
-        setQuote(deriveQuoteResponseFromUnitPrice(buildQuoteRequest(), nextValidPrice));
+        setQuote(refreshedQuote);
         const confirmed = window.confirm(t("order.priceChangedConfirm"));
         if (!confirmed) {
           orderTab.close();
           return;
         }
         preOrder = await otcApiClient.preValidateOrder({
-          asset,
-          tradeType: "BUY",
-          coupon: appliedCoupon.trim() || undefined,
-          paymentInfo,
-          price: nextValidPrice,
-          amount: parsedAmount,
-          document,
-          documentType
+          ...preValidateBase,
+          price: nextValidPrice
         });
         if (!preOrder.priceIsValid) {
           orderTab.close();
@@ -2055,15 +2059,13 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
         amount: parsedAmount,
         document,
         documentType,
-        kycInfo: {
-          name: kycName,
-          kycResult: mapApprovedKycToCounterpartyPayload(customer.approvedKycResult),
-          kycTs
-        },
+        kycInfo,
+        kycTs,
         preOrder
       });
       emitFrontendTelemetry("frontend_order_created", {
         order_request: {
+          version: "v2",
           email: customer.email,
           country,
           asset,
@@ -2076,9 +2078,9 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
           document,
           document_type: documentType,
           kyc_info: {
-            name: kycName,
-            kyc_result: mapApprovedKycToCounterpartyPayload(customer.approvedKycResult),
-            kyc_ts: kycTs
+            name: kycInfo.name,
+            document: kycInfo.document,
+            kyc_result: kycInfo.kycResult
           },
           pre_order: preOrder
         },
