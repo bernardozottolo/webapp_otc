@@ -201,16 +201,24 @@ export function mergeOrderUpdate(existingOrder: Order, update: OrderUpdatePayloa
   if (typeof info.price === "number" && Number.isFinite(info.price)) {
     next.price = info.price;
   }
-  if (typeof info.amount_to_pay === "number" && Number.isFinite(info.amount_to_pay)) {
-    next.amountToPay = info.amount_to_pay;
-    next.quoteTotal = info.amount_to_pay;
+  const amountToPay =
+    typeof info.amount_to_pay === "number" && Number.isFinite(info.amount_to_pay)
+      ? info.amount_to_pay
+      : typeof info.input_amount === "number" && Number.isFinite(info.input_amount)
+        ? info.input_amount
+        : undefined;
+  if (amountToPay !== undefined) {
+    next.amountToPay = amountToPay;
+    next.quoteTotal = amountToPay;
   }
   const nextAmount =
-    typeof info.final_amount_to_receive === "number" && Number.isFinite(info.final_amount_to_receive)
-      ? info.final_amount_to_receive
-      : typeof info.total_amount_to_receive === "number" && Number.isFinite(info.total_amount_to_receive)
-        ? info.total_amount_to_receive
-        : undefined;
+    typeof info.output_amount_net === "number" && Number.isFinite(info.output_amount_net)
+      ? info.output_amount_net
+      : typeof info.final_amount_to_receive === "number" && Number.isFinite(info.final_amount_to_receive)
+        ? info.final_amount_to_receive
+        : typeof info.total_amount_to_receive === "number" && Number.isFinite(info.total_amount_to_receive)
+          ? info.total_amount_to_receive
+          : undefined;
   if (nextAmount !== undefined) {
     next.amount = nextAmount;
   }
@@ -390,10 +398,29 @@ export function applyOrderUpdate(update: Omit<OrderUpdatePayload, "receivedAt"> 
   return next;
 }
 
+function orderHasDisplayAmounts(order: Order) {
+  return (Number.isFinite(order.amount) && order.amount > 0) || (Number.isFinite(order.quoteTotal) && order.quoteTotal > 0);
+}
+
+function preserveDisplayAmounts(remoteOrder: Order, localOrder: Order | null | undefined): Order {
+  if (!localOrder || orderHasDisplayAmounts(remoteOrder) || !orderHasDisplayAmounts(localOrder)) {
+    return remoteOrder;
+  }
+  return {
+    ...remoteOrder,
+    amount: localOrder.amount,
+    quoteTotal: localOrder.quoteTotal,
+    amountToPay: localOrder.amountToPay ?? localOrder.quoteTotal,
+    price: remoteOrder.price ?? localOrder.price
+  };
+}
+
 export function replaceOrderRecord(record: StoredOrderRecord): StoredOrderRecord {
   ensureStorageSyncListener();
+  const existing = getOrderRecord(record.order.id);
+  const baseOrder = preserveDisplayAmounts(record.order, existing?.order);
   const sortedUpdates = [...record.updates].sort((a, b) => a.receivedAt - b.receivedAt);
-  const consolidatedOrder = sortedUpdates.reduce((current, update) => mergeOrderUpdate(current, update), record.order);
+  const consolidatedOrder = sortedUpdates.reduce((current, update) => mergeOrderUpdate(current, update), baseOrder);
   const next: StoredOrderRecord = {
     order: consolidatedOrder,
     createdAt: record.createdAt,

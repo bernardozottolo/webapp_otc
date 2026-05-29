@@ -67,6 +67,14 @@ def _as_float(value: object) -> float | None:
     return None
 
 
+def _pick_pre_order_float(pre_order: dict[str, object], *keys: str) -> float | None:
+    for key in keys:
+        value = _as_float(pre_order.get(key))
+        if value is not None:
+            return value
+    return None
+
+
 def _decode_json_or_raw(body: bytes | None) -> object:
     if not body:
         return {}
@@ -161,8 +169,14 @@ def _build_order_audit_data(body: bytes, response: Response) -> dict[str, object
         "asset": request_payload.get("asset"),
         "coupon": request_payload.get("coupon"),
         "price": pre_order.get("price") or request_payload.get("price"),
-        "amount": pre_order.get("final_amount_to_receive") or pre_order.get("total_amount_to_receive"),
-        "total": pre_order.get("amount_to_pay"),
+        "amount": _pick_pre_order_float(
+            pre_order,
+            "output_amount_net",
+            "final_amount_to_receive",
+            "total_amount_to_receive",
+        ),
+        "total": _pick_pre_order_float(pre_order, "input_amount", "amount_to_pay")
+        or request_payload.get("amount"),
         "client_id": request_payload.get("client_id"),
         "client_data": client_data,
         "payment_info": payment_info,

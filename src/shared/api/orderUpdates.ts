@@ -38,6 +38,9 @@ function mapOrderUpdatePayload(value: unknown): OrderUpdatePayload | null {
       status: asString(orderInfo.status) || undefined,
       price: orderInfo.price == null ? undefined : asNumber(orderInfo.price),
       amount_to_pay: orderInfo.amount_to_pay == null ? undefined : asNumber(orderInfo.amount_to_pay),
+      input_amount: orderInfo.input_amount == null ? undefined : asNumber(orderInfo.input_amount),
+      output_amount_net:
+        orderInfo.output_amount_net == null ? undefined : asNumber(orderInfo.output_amount_net),
       total_amount_to_receive:
         orderInfo.total_amount_to_receive == null ? undefined : asNumber(orderInfo.total_amount_to_receive),
       fee: orderInfo.fee == null ? undefined : asNumber(orderInfo.fee),

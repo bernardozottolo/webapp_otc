@@ -225,6 +225,8 @@ export interface OrderUpdatePayload {
     status?: string;
     price?: number;
     amount_to_pay?: number;
+    input_amount?: number;
+    output_amount_net?: number;
     total_amount_to_receive?: number;
     fee?: number;
     final_amount_to_receive?: number;
