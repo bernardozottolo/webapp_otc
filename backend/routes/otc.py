@@ -110,19 +110,24 @@ def _build_order_snapshot(body: bytes, response: Response) -> dict[str, object] 
         payment_info = {}
     if not isinstance(payment_data, dict):
         payment_data = {}
-    quote_total = _as_float(pre_order.get("amount_to_pay"))
-    amount = _as_float(pre_order.get("final_amount_to_receive"))
-    if amount is None:
-        amount = _as_float(pre_order.get("total_amount_to_receive"))
-    price = _as_float(pre_order.get("price"))
+    quote_total = _pick_pre_order_float(pre_order, "input_amount", "amount_to_pay")
+    if quote_total is None:
+        quote_total = _as_float(request_payload.get("amount"))
+    amount = _pick_pre_order_float(
+        pre_order,
+        "output_amount_net",
+        "final_amount_to_receive",
+        "total_amount_to_receive",
+    )
+    price = _as_float(pre_order.get("price")) or _as_float(request_payload.get("price"))
     trade_type = str(request_payload.get("trade_type", "BUY")).strip().upper()
     return {
         "id": order_id,
         "email": str(client_data.get("email", "")).strip(),
         "tradeSide": "sell" if trade_type == "SELL" else "buy",
         "asset": str(request_payload.get("asset", "")).strip(),
-        "amount": amount or 0,
-        "quoteTotal": quote_total or 0,
+        "amount": amount if amount is not None else 0,
+        "quoteTotal": quote_total if quote_total is not None else 0,
         "status": str(order_details.get("status", "waiting_for_payment")).strip() or "waiting_for_payment",
         "createdAt": int(time.time() * 1000),
         "price": price,
