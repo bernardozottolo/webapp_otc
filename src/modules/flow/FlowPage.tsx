@@ -1759,8 +1759,10 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
         setCustomer(updatedCustomer);
       }
       resetCompanyRepresentativeState();
+      let walletInfoForEmail: ReturnType<typeof buildWalletInfoForEmail>;
       if (pendingPaymentSaveRef.current) {
         const pending = pendingPaymentSaveRef.current;
+        walletInfoForEmail = buildWalletInfoForEmail(pending.payload);
         await otcApiClient.savePaymentData(pending.payload);
         if (pending.payload.kind === "crypto") {
           emitFrontendTelemetry("frontend_wallet_saved", {
