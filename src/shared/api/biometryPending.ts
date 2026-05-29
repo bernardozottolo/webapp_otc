@@ -61,11 +61,18 @@ export async function checkBiometryPending(
   return parseJsonResponse<BiometryPendingCheckResult>(response);
 }
 
+export interface WalletInfoEmailPayload {
+  asset: string;
+  wallet: string;
+  network: string;
+}
+
 export interface NotifyImmediateBiometryApprovalInput {
   action: BiometryPendingAction;
   email: string;
   asset?: string;
   sessionId?: string;
+  walletInfo?: WalletInfoEmailPayload;
 }
 
 export async function notifyBiometryImmediateApproval(
@@ -81,7 +88,8 @@ export async function notifyBiometryImmediateApproval(
       action: input.action,
       email: input.email.trim().toLowerCase(),
       asset: input.action === "wallet_save" ? input.asset?.trim().toUpperCase() : undefined,
-      session_id: input.sessionId?.trim()
+      session_id: input.sessionId?.trim(),
+      walletInfo: input.action === "wallet_save" ? input.walletInfo : undefined
     })
   });
   return parseJsonResponse<{ ok: boolean }>(response);

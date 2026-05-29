@@ -19,6 +19,7 @@ async def send_biometry_notification_email(
     company_key: str,
     platform: str,
     client_data: dict[str, Any] | None = None,
+    wallet_info: dict[str, str] | None = None,
 ) -> None:
     if not settings.send_email_url:
         logger.warning("send_email_url not configured; skipping biometry notification (%s)", message_type)
@@ -35,6 +36,11 @@ async def send_biometry_notification_email(
     }
     if company_key:
         payload["company_key"] = company_key
+    if wallet_info:
+        payload["walletInfo"] = wallet_info
+        merged_client_data = dict(client_data or {})
+        merged_client_data["walletInfo"] = wallet_info
+        payload["client_data"] = merged_client_data
 
     body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     try:

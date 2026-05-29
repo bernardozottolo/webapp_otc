@@ -194,6 +194,33 @@ function mapApprovedKycToCounterpartyPayload(approvedKycResult?: string | null) 
   return "approve";
 }
 
+function buildWalletInfoForEmail(payment: PaymentData): { asset: string; wallet: string; network: string } | undefined {
+  const asset = payment.asset?.trim().toUpperCase();
+  if (!asset) {
+    return undefined;
+  }
+  if (payment.kind === "crypto") {
+    const wallet = payment.walletAddress?.trim();
+    if (!wallet) {
+      return undefined;
+    }
+    return {
+      asset,
+      wallet,
+      network: payment.network?.trim() ?? ""
+    };
+  }
+  const wallet = payment.bankKeyValue?.trim();
+  if (!wallet) {
+    return undefined;
+  }
+  return {
+    asset,
+    wallet,
+    network: payment.bankKeyType?.trim() ?? ""
+  };
+}
+
 function hasApprovedCounterpartyKyc(approvedKycResult?: string | null) {
   const normalized = (approvedKycResult || "").trim().toLowerCase();
   return normalized === "approved" || normalized === "approve";
@@ -1760,7 +1787,8 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
           action: "wallet_save",
           email: targetEmail,
           asset: tradeSide === "buy" ? asset : undefined,
-          sessionId: biometric.sessionId
+          sessionId: biometric.sessionId,
+          walletInfo: walletInfoForEmail
         });
       } catch {
         // Falha no e-mail não bloqueia cadastro da wallet.

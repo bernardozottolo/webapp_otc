@@ -12,6 +12,7 @@ from ..config import BiometryReviewSettings, Settings, _load_runtime_json, _repo
 from ..didit_client import DiditClient
 from ..didit_vendor_data import build_didit_search
 from .email_notify import send_biometry_notification_email
+from .wallet_info import wallet_info_from_payment
 from .executors import execute_onboarding, execute_wallet_save
 from .store import BiometryPendingAction, BiometryPendingRecord, BiometryPendingStore
 
@@ -296,6 +297,7 @@ class BiometryPendingService:
         email: str,
         asset: str | None = None,
         session_id: str | None = None,
+        wallet_info: dict[str, str] | None = None,
     ) -> dict[str, Any]:
         """Send approval email when Didit approves in-session (no In Review polling path)."""
         normalized_email = _normalize_email(email)
@@ -314,6 +316,7 @@ class BiometryPendingService:
             company_key=self._settings.backend_company_key,
             platform=self._settings.backend_platform,
             client_data=client_data,
+            wallet_info=wallet_info if action == "wallet_save" else None,
         )
         return {"ok": True, "messageType": message_type}
 

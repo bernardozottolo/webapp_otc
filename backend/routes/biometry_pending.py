@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from redis.asyncio import Redis
 
 from ..audit.audit_logger import write_audit_event
@@ -24,11 +24,22 @@ class RegisterBiometryPendingRequest(BaseModel):
     action_payload: dict[str, Any] = Field(default_factory=dict)
 
 
+class WalletInfoBody(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    asset: str = Field(min_length=1)
+    wallet: str = Field(min_length=1)
+    network: str = ""
+
+
 class NotifyImmediateBiometryApprovalRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     action: Literal["onboarding", "wallet_save"]
     email: str = Field(min_length=1)
     asset: str | None = None
     session_id: str | None = None
+    wallet_info: WalletInfoBody | None = Field(default=None, alias="walletInfo")
 
 
 def _redis_dependency(request: Request) -> Redis | None:
@@ -120,11 +131,13 @@ async def notify_immediate_biometry_approval(
     request: Request,
     service: BiometryPendingService = Depends(_service_dependency),
 ) -> dict[str, Any]:
+    wallet_info = payload.wallet_info.model_dump() if payload.wallet_info else None
     result = await service.notify_immediate_approval(
         action=payload.action,
         email=payload.email,
         asset=payload.asset,
         session_id=payload.session_id,
+        wallet_info=wallet_info,
     )
     await write_audit_event(
         request,
@@ -134,6 +147,7 @@ async def notify_immediate_biometry_approval(
             "email": payload.email.strip().lower(),
             "asset": payload.asset,
             "session_id": payload.session_id,
+            "wallet_info": wallet_info,
             "message_type": result.get("messageType"),
         },
         sanitize=False,
