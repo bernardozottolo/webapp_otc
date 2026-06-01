@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { otcApiClient } from "../../shared/api/client";
 import { bankKeyTypeToNetwork } from "../../shared/api/clientsDatabase";
 import { setWindowOrderPayload } from "../../shared/api/orderCache";
-import type { CompanyKycOwnerInfo, KycSubmitResult } from "../../shared/api/contracts";
+import type { CompanyKycOwnerInfo, KycSubmitResult, PreOrderValidationInput } from "../../shared/api/contracts";
 import { I18nHtml, useI18n } from "../../shared/i18n";
 import { deriveQuoteResponseFromUnitPrice } from "../../shared/api/pricing";
 import {
@@ -2038,12 +2038,12 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
       };
 
       const runPreOrderWithPriceRefresh = async (
-        preValidateBase: Parameters<typeof otcApiClient.preValidateOrder>[0]
+        preValidateBase: Omit<Parameters<typeof otcApiClient.preValidateOrder>[0], "price">
       ) => {
         let preOrder = await otcApiClient.preValidateOrder({
           ...preValidateBase,
           price: actionableQuote.unitPrice
-        });
+        } as PreOrderValidationInput);
         if (!preOrder.priceIsValid) {
           const refreshedQuote = await otcApiClient.getQuote(buildQuoteRequest());
           const nextValidPrice = refreshedQuote.unitPrice;
@@ -2072,7 +2072,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
           preOrder = await otcApiClient.preValidateOrder({
             ...preValidateBase,
             price: nextValidPrice
-          });
+          } as PreOrderValidationInput);
           if (!preOrder.priceIsValid) {
             orderTab.close();
             alert(t("order.validationFailed"));

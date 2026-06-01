@@ -3,6 +3,7 @@ import type {
   CreateOrderInput,
   KycSubmitPayload,
   KycSubmitResult,
+  OtcKycInfoPayload,
   PreOrderValidationInput,
   SellCreateOrderInput
 } from "./contracts";
