@@ -19,6 +19,13 @@ interface OrderStatusPageProps {
   brand: BrandConfig;
 }
 
+function maskBankKey(value: string | undefined | null) {
+  const trimmed = value?.trim() ?? "";
+  if (!trimmed) return "";
+  if (trimmed.length <= 8) return trimmed;
+  return `${trimmed.slice(0, 3)}****${trimmed.slice(-4)}`;
+}
+
 function maskMiddle(value: string | undefined | null, visibleStart = 6, visibleEnd = 6) {
   const trimmed = value?.trim() ?? "";
   if (!trimmed) return "";
@@ -276,7 +283,16 @@ export function OrderStatusPage({ brand }: OrderStatusPageProps) {
   const txHashHref = isHttpUrl(txHashHrefCandidate) ? txHashHrefCandidate : "";
   const hasTxHashValue = Boolean(txHashValue);
   const hasTxHashLink = Boolean(txHashHref);
+  const isSellOrder = order?.tradeSide === "sell";
+  const bankLabel = brand.bankLabelByCountry[brand.defaultCountry] ?? "PIX";
   const walletMasked = maskMiddle(order?.paymentData?.walletAddress, 6, 6);
+  const maskedPixKey = maskBankKey(order?.paymentData?.pixKey);
+  const depositWalletAddress =
+    order?.paymentData?.walletAddress?.trim() || order?.paymentData?.payload?.trim() || "";
+  const depositNetworkLabel = order?.paymentData?.network?.trim() ?? "";
+  const copyAddressLabel = isSellOrder ? texts.sellCopyWalletAddressButtonLabel : texts.copyPixButtonLabel;
+  const copiedAddressLabel = isSellOrder ? texts.sellCopiedWalletAddressButtonLabel : texts.copiedPixButtonLabel;
+  const addressFieldLabel = isSellOrder ? texts.sellWalletAddressLabel : texts.payloadLabel;
   const beneficiaryName = order?.paymentData?.BeneficiaryName?.trim() || brand.companyName;
   const beneficiaryBankName = order?.paymentData?.BeneficiaryBankName?.trim() ?? "";
   const beneficiaryTaxId = order?.paymentData?.BeneficiaryTaxId?.trim() ?? "";
@@ -297,7 +313,9 @@ export function OrderStatusPage({ brand }: OrderStatusPageProps) {
   const receiveValue = order
     ? formatLegAmount(brand.defaultLocale, brand.fiatCurrency, order.amount, order.outputAsset, outputAssetFallback)
     : "";
-  const receivingDataValue = [order?.paymentData?.network?.trim() ?? "", walletMasked].filter(Boolean).join(" - ");
+  const receivingDataValue = isSellOrder
+    ? [bankLabel, maskedPixKey].filter(Boolean).join(" - ")
+    : [order?.paymentData?.network?.trim() ?? "", walletMasked].filter(Boolean).join(" - ");
 
   useEffect(() => {
     if (!deadlineMs || !shouldShowPaymentCard) {
@@ -355,10 +373,12 @@ export function OrderStatusPage({ brand }: OrderStatusPageProps) {
     [brand.orderLoading.textColor, orderLoadingSpinnerColor]
   );
 
-  const handleCopyPayload = async () => {
-    const payload = order?.paymentData?.payload?.trim();
-    if (!payload) return;
-    await copyTextToClipboard(payload);
+  const handleCopyDepositAddress = async () => {
+    const address = isSellOrder
+      ? depositWalletAddress
+      : order?.paymentData?.payload?.trim() ?? "";
+    if (!address) return;
+    await copyTextToClipboard(address);
     setPayloadCopied(true);
     window.setTimeout(() => setPayloadCopied(false), 1800);
   };
@@ -463,19 +483,19 @@ export function OrderStatusPage({ brand }: OrderStatusPageProps) {
                     </svg>
                   </button>
                 </div>
-                {qrCodeSrc ? (
+                {!isSellOrder && qrCodeSrc ? (
                   <img className="order-qr-code" src={qrCodeSrc} alt={texts.qrCodeAltLabel} />
-                ) : (
+                ) : !isSellOrder ? (
                   <p className="order-page-empty">{texts.qrUnavailableMessage}</p>
-                )}
+                ) : null}
                 <div className="order-payment-actions">
                   <button
                     type="button"
                     className="order-copy-button"
-                    onClick={handleCopyPayload}
-                    disabled={!order.paymentData?.payload}
+                    onClick={handleCopyDepositAddress}
+                    disabled={isSellOrder ? !depositWalletAddress : !order.paymentData?.payload}
                   >
-                    {payloadCopied ? texts.copiedPixButtonLabel : texts.copyPixButtonLabel}
+                    {payloadCopied ? copiedAddressLabel : copyAddressLabel}
                   </button>
                 </div>
               </article>
@@ -539,26 +559,32 @@ export function OrderStatusPage({ brand }: OrderStatusPageProps) {
       <Modal open={paymentDetailsOpen} title={texts.paymentInfoModalTitle} onClose={() => setPaymentDetailsOpen(false)}>
         <div className="modal-body order-payment-modal">
           <div className="order-payment-modal__content">
-            <div className="order-payment-modal__qr">
-              {qrCodeSrc ? (
-                <img className="order-qr-code order-qr-code--modal" src={qrCodeSrc} alt={texts.qrCodeAltLabel} />
-              ) : (
-                <p className="order-page-empty">{texts.qrUnavailableMessage}</p>
-              )}
-            </div>
+            {!isSellOrder ? (
+              <div className="order-payment-modal__qr">
+                {qrCodeSrc ? (
+                  <img className="order-qr-code order-qr-code--modal" src={qrCodeSrc} alt={texts.qrCodeAltLabel} />
+                ) : (
+                  <p className="order-page-empty">{texts.qrUnavailableMessage}</p>
+                )}
+              </div>
+            ) : null}
             <div className="order-payment-modal__payload">
               <p className="order-payment-label">
-                <strong>{texts.payloadLabel}</strong>
+                <strong>{addressFieldLabel}</strong>
               </p>
-              <textarea className="order-payload" readOnly value={order?.paymentData?.payload ?? ""} />
+              <textarea
+                className="order-payload"
+                readOnly
+                value={isSellOrder ? depositWalletAddress : order?.paymentData?.payload ?? ""}
+              />
               <div className="order-payment-actions order-payment-actions--start">
                 <button
                   type="button"
                   className="order-copy-button"
-                  onClick={handleCopyPayload}
-                  disabled={!order?.paymentData?.payload}
+                  onClick={handleCopyDepositAddress}
+                  disabled={isSellOrder ? !depositWalletAddress : !order?.paymentData?.payload}
                 >
-                  {payloadCopied ? texts.copiedPixButtonLabel : texts.copyPixButtonLabel}
+                  {payloadCopied ? copiedAddressLabel : copyAddressLabel}
                 </button>
               </div>
             </div>
@@ -568,6 +594,12 @@ export function OrderStatusPage({ brand }: OrderStatusPageProps) {
               <span>{texts.beneficiaryLabel}</span>
               <strong>{beneficiaryName}</strong>
             </div>
+            {isSellOrder && depositNetworkLabel ? (
+              <div className="order-beneficiary-row">
+                <span>{texts.networkLabel}</span>
+                <strong>{depositNetworkLabel}</strong>
+              </div>
+            ) : null}
             {beneficiaryBankName ? (
               <div className="order-beneficiary-row">
                 <span>{texts.bankLabel}</span>

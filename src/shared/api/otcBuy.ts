@@ -465,7 +465,18 @@ export async function createOrderHttp(config: PricingConfig, input: CreateOrderI
         ...(data.order_details?.payment_data && typeof data.order_details.payment_data === "object"
           ? (data.order_details.payment_data as Order["paymentData"])
           : {}),
-        network: sellInput.networkInfo.network
+        network: sellInput.networkInfo.network,
+        pixKey: sellInput.paymentInfo.pixKey,
+        walletAddress:
+          asString(
+            (data.order_details?.payment_data as Record<string, unknown> | undefined)?.wallet_address
+          ) ||
+          asString((data.order_details?.payment_data as Record<string, unknown> | undefined)?.walletAddress) ||
+          undefined,
+        payload:
+          asString((data.order_details?.payment_data as Record<string, unknown> | undefined)?.payload) ||
+          asString((data.order_details?.payment_data as Record<string, unknown> | undefined)?.qr_code) ||
+          undefined
       },
       price: input.preOrder.price
     };

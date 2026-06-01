@@ -206,6 +206,8 @@ export interface OrderPaymentData {
   txHashUrl?: string | null;
   network?: string;
   walletAddress?: string;
+  /** Chave PIX do cliente (fluxo SELL — onde recebe o fiat). */
+  pixKey?: string;
 }
 
 export interface OrderPaymentDataV2 {

@@ -135,6 +135,9 @@ export interface OrderPageTextsConfig {
   qrUnavailableMessage: string;
   copyPixButtonLabel: string;
   copiedPixButtonLabel: string;
+  sellCopyWalletAddressButtonLabel: string;
+  sellCopiedWalletAddressButtonLabel: string;
+  sellWalletAddressLabel: string;
   buyLabel: string;
   sellLabel: string;
   waitingMessage: string;
@@ -556,6 +559,9 @@ export const defaultBrandConfig: BrandConfig = {
       qrUnavailableMessage: "QR Code indisponível.",
       copyPixButtonLabel: "Copiar Pix Cópia e Cola",
       copiedPixButtonLabel: "PIX copiado",
+      sellCopyWalletAddressButtonLabel: "Copiar Endereço da Carteira",
+      sellCopiedWalletAddressButtonLabel: "Endereço copiado",
+      sellWalletAddressLabel: "Endereço da carteira",
       buyLabel: "Compra",
       sellLabel: "Venda",
       waitingMessage: "Assim que o pagamento for identificado, atualizaremos esta tela automaticamente.",
@@ -958,6 +964,12 @@ function asOrderPageTextsConfig(value: unknown, fallback: OrderPageTextsConfig):
     qrUnavailableMessage: asString(value.qrUnavailableMessage, fallback.qrUnavailableMessage),
     copyPixButtonLabel: asString(value.copyPixButtonLabel, fallback.copyPixButtonLabel),
     copiedPixButtonLabel: asString(value.copiedPixButtonLabel, fallback.copiedPixButtonLabel),
+    sellCopyWalletAddressButtonLabel: asString(value.sellCopyWalletAddressButtonLabel, fallback.sellCopyWalletAddressButtonLabel),
+    sellCopiedWalletAddressButtonLabel: asString(
+      value.sellCopiedWalletAddressButtonLabel,
+      fallback.sellCopiedWalletAddressButtonLabel
+    ),
+    sellWalletAddressLabel: asString(value.sellWalletAddressLabel, fallback.sellWalletAddressLabel),
     buyLabel: asString(value.buyLabel, fallback.buyLabel),
     sellLabel: asString(value.sellLabel, fallback.sellLabel),
     waitingMessage: asString(value.waitingMessage, fallback.waitingMessage),
