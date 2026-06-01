@@ -182,6 +182,10 @@ export interface TradeAvailabilityTextsConfig {
   sellUnavailable: string;
 }
 
+export interface PaymentFormTextsConfig {
+  pixKeyOwnerRejected: string;
+}
+
 export interface FooterContactsConfig {
   phone: string;
   whatsapp: string;
@@ -259,6 +263,7 @@ export interface BrandConfig {
   occupations: string[];
   occupationsAvailable: string[];
   tradeAvailabilityTexts: TradeAvailabilityTextsConfig;
+  paymentFormTexts: PaymentFormTextsConfig;
   biometryReview: BiometryReviewConfig;
   biometryPreConfirm: BiometryPreConfirmConfig;
   /**
@@ -440,6 +445,9 @@ export const defaultBrandConfig: BrandConfig = {
   tradeAvailabilityTexts: {
     buyUnavailable: "Compra não está disponível no momento.",
     sellUnavailable: "Venda não está disponível no momento."
+  },
+  paymentFormTexts: {
+    pixKeyOwnerRejected: "Chave PIX precisa pertencer ao dono da conta"
   },
   biometryReview: defaultBiometryReviewConfig,
   biometryPreConfirm: defaultBiometryPreConfirmConfig,
@@ -1025,6 +1033,15 @@ function asTradeAvailabilityTextsConfig(value: unknown, fallback: TradeAvailabil
   };
 }
 
+function asPaymentFormTextsConfig(value: unknown, fallback: PaymentFormTextsConfig): PaymentFormTextsConfig {
+  if (!isRecord(value)) {
+    return fallback;
+  }
+  return {
+    pixKeyOwnerRejected: asString(value.pixKeyOwnerRejected, fallback.pixKeyOwnerRejected)
+  };
+}
+
 function asFooterContactsConfig(value: unknown, fallback: FooterContactsConfig): FooterContactsConfig {
   if (!isRecord(value)) {
     return fallback;
@@ -1153,6 +1170,7 @@ export function normalizeRuntimeBrandConfig(raw: unknown, fallback: BrandConfig 
       occupations
     ),
     tradeAvailabilityTexts: asTradeAvailabilityTextsConfig(raw.tradeAvailabilityTexts, fallback.tradeAvailabilityTexts),
+    paymentFormTexts: asPaymentFormTextsConfig(raw.paymentFormTexts, fallback.paymentFormTexts),
     biometryReview: asBiometryReviewConfig(raw.biometryReview, fallback.biometryReview),
     biometryPreConfirm: asBiometryPreConfirmConfig(raw.biometryPreConfirm, fallback.biometryPreConfirm),
     emailConsentLabel: asOptionalString(raw.emailConsentLabel) ?? "",

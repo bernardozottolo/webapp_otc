@@ -483,6 +483,11 @@ button {
   font-size: var(--form-body-size);
 }
 
+.field-shell--network-select select {
+  width: 100%;
+  min-width: 0;
+}
+
 .field-shell input,
 .field-shell select {
   border: 0;

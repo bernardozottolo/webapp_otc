@@ -236,7 +236,7 @@ O projeto pode usar um backend Python simples para:
 - `DIDIT_BIOMETRIC_VALIDATION_WORKFLOW_ID` (recomendado em producao): workflow biometrico server-side
 - `CLIENTS_DATABASE_API_BASE_URL` (opcional, default vazio): quando preenchido, o FastAPI aceita `POST /webhook/clients_database` e reenviara o JSON ao `{base}/webhook/clients_database`; para modo real no browser use `backend.clientsDbBaseUrl: ""`.
 - `FRONTEND_DIST_DIR` (opcional, default `dist`)
-- `OTC_UPSTREAM_API_BASE_URL` (opcional, default vazio): quando preenchido, o FastAPI aceita apenas **POST** nas rotas OTC suportadas (`/otc/get_pricing`, `/otc/get_transaction_history`, `/otc/get_counterparty_transactional_limit`, `/otc/pre_order_validation`, `/otc/create_order`, `/otc/counterparty_kyc`, `/otc/get_available_withdraw_networks`, `/otc/check_wallet_risk`) e reenviando o JSON ao `{base}/otc/…`; use `"quoteBaseUrl": ""` (ou `otcViaSameOrigin`) no frontend para mesmo origin sem CORS no dominio OTC.
+- `OTC_UPSTREAM_API_BASE_URL` (opcional, default vazio): quando preenchido, o FastAPI aceita apenas **POST** nas rotas OTC suportadas (`/otc/get_pricing`, `/otc/get_transaction_history`, `/otc/get_counterparty_transactional_limit`, `/otc/pre_order_validation`, `/otc/create_order`, `/otc/counterparty_kyc`, `/otc/get_available_withdraw_networks`, `/otc/get_available_deposit_networks`, `/otc/check_wallet_risk`, `/otc/check_pix_key_owner`) e reenviando o JSON ao `{base}/otc/…`; use `"quoteBaseUrl": ""` (ou `otcViaSameOrigin`) no frontend para mesmo origin sem CORS no dominio OTC.
 - `ORDER_UPDATES_TTL_MS` (opcional, default `3600000`): TTL em milissegundos para snapshots iniciais de `create_order` e updates recebidos em `/api/order-updates`.
 - `PROXY_ALLOW_ORIGINS` (opcional, default `http://localhost:5173,http://127.0.0.1:5173`)
 - `LOG_LEVEL` (opcional, default `INFO`) nivel do logger `didit_proxy` (requisicoes HTTP de entrada em `didit_proxy.http`, saida para a API Didit em `didit_proxy.upstream`)
@@ -346,7 +346,10 @@ No fluxo `BUY`, o browser continua falando apenas com a mesma origem da aplicaca
 - `counterparty_kyc` roda no cadastro e tambem no login quando `backend.otcKycValidityDays` expira.
 - Cliente com ultimo KYC nao aprovado nao consegue negociar.
 - `get_available_withdraw_networks` abastece o modal de wallet com taxa no ativo e estimativa em BRL.
+- `get_available_deposit_networks` abastece o dropdown de rede no fluxo de venda (SELL); a taxa reduz o valor exibido em "Você recebe".
 - `check_wallet_risk` roda antes de salvar a wallet; a wallet so e persistida se `risk_result === "approved"`.
+- `check_pix_key_owner` roda antes de salvar a chave PIX/bancária; a chave so e persistida se `key_owner_result === true`.
+- No SELL, `pre_order_validation` e `create_order` enviam `network_info` (rede de depósito) e `payment_info.pix_key` (chave cadastrada no clients_database).
 - `pre_order_validation` e `create_order` usam contrato **v2** (`version: "v2"`, `kyc_info` com `name`/`document`/`kyc_result`; resposta de pre-order com `input_*`, `output_*`, `fee_*`). `pre_order_validation` roda antes de `create_order`; se `price_is_valid` for falso, a UI chama `get_pricing` de novo, atualiza a cotacao e pede nova confirmacao.
 - Quando `create_order` retorna com sucesso, o FastAPI guarda um snapshot temporario do pedido e a pagina `'/order/:id'` pode ser reaberta ate o TTL configurado.
 - Updates posteriores do OTC podem ser enviados para `POST /api/order-updates` e a pagina `'/order/:id'` faz polling em `GET /api/order-updates/{orderId}` para consolidar status, `txHash` e metadados de pagamento.

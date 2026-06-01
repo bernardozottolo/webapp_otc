@@ -327,6 +327,22 @@ async def otc_check_wallet_risk(
     return await _proxy_post(request, "check_wallet_risk", client, audit_event="wallet_risk_checked")
 
 
+@router.post("/get_available_deposit_networks")
+async def otc_get_available_deposit_networks(
+    request: Request,
+    client: Annotated[OtcUpstreamClient, Depends(get_otc_upstream)],
+) -> Response:
+    return await _proxy_post(request, "get_available_deposit_networks", client)
+
+
+@router.post("/check_pix_key_owner")
+async def otc_check_pix_key_owner(
+    request: Request,
+    client: Annotated[OtcUpstreamClient, Depends(get_otc_upstream)],
+) -> Response:
+    return await _proxy_post(request, "check_pix_key_owner", client, audit_event="pix_key_owner_checked")
+
+
 @router.post("/get_transaction_history")
 async def otc_get_transaction_history(
     request: Request,

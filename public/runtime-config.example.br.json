@@ -47,6 +47,9 @@
     "buyUnavailable": "Essa funcionalidade volta em breve ✨",
     "sellUnavailable": "Essa funcionalidade volta em breve ✨"
   },
+  "paymentFormTexts": {
+    "pixKeyOwnerRejected": "Chave PIX precisa pertencer ao dono da conta"
+  },
   "biometryReview": {
     "pendingUserMessage": "Sua biometria está em análise. Você será notificado por e-mail em até 48 horas.",
     "ttlHours": 48,

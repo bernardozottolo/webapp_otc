@@ -24,8 +24,10 @@ import { getNegotiationAssetsHttp, getQuoteHttp, type PricingConfig } from "./pr
 import { cacheOrder, configureOrderPersistence, getCachedOrder } from "./orderCache";
 import { getOrderRecordHttp, type OrderUpdatesConfig } from "./orderUpdates";
 import {
+  checkPixKeyOwnerHttp,
   checkWalletRiskHttp,
   createOrderHttp,
+  getAvailableDepositNetworksHttp,
   getAvailableWithdrawNetworksHttp,
   preOrderValidationHttp,
   submitCounterpartyKycHttp
@@ -157,9 +159,14 @@ export const otcApiClient: OtcApi = {
       : getPaymentDataHttp(clientsDatabaseConfig, context),
   getNetworksAndFees: (country, asset) =>
     useMockPricing() ? mockApi.getNetworksAndFees(country, asset) : getAvailableWithdrawNetworksHttp(pricingConfig, asset),
+  getDepositNetworks: (asset) =>
+    useMockPricing() ? mockApi.getDepositNetworks(asset) : getAvailableDepositNetworksHttp(pricingConfig, asset),
   walletKytCheck: (walletAddress, network) =>
     useMockPricing() ? mockApi.walletKytCheck(walletAddress, network) : checkWalletRiskHttp(pricingConfig, walletAddress, network),
-  bankKeyOwnerCheck: mockApi.bankKeyOwnerCheck,
+  bankKeyOwnerCheck: (bankKeyValue, documentNumber) =>
+    useMockPricing()
+      ? mockApi.checkPixKeyOwner(bankKeyValue, documentNumber)
+      : checkPixKeyOwnerHttp(pricingConfig, documentNumber, bankKeyValue),
   savePaymentData: (paymentData) =>
     useMockClientsDatabase() ? mockApi.savePaymentData(toMockPaymentData(paymentData)) : savePaymentDataHttp(clientsDatabaseConfig, paymentData),
   preValidateOrder: (input) => (useMockPricing() ? mockApi.preValidateOrder(input) : preOrderValidationHttp(pricingConfig, input)),

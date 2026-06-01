@@ -349,9 +349,24 @@ export async function walletKytCheck(walletAddress: string, network: string): Pr
   };
 }
 
-export async function bankKeyOwnerCheck(bankKeyValue: string, documentNumber: string) {
+export async function getDepositNetworks(asset: string): Promise<OtcWithdrawNetwork[]> {
+  return getNetworksAndFees("BR", asset);
+}
+
+export async function checkPixKeyOwner(bankKeyValue: string, documentNumber: string) {
   await wait(500);
-  return { approved: bankKeyValue.length > 5 && documentNumber.length > 5 };
+  const approved = bankKeyValue.length > 5 && documentNumber.length > 5;
+  return {
+    approved,
+    keyOwnerResult: approved,
+    pixOwnerInfo: approved ? { name: "Mock Owner" } : {}
+  };
+}
+
+/** @deprecated Use checkPixKeyOwner */
+export async function bankKeyOwnerCheck(bankKeyValue: string, documentNumber: string) {
+  const result = await checkPixKeyOwner(bankKeyValue, documentNumber);
+  return { approved: result.approved };
 }
 
 export async function savePaymentData(paymentData: PaymentData) {
@@ -374,6 +389,23 @@ export async function preValidateOrder(input: PreOrderValidationInput): Promise<
   const inputAmount = input.amount;
   const couponCode = input.coupon?.trim().toUpperCase() ?? "";
   const couponIsValid = couponCode === "VIP10" || couponCode === "OTC5";
+  if (input.tradeType === "SELL") {
+    const networkFeeBrl = input.networkInfo.withdrawFeeBrlEstimate ?? 0;
+    const outputAmountGross = inputAmount * price;
+    const outputAmountNet = Math.max(outputAmountGross - networkFeeBrl, 0);
+    return {
+      priceIsValid: true,
+      couponIsValid,
+      price,
+      inputAsset: input.asset,
+      inputAmount,
+      outputAsset: "brl",
+      outputAmountGross,
+      feeAsset: input.networkInfo.withdrawFee,
+      feeFiat: networkFeeBrl,
+      outputAmountNet
+    };
+  }
   const feeAsset = input.asset.toUpperCase() === "BTC" ? 0.0002 : 0.3;
   const feeFiat = feeAsset * price;
   const outputAmountGross = inputAmount / price;
@@ -395,6 +427,29 @@ export async function preValidateOrder(input: PreOrderValidationInput): Promise<
 export async function createOrder(input: CreateOrderInput): Promise<Order> {
   await wait(500);
   const id = String(Math.floor(100000000 + Math.random() * 900000000));
+  if (input.tradeType === "SELL") {
+    const order: Order = {
+      id,
+      email: input.email,
+      tradeSide: "sell",
+      asset: input.asset,
+      amount: input.preOrder.outputAmountNet,
+      quoteTotal: input.preOrder.inputAmount,
+      status: "waiting_for_payment",
+      createdAt: Date.now(),
+      amountToPay: input.preOrder.inputAmount,
+      inputAsset: input.preOrder.inputAsset || input.asset,
+      outputAsset: input.preOrder.outputAsset,
+      paymentData: {
+        network: input.networkInfo.network,
+        walletAddress: "0xMOCK_DEPOSIT_WALLET"
+      },
+      price: input.preOrder.price,
+      orderIsValid: true
+    };
+    db.orders.set(id, order);
+    return order;
+  }
   const order: Order = {
     id,
     email: input.email,

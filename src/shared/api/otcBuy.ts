@@ -1,13 +1,14 @@
 import type {
+  BuyCreateOrderInput,
   CreateOrderInput,
   KycSubmitPayload,
   KycSubmitResult,
-  OtcKycInfoPayload,
-  PreOrderValidationInput
+  PreOrderValidationInput,
+  SellCreateOrderInput
 } from "./contracts";
 import { cacheOrder, getCachedOrder } from "./orderCache";
 import type { PricingConfig } from "./pricing";
-import type { OtcPreOrderValidation, OtcWalletRiskCheck, OtcWithdrawNetwork, Order } from "../types";
+import type { OtcPixKeyOwnerCheck, OtcPreOrderValidation, OtcWalletRiskCheck, OtcWithdrawNetwork, Order } from "../types";
 import { resolveSameOriginOtcPath } from "./otcUrls";
 
 interface OtcEnvelope<T> {
@@ -65,6 +66,11 @@ interface WalletRiskPayload {
   network?: unknown;
   risk_result?: unknown;
   wallet?: unknown;
+}
+
+interface PixKeyOwnerPayload {
+  key_owner_result?: unknown;
+  pix_owner_info?: unknown;
 }
 
 interface PreOrderPayload {
@@ -166,11 +172,43 @@ function serializeKycInfo(kyc: OtcKycInfoPayload) {
   };
 }
 
-function serializePreOrderV2(
-  preOrder: OtcPreOrderValidation,
-  paymentInfo: { wallet: string; network: string }
-) {
+function otcFeeString(value: number) {
+  if (!Number.isFinite(value)) return "0";
+  return String(value);
+}
+
+export function serializeNetworkInfo(network: OtcWithdrawNetwork): Record<string, unknown> {
+  const payload: Record<string, unknown> = {
+    network: network.network
+  };
+  if (network.addressRegex) payload.addressRegex = network.addressRegex;
+  if (network.withdrawDesc !== undefined) payload.withdrawDesc = network.withdrawDesc;
+  payload.withdrawFee = otcFeeString(network.withdrawFee);
+  payload.withdrawFeeBrlEstimate = otcFeeString(network.withdrawFeeBrlEstimate);
+  if (network.withdrawIntegerMultiple) payload.withdrawIntegerMultiple = network.withdrawIntegerMultiple;
+  if (network.withdrawMax) payload.withdrawMax = network.withdrawMax;
+  if (network.withdrawMin) payload.withdrawMin = network.withdrawMin;
+  if (network.withdrawTag !== undefined) payload.withdrawTag = network.withdrawTag;
+  return payload;
+}
+
+function serializePaymentInfoForOtc(
+  input: PreOrderValidationInput | CreateOrderInput
+): Record<string, unknown> {
+  if (input.tradeType === "SELL") {
+    return {
+      pix_key: input.paymentInfo.pixKey,
+      network: input.paymentInfo.network
+    };
+  }
   return {
+    wallet: input.paymentInfo.wallet,
+    network: input.paymentInfo.network
+  };
+}
+
+function serializePreOrderV2(input: PreOrderValidationInput | CreateOrderInput, preOrder: OtcPreOrderValidation) {
+  const base: Record<string, unknown> = {
     price_is_valid: preOrder.priceIsValid,
     coupon_is_valid: preOrder.couponIsValid,
     price: preOrder.price,
@@ -181,10 +219,26 @@ function serializePreOrderV2(
     fee_asset: preOrder.feeAsset,
     fee_fiat: preOrder.feeFiat,
     output_amount_net: preOrder.outputAmountNet,
-    payment_info: {
-      wallet: paymentInfo.wallet,
-      network: paymentInfo.network
-    }
+    payment_info: serializePaymentInfoForOtc(input)
+  };
+  if (input.tradeType === "SELL") {
+    base.network_info = serializeNetworkInfo(input.networkInfo);
+  }
+  return base;
+}
+
+function mapWithdrawNetworkPayload(item: WithdrawNetworkPayload): OtcWithdrawNetwork {
+  return {
+    addressRegex: asString(item.addressRegex ?? item.address_regex) || undefined,
+    network: asString(item.network),
+    userFriendlyNetworkName: asString(item.userFriendlyNetworkName ?? item.user_friendly_network_name, asString(item.network)),
+    withdrawDesc: asString(item.withdrawDesc ?? item.withdraw_desc) || undefined,
+    withdrawFee: asNumber(item.withdrawFee ?? item.withdraw_fee),
+    withdrawFeeBrlEstimate: asNumber(item.withdrawFeeBrlEstimate ?? item.withdraw_fee_brl_estimate),
+    withdrawIntegerMultiple: asString(item.withdrawIntegerMultiple ?? item.withdraw_integer_multiple) || undefined,
+    withdrawMax: asString(item.withdrawMax ?? item.withdraw_max) || undefined,
+    withdrawMin: asString(item.withdrawMin ?? item.withdraw_min) || undefined,
+    withdrawTag: typeof (item.withdrawTag ?? item.withdraw_tag) === "boolean" ? Boolean(item.withdrawTag ?? item.withdraw_tag) : undefined
   };
 }
 
@@ -283,18 +337,47 @@ export async function getAvailableWithdrawNetworksHttp(
   const data = await postOtcJson<WithdrawNetworkPayload[]>(config, "get_available_withdraw_networks", {
     asset
   });
-  return data.map((item) => ({
-    addressRegex: asString(item.addressRegex ?? item.address_regex) || undefined,
-    network: asString(item.network),
-    userFriendlyNetworkName: asString(item.userFriendlyNetworkName ?? item.user_friendly_network_name, asString(item.network)),
-    withdrawDesc: asString(item.withdrawDesc ?? item.withdraw_desc) || undefined,
-    withdrawFee: asNumber(item.withdrawFee ?? item.withdraw_fee),
-    withdrawFeeBrlEstimate: asNumber(item.withdrawFeeBrlEstimate ?? item.withdraw_fee_brl_estimate),
-    withdrawIntegerMultiple: asString(item.withdrawIntegerMultiple ?? item.withdraw_integer_multiple) || undefined,
-    withdrawMax: asString(item.withdrawMax ?? item.withdraw_max) || undefined,
-    withdrawMin: asString(item.withdrawMin ?? item.withdraw_min) || undefined,
-    withdrawTag: typeof (item.withdrawTag ?? item.withdraw_tag) === "boolean" ? Boolean(item.withdrawTag ?? item.withdraw_tag) : undefined
-  }));
+  return data.map(mapWithdrawNetworkPayload);
+}
+
+export async function getAvailableDepositNetworksHttp(
+  config: PricingConfig,
+  asset: string
+): Promise<OtcWithdrawNetwork[]> {
+  const data = await postOtcJson<WithdrawNetworkPayload[]>(config, "get_available_deposit_networks", {
+    asset
+  });
+  return data.map(mapWithdrawNetworkPayload);
+}
+
+export async function checkPixKeyOwnerHttp(
+  config: PricingConfig,
+  inputDocument: string,
+  inputKey: string
+): Promise<OtcPixKeyOwnerCheck> {
+  const response = await fetch(buildOtcUrl(config.quoteBaseUrl, "check_pix_key_owner"), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json"
+    },
+    body: JSON.stringify({
+      input_document: inputDocument,
+      input_key: inputKey
+    })
+  });
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(text || `check_pix_key_owner failed with status ${response.status}`);
+  }
+  const payload = (await response.json()) as OtcEnvelope<PixKeyOwnerPayload> & PixKeyOwnerPayload;
+  const data = (payload.data ?? payload) as PixKeyOwnerPayload;
+  const keyOwnerResult = asBoolean(data.key_owner_result);
+  return {
+    approved: keyOwnerResult,
+    keyOwnerResult,
+    pixOwnerInfo: asRecordUnknown(data.pix_owner_info)
+  };
 }
 
 export async function checkWalletRiskHttp(
@@ -320,28 +403,29 @@ export async function preOrderValidationHttp(
   config: PricingConfig,
   input: PreOrderValidationInput
 ): Promise<OtcPreOrderValidation> {
-  const data = await postOtcJson<PreOrderPayload>(config, "pre_order_validation", {
+  const body: Record<string, unknown> = {
     version: "v2",
     asset: input.asset,
     trade_type: input.tradeType,
     coupon: input.coupon?.trim() || undefined,
-    payment_info: {
-      wallet: input.paymentInfo.wallet,
-      network: input.paymentInfo.network
-    },
+    payment_info: serializePaymentInfoForOtc(input),
     price: input.price,
     amount: input.amount,
     document: input.document,
     document_type: input.documentType,
     kyc_info: serializeKycInfo(input.kycInfo)
-  });
+  };
+  if (input.tradeType === "SELL") {
+    body.network_info = serializeNetworkInfo(input.networkInfo);
+  }
+  const data = await postOtcJson<PreOrderPayload>(config, "pre_order_validation", body);
   return mapPreOrderPayload(data, input.price);
 }
 
 export async function createOrderHttp(config: PricingConfig, input: CreateOrderInput): Promise<Order> {
   const emailNorm = input.email.trim().toLowerCase();
   const clientId = `${emailNorm}_webapp_${input.country.toLowerCase()}`;
-  const data = await postOtcJson<CreateOrderPayload>(config, "create_order", {
+  const body: Record<string, unknown> = {
     version: "v2",
     asset: input.asset,
     trade_type: input.tradeType,
@@ -352,10 +436,7 @@ export async function createOrderHttp(config: PricingConfig, input: CreateOrderI
     kyc_info: serializeKycInfo(input.kycInfo),
     price: otcDecimalString(input.preOrder.price),
     client_id: clientId,
-    payment_info: {
-      wallet: input.paymentInfo.wallet,
-      network: input.paymentInfo.network
-    },
+    payment_info: serializePaymentInfoForOtc(input),
     client_data: {
       id: emailNorm,
       email: emailNorm,
@@ -367,31 +448,65 @@ export async function createOrderHttp(config: PricingConfig, input: CreateOrderI
       country: input.country,
       platform: "webapp"
     },
-    pre_order: serializePreOrderV2(input.preOrder, input.paymentInfo)
-  });
+    pre_order: serializePreOrderV2(input, input.preOrder)
+  };
+  if (input.tradeType === "SELL") {
+    body.network_info = serializeNetworkInfo(input.networkInfo);
+  }
+  const data = await postOtcJson<CreateOrderPayload>(config, "create_order", body);
 
   const orderId = asString(data.order_details?.order_id);
   if (!orderId) {
     throw new Error("create_order returned an order without order_id.");
   }
 
+  if (input.tradeType === "SELL") {
+    const sellInput = input as SellCreateOrderInput;
+    const order: Order = {
+      id: orderId,
+      email: input.email,
+      tradeSide: "sell",
+      asset: sellInput.asset,
+      amount: input.preOrder.outputAmountNet,
+      quoteTotal: input.preOrder.inputAmount,
+      status: asString(data.order_details?.status, "waiting_for_payment"),
+      createdAt: Date.now(),
+      amountToPay: input.preOrder.inputAmount,
+      orderIsValid: asBoolean(data.order_is_valid, true),
+      inputAsset: input.preOrder.inputAsset || sellInput.asset,
+      outputAsset: input.preOrder.outputAsset,
+      paymentData: {
+        ...(data.order_details?.payment_data && typeof data.order_details.payment_data === "object"
+          ? (data.order_details.payment_data as Order["paymentData"])
+          : {}),
+        network: sellInput.networkInfo.network
+      },
+      price: input.preOrder.price
+    };
+    cacheOrder(order);
+    return order;
+  }
+
+  const buyInput = input as BuyCreateOrderInput;
   const order: Order = {
     id: orderId,
     email: input.email,
     tradeSide: "buy",
-    asset: input.asset,
+    asset: buyInput.asset,
     amount: input.preOrder.outputAmountNet,
     quoteTotal: input.preOrder.inputAmount,
     status: asString(data.order_details?.status, "waiting_for_payment"),
     createdAt: Date.now(),
     amountToPay: input.preOrder.inputAmount,
     orderIsValid: asBoolean(data.order_is_valid, true),
+    inputAsset: input.preOrder.inputAsset,
+    outputAsset: input.preOrder.outputAsset || buyInput.asset,
     paymentData: {
       ...(data.order_details?.payment_data && typeof data.order_details.payment_data === "object"
         ? (data.order_details.payment_data as Order["paymentData"])
         : {}),
-      network: input.paymentInfo.network,
-      walletAddress: input.paymentInfo.wallet
+      network: buyInput.paymentInfo.network,
+      walletAddress: buyInput.paymentInfo.wallet
     },
     price: input.preOrder.price
   };

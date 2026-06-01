@@ -133,6 +133,12 @@ export interface OtcWalletRiskCheck {
   failureReasons: Record<string, unknown>;
 }
 
+export interface OtcPixKeyOwnerCheck {
+  approved: boolean;
+  keyOwnerResult: boolean;
+  pixOwnerInfo?: Record<string, unknown>;
+}
+
 export interface OtcPreOrderValidation {
   priceIsValid: boolean;
   couponIsValid: boolean;

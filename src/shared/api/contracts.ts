@@ -8,6 +8,7 @@ import type {
   OtcPreOrderValidation,
   OtcWalletRiskCheck,
   OtcWithdrawNetwork,
+  OtcPixKeyOwnerCheck,
   Order,
   PaymentContext,
   PaymentData,
@@ -63,14 +64,21 @@ export interface OtcKycInfoPayload {
   kycResult: string;
 }
 
-export interface PreOrderValidationInput {
+export type BuyOrderPaymentInfo = {
+  wallet: string;
+  network: string;
+};
+
+export type SellOrderPaymentInfo = {
+  pixKey: string;
+  network: string;
+};
+
+export interface BuyPreOrderValidationInput {
   asset: string;
   tradeType: "BUY";
   coupon?: string;
-  paymentInfo: {
-    wallet: string;
-    network: string;
-  };
+  paymentInfo: BuyOrderPaymentInfo;
   price: number;
   amount: number;
   document: string;
@@ -78,17 +86,29 @@ export interface PreOrderValidationInput {
   kycInfo: OtcKycInfoPayload;
 }
 
-export interface CreateOrderInput {
+export interface SellPreOrderValidationInput {
+  asset: string;
+  tradeType: "SELL";
+  coupon?: string;
+  paymentInfo: SellOrderPaymentInfo;
+  networkInfo: OtcWithdrawNetwork;
+  price: number;
+  amount: number;
+  document: string;
+  documentType: string;
+  kycInfo: OtcKycInfoPayload;
+}
+
+export type PreOrderValidationInput = BuyPreOrderValidationInput | SellPreOrderValidationInput;
+
+export interface BuyCreateOrderInput {
   email: string;
   country: Country;
   asset: string;
   assetToPay: string;
   tradeType: "BUY";
   coupon?: string;
-  paymentInfo: {
-    wallet: string;
-    network: string;
-  };
+  paymentInfo: BuyOrderPaymentInfo;
   price: number;
   amount: number;
   document: string;
@@ -97,6 +117,25 @@ export interface CreateOrderInput {
   kycTs: number;
   preOrder: OtcPreOrderValidation;
 }
+
+export interface SellCreateOrderInput {
+  email: string;
+  country: Country;
+  asset: string;
+  tradeType: "SELL";
+  coupon?: string;
+  paymentInfo: SellOrderPaymentInfo;
+  networkInfo: OtcWithdrawNetwork;
+  price: number;
+  amount: number;
+  document: string;
+  documentType: string;
+  kycInfo: OtcKycInfoPayload;
+  kycTs: number;
+  preOrder: OtcPreOrderValidation;
+}
+
+export type CreateOrderInput = BuyCreateOrderInput | SellCreateOrderInput;
 
 export interface OtcApi {
   getQuote(req: QuoteRequest): Promise<QuoteResponse>;
@@ -120,8 +159,9 @@ export interface OtcApi {
   getProfileAndLimits(email: string): Promise<{ customer: Customer; limits: Limits }>;
   getPaymentData(context: PaymentContext): Promise<PaymentData | null>;
   getNetworksAndFees(country: Country, asset: string): Promise<OtcWithdrawNetwork[]>;
+  getDepositNetworks(asset: string): Promise<OtcWithdrawNetwork[]>;
   walletKytCheck(walletAddress: string, network: string): Promise<OtcWalletRiskCheck>;
-  bankKeyOwnerCheck(bankKeyValue: string, documentNumber: string): Promise<{ approved: boolean }>;
+  bankKeyOwnerCheck(bankKeyValue: string, documentNumber: string): Promise<OtcPixKeyOwnerCheck>;
   savePaymentData(paymentData: PaymentData): Promise<{ ok: boolean }>;
   preValidateOrder(input: PreOrderValidationInput): Promise<OtcPreOrderValidation>;
   createOrder(input: CreateOrderInput): Promise<Order>;

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { otcApiClient } from "../../shared/api/client";
+import { bankKeyTypeToNetwork } from "../../shared/api/clientsDatabase";
 import { setWindowOrderPayload } from "../../shared/api/orderCache";
 import type { CompanyKycOwnerInfo, KycSubmitResult } from "../../shared/api/contracts";
 import { I18nHtml, useI18n } from "../../shared/i18n";
@@ -400,6 +401,10 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
   const [bankKeyValue, setBankKeyValue] = useState("");
   const [networksAndFees, setNetworksAndFees] = useState<OtcWithdrawNetwork[]>([]);
   const [networksAndFeesLoading, setNetworksAndFeesLoading] = useState(false);
+  const [depositNetworks, setDepositNetworks] = useState<OtcWithdrawNetwork[]>([]);
+  const [depositNetwork, setDepositNetwork] = useState("");
+  const [depositNetworksLoading, setDepositNetworksLoading] = useState(false);
+  const [bankKeyOwnerError, setBankKeyOwnerError] = useState<string | null>(null);
   const [blockingUi, setBlockingUi] = useState<BlockingUiState | null>(null);
   const bioAutostartedRef = useRef(false);
 
@@ -1364,6 +1369,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
       } else {
         setBankKeyType(paymentData?.bankKeyType ?? "Telefone");
         setBankKeyValue(paymentData?.bankKeyValue ?? "");
+        setBankKeyOwnerError(null);
       }
       setStep("payment");
     }, t("loading.fetchingPayment"));
@@ -1427,6 +1433,36 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
       mounted = false;
     };
   }, [identified, tradeSide, country, asset]);
+
+  useEffect(() => {
+    if (!identified || tradeSide !== "sell") {
+      setDepositNetworks([]);
+      setDepositNetwork("");
+      setDepositNetworksLoading(false);
+      return;
+    }
+    let mounted = true;
+    setDepositNetworksLoading(true);
+    const loadDepositNetworks = async () => {
+      try {
+        const networks = await otcApiClient.getDepositNetworks(asset);
+        if (!mounted) return;
+        setDepositNetworks(networks);
+        setDepositNetwork((current) => {
+          if (current && networks.some((item) => item.network === current)) {
+            return current;
+          }
+          return networks[0]?.network ?? "";
+        });
+      } finally {
+        if (mounted) setDepositNetworksLoading(false);
+      }
+    };
+    void loadDepositNetworks();
+    return () => {
+      mounted = false;
+    };
+  }, [identified, tradeSide, asset]);
 
   useEffect(() => {
     if (step !== "bio") {
@@ -1895,9 +1931,10 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
 
       const owner = await otcApiClient.bankKeyOwnerCheck(bankKeyValue, customerDocument);
       if (!owner.approved) {
-        alert(t("payment.ownerRejected"));
+        setBankKeyOwnerError(brand.paymentFormTexts.pixKeyOwnerRejected || t("payment.ownerRejected"));
         return;
       }
+      setBankKeyOwnerError(null);
       const payload: PaymentData = {
         email: customer.email,
         tradeSide,
@@ -1952,7 +1989,15 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
   const createOrderNow = async () => {
     if (!actionableQuote || !customer || !paymentData || !hasPaymentReady || !parsedAmount) return;
     if (!transactionalAllowance || transactionalFetchError || transactionalLoading) return;
-    if (tradeSide !== "buy" || paymentData.kind !== "crypto" || !paymentData.walletAddress || !paymentData.network) return;
+    if (tradeSide === "buy" && (paymentData.kind !== "crypto" || !paymentData.walletAddress || !paymentData.network)) {
+      return;
+    }
+    if (
+      tradeSide === "sell" &&
+      (paymentData.kind !== "bank" || !paymentData.bankKeyValue || !paymentData.bankKeyType || !depositNetwork)
+    ) {
+      return;
+    }
     if (effectiveMaxFiat === null) return;
     const fiatLeg = tradeSide === "buy" ? parsedAmount : actionableQuote.totalFiat;
     if (fiatLeg + 1e-6 < minNegotiationValueFiat) return;
@@ -1986,94 +2031,160 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
         locale,
         customer
       });
-      const paymentInfo = {
-        wallet: paymentData.walletAddress,
-        network: paymentData.network
-      };
       const kycInfo = {
         name: kycName,
         document,
         kycResult: mapApprovedKycToCounterpartyPayload(customer.approvedKycResult)
       };
-      const preValidateBase = {
-        asset,
-        tradeType: "BUY" as const,
-        coupon: appliedCoupon.trim() || undefined,
-        paymentInfo,
-        amount: parsedAmount,
-        document,
-        documentType,
-        kycInfo
-      };
 
-      let preOrder = await otcApiClient.preValidateOrder({
-        ...preValidateBase,
-        price: actionableQuote.unitPrice
-      });
-
-      if (!preOrder.priceIsValid) {
-        const refreshedQuote = await otcApiClient.getQuote(buildQuoteRequest());
-        const nextValidPrice = refreshedQuote.unitPrice;
-        if (!(nextValidPrice > 0)) {
-          orderTab.close();
-          alert(t("order.validationFailed"));
-          return;
-        }
-        pricingSnapRef.current = {
-          standardUnitPrice: nextValidPrice,
-          finalUnitPrice: nextValidPrice,
-          couponIsValid: refreshedQuote.couponIsValid ?? preOrder.couponIsValid,
-          fetchedAtIso: new Date().toISOString(),
-          tradeSide,
-          asset,
-          locale,
-          country,
-          pricingIdentityKey
-        };
-        setQuote(refreshedQuote);
-        const confirmed = window.confirm(t("order.priceChangedConfirm"));
-        if (!confirmed) {
-          orderTab.close();
-          return;
-        }
-        preOrder = await otcApiClient.preValidateOrder({
+      const runPreOrderWithPriceRefresh = async (
+        preValidateBase: Parameters<typeof otcApiClient.preValidateOrder>[0]
+      ) => {
+        let preOrder = await otcApiClient.preValidateOrder({
           ...preValidateBase,
-          price: nextValidPrice
+          price: actionableQuote.unitPrice
         });
         if (!preOrder.priceIsValid) {
+          const refreshedQuote = await otcApiClient.getQuote(buildQuoteRequest());
+          const nextValidPrice = refreshedQuote.unitPrice;
+          if (!(nextValidPrice > 0)) {
+            orderTab.close();
+            alert(t("order.validationFailed"));
+            return null;
+          }
+          pricingSnapRef.current = {
+            standardUnitPrice: nextValidPrice,
+            finalUnitPrice: nextValidPrice,
+            couponIsValid: refreshedQuote.couponIsValid ?? preOrder.couponIsValid,
+            fetchedAtIso: new Date().toISOString(),
+            tradeSide,
+            asset,
+            locale,
+            country,
+            pricingIdentityKey
+          };
+          setQuote(refreshedQuote);
+          const confirmed = window.confirm(t("order.priceChangedConfirm"));
+          if (!confirmed) {
+            orderTab.close();
+            return null;
+          }
+          preOrder = await otcApiClient.preValidateOrder({
+            ...preValidateBase,
+            price: nextValidPrice
+          });
+          if (!preOrder.priceIsValid) {
+            orderTab.close();
+            alert(t("order.validationFailed"));
+            return null;
+          }
+        }
+        return preOrder;
+      };
+
+      let order;
+      let telemetryPreOrder: Awaited<ReturnType<typeof otcApiClient.preValidateOrder>> | null = null;
+      let telemetryPaymentInfo: Record<string, unknown> | null = null;
+      let telemetryNetworkInfo: OtcWithdrawNetwork | null = null;
+      if (tradeSide === "buy") {
+        if (paymentData.kind !== "crypto" || !paymentData.walletAddress || !paymentData.network) {
           orderTab.close();
-          alert(t("order.validationFailed"));
           return;
         }
+        const paymentInfo = {
+          wallet: paymentData.walletAddress,
+          network: paymentData.network
+        };
+        const preValidateBase = {
+          asset,
+          tradeType: "BUY" as const,
+          coupon: appliedCoupon.trim() || undefined,
+          paymentInfo,
+          amount: parsedAmount,
+          document,
+          documentType,
+          kycInfo
+        };
+        const preOrder = await runPreOrderWithPriceRefresh(preValidateBase);
+        if (!preOrder) return;
+        telemetryPreOrder = preOrder;
+        telemetryPaymentInfo = paymentInfo;
+        order = await otcApiClient.createOrder({
+          email: customer.email,
+          country,
+          asset,
+          assetToPay: brand.backend.localPaymentAssetByCountry[country] ?? brand.fiatCurrency,
+          tradeType: "BUY",
+          coupon: appliedCoupon.trim() || undefined,
+          paymentInfo,
+          price: preOrder.price,
+          amount: parsedAmount,
+          document,
+          documentType,
+          kycInfo,
+          kycTs,
+          preOrder
+        });
+      } else {
+        if (paymentData.kind !== "bank" || !paymentData.bankKeyValue || !paymentData.bankKeyType) {
+          orderTab.close();
+          return;
+        }
+        const networkOption = findWithdrawNetworkByCode(depositNetworks, depositNetwork);
+        if (!networkOption) {
+          orderTab.close();
+          return;
+        }
+        const paymentInfo = {
+          pixKey: paymentData.bankKeyValue,
+          network: bankKeyTypeToNetwork(paymentData.bankKeyType)
+        };
+        const preValidateBase = {
+          asset,
+          tradeType: "SELL" as const,
+          coupon: appliedCoupon.trim() || undefined,
+          paymentInfo,
+          networkInfo: networkOption,
+          amount: parsedAmount,
+          document,
+          documentType,
+          kycInfo
+        };
+        const preOrder = await runPreOrderWithPriceRefresh(preValidateBase);
+        if (!preOrder) return;
+        telemetryPreOrder = preOrder;
+        telemetryPaymentInfo = paymentInfo;
+        telemetryNetworkInfo = networkOption;
+        order = await otcApiClient.createOrder({
+          email: customer.email,
+          country,
+          asset,
+          tradeType: "SELL",
+          coupon: appliedCoupon.trim() || undefined,
+          paymentInfo,
+          networkInfo: networkOption,
+          price: preOrder.price,
+          amount: parsedAmount,
+          document,
+          documentType,
+          kycInfo,
+          kycTs,
+          preOrder
+        });
       }
-
-      const order = await otcApiClient.createOrder({
-        email: customer.email,
-        country,
-        asset,
-        assetToPay: brand.backend.localPaymentAssetByCountry[country] ?? brand.fiatCurrency,
-        tradeType: "BUY",
-        coupon: appliedCoupon.trim() || undefined,
-        paymentInfo,
-        price: preOrder.price,
-        amount: parsedAmount,
-        document,
-        documentType,
-        kycInfo,
-        kycTs,
-        preOrder
-      });
       emitFrontendTelemetry("frontend_order_created", {
         order_request: {
           version: "v2",
           email: customer.email,
           country,
           asset,
-          asset_to_pay: brand.backend.localPaymentAssetByCountry[country] ?? brand.fiatCurrency,
-          trade_type: "BUY",
+          asset_to_pay:
+            tradeSide === "buy" ? brand.backend.localPaymentAssetByCountry[country] ?? brand.fiatCurrency : undefined,
+          trade_type: tradeSide === "buy" ? "BUY" : "SELL",
           coupon: appliedCoupon.trim() || undefined,
-          payment_info: paymentInfo,
-          price: preOrder.price,
+          payment_info: telemetryPaymentInfo,
+          network_info: telemetryNetworkInfo,
+          price: telemetryPreOrder?.price,
           amount: parsedAmount,
           document,
           document_type: documentType,
@@ -2082,7 +2193,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
             document: kycInfo.document,
             kyc_result: kycInfo.kycResult
           },
-          pre_order: preOrder
+          pre_order: telemetryPreOrder
         },
         order_response: order
       });
@@ -2113,6 +2224,14 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
       setPaymentSlotError(t("form.walletRequiredBeforeConfirm"));
       return;
     }
+    if (identified && tradeSide === "sell" && !hasPaymentReady) {
+      setPaymentSlotError(
+        !paymentData?.bankKeyValue || !paymentData?.bankKeyType
+          ? t("form.bankKeyRequiredBeforeConfirm")
+          : t("form.depositNetworkRequiredBeforeConfirm")
+      );
+      return;
+    }
     setPaymentSlotError(null);
     if (identified) {
       await createOrderNow();
@@ -2137,22 +2256,29 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
   const hasPaymentReady =
     tradeSide === "buy"
       ? Boolean(paymentData?.walletAddress && paymentData.network)
-      : Boolean(paymentData?.bankKeyValue && paymentData.bankKeyType);
-  const showPaymentSlotError = tradeSide === "buy" && Boolean(paymentSlotError);
+      : Boolean(paymentData?.bankKeyValue && paymentData.bankKeyType && depositNetwork);
+  const showPaymentSlotError = Boolean(paymentSlotError);
   const selectedNetworkOption =
     tradeSide === "buy" && paymentData?.walletAddress && paymentData.network
       ? findWithdrawNetworkByCode(networksAndFees, paymentData.network) ?? null
       : null;
+  const selectedDepositNetworkOption =
+    tradeSide === "sell" && depositNetwork
+      ? findWithdrawNetworkByCode(depositNetworks, depositNetwork) ?? null
+      : null;
   const selectedNetworkFeeBrl = selectedNetworkOption?.withdrawFeeBrlEstimate ?? null;
+  const selectedDepositNetworkFeeBrl = selectedDepositNetworkOption?.withdrawFeeBrlEstimate ?? null;
   const receiveAmount =
     actionableQuote && tradeSide === "buy"
       ? Math.max(actionableQuote.outputAmount - (selectedNetworkOption?.withdrawFee ?? 0), 0)
-      : actionableQuote?.outputAmount ?? null;
+      : actionableQuote && tradeSide === "sell"
+        ? Math.max(actionableQuote.outputAmount - (selectedDepositNetworkOption?.withdrawFeeBrlEstimate ?? 0), 0)
+        : actionableQuote?.outputAmount ?? null;
   const outputText =
     actionableQuote && tradeSide === "buy"
       ? formatAssetQuoteAmount(receiveAmount ?? 0, assetDecimalPrecision)
-      : actionableQuote
-        ? actionableQuote.outputAmount.toFixed(Math.max(0, fiatDecimalPrecision))
+      : actionableQuote && tradeSide === "sell"
+        ? (receiveAmount ?? 0).toFixed(Math.max(0, fiatDecimalPrecision))
         : parsedAmount > 0
           ? quoteMissingLabel
           : "0";
@@ -2415,6 +2541,26 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
                     {limitMessage ? <p className="field-feedback field-feedback--error">{limitMessage}</p> : null}
                   </div>
 
+                  {tradeSide === "sell" ? (
+                    <div className="row">
+                      <label>{t("common.network")}</label>
+                      <div className="field-shell field-shell--network-select">
+                        <select
+                          value={depositNetwork}
+                          onChange={(e: { target: { value: string } }) => setDepositNetwork(e.target.value)}
+                          disabled={depositNetworksLoading || depositNetworks.length === 0}
+                        >
+                          {depositNetworks.map((item: OtcWithdrawNetwork) => (
+                            <option key={item.network} value={item.network}>
+                              {item.userFriendlyNetworkName} - Taxa: {formatNetworkFeeAmount(item.withdrawFee)} {asset}
+                              {` (${formatFiatAmountWithPrecision(locale, brand.fiatCurrency, item.withdrawFeeBrlEstimate, fiatDecimalPrecision)})`}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  ) : null}
+
                   <div className="row">
                     <label>{t("app.receive")}</label>
                     <div className="field-shell">
@@ -2484,6 +2630,22 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
                                 ? `${formatNetworkFeeAmount(selectedNetworkOption.withdrawFee)} ${asset}${
                                     selectedNetworkFeeBrl !== null && selectedNetworkFeeBrl !== undefined
                                       ? ` (${formatFiatAmountWithPrecision(locale, brand.fiatCurrency, selectedNetworkFeeBrl, fiatDecimalPrecision)})`
+                                      : ""
+                                  }`
+                                : quoteMissingLabel}
+                          </span>
+                        </div>
+                      ) : null}
+                      {identified && tradeSide === "sell" && depositNetwork ? (
+                        <div className="details-row">
+                          <strong>{t("common.networkFee")}</strong>
+                          <span>
+                            {depositNetworksLoading
+                              ? t("common.loading")
+                              : selectedDepositNetworkOption
+                                ? `${formatNetworkFeeAmount(selectedDepositNetworkOption.withdrawFee)} ${asset}${
+                                    selectedDepositNetworkFeeBrl !== null && selectedDepositNetworkFeeBrl !== undefined
+                                      ? ` (${formatFiatAmountWithPrecision(locale, brand.fiatCurrency, selectedDepositNetworkFeeBrl, fiatDecimalPrecision)})`
                                       : ""
                                   }`
                                 : quoteMissingLabel}
@@ -2857,16 +3019,29 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
               <div className="modal-section-title">{bankLabel} - {t("payment.bankTitle")}</div>
               <div className="modal-field">
                 <label>{t("common.keyType")}</label>
-                <select value={bankKeyType} onChange={(e: { target: { value: string } }) => setBankKeyType(e.target.value)}>
+                <select
+                  value={bankKeyType}
+                  onChange={(e: { target: { value: string } }) => {
+                    setBankKeyType(e.target.value);
+                    setBankKeyOwnerError(null);
+                  }}
+                >
                   <option value="Telefone">Telefone</option>
                   <option value="Email">Email</option>
                   <option value="Documento">{t("common.document")}</option>
                   <option value="Aleatoria">Aleatoria</option>
                 </select>
               </div>
-              <div className="modal-field">
+              <div className={`modal-field${bankKeyOwnerError ? " modal-field--error" : ""}`}>
                 <label>{t("common.keyValue")}</label>
-                <input value={bankKeyValue} onChange={(e: { target: { value: string } }) => setBankKeyValue(e.target.value)} />
+                <input
+                  value={bankKeyValue}
+                  onChange={(e: { target: { value: string } }) => {
+                    setBankKeyValue(e.target.value);
+                    setBankKeyOwnerError(null);
+                  }}
+                />
+                {bankKeyOwnerError ? <p className="modal-field-error">{bankKeyOwnerError}</p> : null}
               </div>
             </>
           )}

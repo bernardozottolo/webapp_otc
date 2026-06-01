@@ -86,9 +86,13 @@ function getPaymentStorageAsset(config: ClientsDatabaseConfig, context: PaymentC
   return config.localPaymentAssetByCountry[context.country] ?? context.asset;
 }
 
-function toBankNetwork(bankKeyType?: string) {
+export function bankKeyTypeToNetwork(bankKeyType?: string) {
   if (!bankKeyType) return "phone";
   return BANK_KEY_TYPE_TO_NETWORK[bankKeyType] ?? bankKeyType.toLowerCase();
+}
+
+function toBankNetwork(bankKeyType?: string) {
+  return bankKeyTypeToNetwork(bankKeyType);
 }
 
 function toBankKeyType(network?: string) {
