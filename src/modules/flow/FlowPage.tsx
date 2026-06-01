@@ -3015,7 +3015,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
             </>
           ) : (
             <>
-              <div className="modal-section-title">{bankLabel} - {t("payment.bankTitle")}</div>
+              {/* <div className="modal-section-title">{bankLabel} - {t("payment.bankTitle")}</div> */}
               <div className="modal-field">
                 <label>{t("common.keyType")}</label>
                 <select
