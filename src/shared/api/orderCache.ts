@@ -220,6 +220,12 @@ function isHttpUrl(value: string) {
 export function mergeOrderUpdate(existingOrder: Order, update: OrderUpdatePayload): Order {
   const next: Order = { ...existingOrder };
   const info = update.orderInfo;
+  if (typeof info.trade_type === "string" && info.trade_type.trim()) {
+    next.tradeSide = info.trade_type.trim().toUpperCase() === "SELL" ? "sell" : "buy";
+  }
+  if (typeof info.asset === "string" && info.asset.trim()) {
+    next.asset = info.asset.trim();
+  }
   if (typeof info.status === "string" && info.status.trim()) {
     next.status = info.status.trim();
   }
@@ -232,9 +238,15 @@ export function mergeOrderUpdate(existingOrder: Order, update: OrderUpdatePayloa
   if (typeof info.output_asset === "string" && info.output_asset.trim()) {
     next.outputAsset = info.output_asset.trim();
   }
-  if (typeof info.input_amount === "number" && Number.isFinite(info.input_amount)) {
-    next.amountToPay = info.input_amount;
-    next.quoteTotal = info.input_amount;
+  const inputAmount =
+    typeof info.input_amount === "number" && Number.isFinite(info.input_amount)
+      ? info.input_amount
+      : typeof info.amount_to_pay === "number" && Number.isFinite(info.amount_to_pay)
+        ? info.amount_to_pay
+        : null;
+  if (inputAmount != null) {
+    next.amountToPay = inputAmount;
+    next.quoteTotal = inputAmount;
   }
   if (typeof info.output_amount_net === "number" && Number.isFinite(info.output_amount_net)) {
     next.amount = info.output_amount_net;
@@ -278,7 +290,8 @@ export function getOrderDisplayVariant(
   const now = options?.now ?? Date.now();
   const paymentTimeoutMs = options?.paymentTimeoutMs ?? 0;
   const orderUpdateTimeoutMs = options?.orderUpdateTimeoutMs ?? 0;
-  if (latestTemplate === "payment_timeout" || status === "cancelled") {
+  const hasPaymentTimeoutUpdate = record?.updates.some((update) => update.template?.trim() === "payment_timeout");
+  if (hasPaymentTimeoutUpdate || latestTemplate === "payment_timeout" || status === "cancelled") {
     return "payment_timeout";
   }
   if (

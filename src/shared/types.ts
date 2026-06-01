@@ -240,10 +240,13 @@ export interface OrderUpdatePayload {
   clientId?: string;
   orderInfo: {
     order_id: string;
+    trade_type?: string;
+    asset?: string;
     status?: string;
     price?: number;
     input_asset?: string;
     input_amount?: number;
+    amount_to_pay?: number;
     output_asset?: string;
     output_amount_gross?: number;
     output_amount_net?: number;

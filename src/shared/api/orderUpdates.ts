@@ -64,8 +64,18 @@ function mapPaymentDataV2(value: unknown): OrderUpdatePayload["orderInfo"]["paym
     return undefined;
   }
   const src = value as Record<string, unknown>;
-  const payoutIdentifier = src.payout_identifier;
-  const refundIdentifier = src.refund_identifier;
+  let payoutIdentifier = src.payout_identifier;
+  let refundIdentifier = src.refund_identifier;
+  const systemInfo = src.system_payment_info;
+  if (systemInfo && typeof systemInfo === "object" && !Array.isArray(systemInfo)) {
+    const system = systemInfo as Record<string, unknown>;
+    if (payoutIdentifier === undefined) {
+      payoutIdentifier = system.payout_identifier;
+    }
+    if (refundIdentifier === undefined) {
+      refundIdentifier = system.refund_identifier;
+    }
+  }
   if (payoutIdentifier === undefined && refundIdentifier === undefined) {
     return undefined;
   }
@@ -96,10 +106,18 @@ function mapOrderUpdatePayload(value: unknown): OrderUpdatePayload | null {
     clientId: asString(raw.client_id) || undefined,
     orderInfo: {
       order_id: asString(orderInfo.order_id),
+      trade_type: asOptionalString(orderInfo.trade_type),
+      asset: asOptionalString(orderInfo.asset),
       status: asString(orderInfo.status) || undefined,
       price: orderInfo.price == null ? undefined : asNumber(orderInfo.price),
       input_asset: asOptionalString(orderInfo.input_asset),
-      input_amount: orderInfo.input_amount == null ? undefined : asNumber(orderInfo.input_amount),
+      input_amount:
+        orderInfo.input_amount == null
+          ? orderInfo.amount_to_pay == null
+            ? undefined
+            : asNumber(orderInfo.amount_to_pay)
+          : asNumber(orderInfo.input_amount),
+      amount_to_pay: orderInfo.amount_to_pay == null ? undefined : asNumber(orderInfo.amount_to_pay),
       output_asset: asOptionalString(orderInfo.output_asset),
       output_amount_gross:
         orderInfo.output_amount_gross == null ? undefined : asNumber(orderInfo.output_amount_gross),
@@ -113,20 +131,48 @@ function mapOrderUpdatePayload(value: unknown): OrderUpdatePayload | null {
   };
 }
 
+function createOrderShell(orderId: string, createdAt: number): Order {
+  return {
+    id: orderId,
+    email: "",
+    tradeSide: "buy",
+    asset: "",
+    amount: 0,
+    quoteTotal: 0,
+    status: "waiting_for_payment",
+    createdAt
+  };
+}
+
 function mapStoredOrderRecord(value: unknown): StoredOrderRecord | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return null;
   }
   const raw = value as Record<string, unknown>;
-  const order = raw.order as Order | undefined;
-  if (!order || typeof order !== "object" || !asString((order as Order).id)) {
-    return null;
-  }
+  const remoteOrder = raw.order;
   const updatesRaw = Array.isArray(raw.updates) ? raw.updates : [];
   const updates = updatesRaw.map(mapOrderUpdatePayload).filter((item): item is OrderUpdatePayload => item != null);
-  const createdAt = asNumber(raw.created_at, asNumber((order as Order).createdAt, Date.now()));
+  const orderId =
+    asString(raw.order_id) ||
+    (remoteOrder && typeof remoteOrder === "object" && !Array.isArray(remoteOrder)
+      ? asString((remoteOrder as Order).id)
+      : "") ||
+    asString(updates[0]?.orderInfo.order_id);
+  if (!orderId) {
+    return null;
+  }
+  const createdAt = asNumber(
+    raw.created_at,
+    remoteOrder && typeof remoteOrder === "object" && !Array.isArray(remoteOrder)
+      ? asNumber((remoteOrder as Order).createdAt, Date.now())
+      : updates[0]?.receivedAt ?? Date.now()
+  );
   const expiresAt = asNumber(raw.expires_at, createdAt);
   const lastUpdatedAt = asNumber(raw.last_updated_at, createdAt);
+  const order =
+    remoteOrder && typeof remoteOrder === "object" && !Array.isArray(remoteOrder) && asString((remoteOrder as Order).id)
+      ? (remoteOrder as Order)
+      : createOrderShell(orderId, createdAt);
   return {
     order,
     createdAt,
