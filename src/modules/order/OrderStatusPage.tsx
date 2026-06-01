@@ -483,11 +483,11 @@ export function OrderStatusPage({ brand }: OrderStatusPageProps) {
                     </svg>
                   </button>
                 </div>
-                {!isSellOrder && qrCodeSrc ? (
+                {qrCodeSrc ? (
                   <img className="order-qr-code" src={qrCodeSrc} alt={texts.qrCodeAltLabel} />
-                ) : !isSellOrder ? (
+                ) : (
                   <p className="order-page-empty">{texts.qrUnavailableMessage}</p>
-                ) : null}
+                )}
                 <div className="order-payment-actions">
                   <button
                     type="button"
@@ -559,15 +559,13 @@ export function OrderStatusPage({ brand }: OrderStatusPageProps) {
       <Modal open={paymentDetailsOpen} title={texts.paymentInfoModalTitle} onClose={() => setPaymentDetailsOpen(false)}>
         <div className="modal-body order-payment-modal">
           <div className="order-payment-modal__content">
-            {!isSellOrder ? (
-              <div className="order-payment-modal__qr">
-                {qrCodeSrc ? (
-                  <img className="order-qr-code order-qr-code--modal" src={qrCodeSrc} alt={texts.qrCodeAltLabel} />
-                ) : (
-                  <p className="order-page-empty">{texts.qrUnavailableMessage}</p>
-                )}
-              </div>
-            ) : null}
+            <div className="order-payment-modal__qr">
+              {qrCodeSrc ? (
+                <img className="order-qr-code order-qr-code--modal" src={qrCodeSrc} alt={texts.qrCodeAltLabel} />
+              ) : (
+                <p className="order-page-empty">{texts.qrUnavailableMessage}</p>
+              )}
+            </div>
             <div className="order-payment-modal__payload">
               <p className="order-payment-label">
                 <strong>{addressFieldLabel}</strong>

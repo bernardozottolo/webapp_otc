@@ -37,7 +37,8 @@ function mapPaymentInstructions(value: unknown): OrderPaymentData | undefined {
   const imagemQRCodeInBase64 = asOptionalString(src.imagemQRCodeInBase64);
   const payload = asOptionalString(src.payload) || asOptionalString(src.qr_code);
   const network = asOptionalString(src.network);
-  const walletAddress = asOptionalString(src.wallet_address);
+  const walletAddress = asOptionalString(src.wallet_address) || asOptionalString(src.walletAddress);
+  const pixKey = asOptionalString(src.pix_key) || asOptionalString(src.pixKey);
 
   if (beneficiaryBankName) result.BeneficiaryBankName = beneficiaryBankName;
   if (beneficiaryName) result.BeneficiaryName = beneficiaryName;
@@ -46,6 +47,7 @@ function mapPaymentInstructions(value: unknown): OrderPaymentData | undefined {
   if (payload) result.payload = payload;
   if (network) result.network = network;
   if (walletAddress) result.walletAddress = walletAddress;
+  if (pixKey) result.pixKey = pixKey;
 
   if (src.tx_hash !== undefined) {
     result.txHash = asNullableString(src.tx_hash);

@@ -185,6 +185,7 @@ function mergePaymentInstructions(
   if (update.payload) base.payload = update.payload;
   if (update.network) base.network = update.network;
   if (update.walletAddress) base.walletAddress = update.walletAddress;
+  if (update.pixKey) base.pixKey = update.pixKey;
   if (update.txHash !== undefined) base.txHash = update.txHash;
   if (update.txHashUrl !== undefined) base.txHashUrl = update.txHashUrl;
   return base;
@@ -448,10 +449,34 @@ function preserveDisplayAmounts(remoteOrder: Order, localOrder: Order | null | u
   };
 }
 
+function preservePaymentDataFields(remoteOrder: Order, localOrder: Order | null | undefined): Order {
+  const remotePayment = remoteOrder.paymentData;
+  const localPayment = localOrder?.paymentData;
+  if (!remotePayment && !localPayment) {
+    return remoteOrder;
+  }
+  const merged: OrderPaymentData = { ...localPayment, ...remotePayment };
+  const localPixKey = localPayment?.pixKey?.trim();
+  if (!merged.pixKey?.trim() && localPixKey) {
+    merged.pixKey = localPixKey;
+  }
+  if (!merged.walletAddress?.trim()) {
+    const wallet =
+      remotePayment?.walletAddress?.trim() ||
+      remotePayment?.payload?.trim() ||
+      localPayment?.walletAddress?.trim() ||
+      localPayment?.payload?.trim();
+    if (wallet) {
+      merged.walletAddress = wallet;
+    }
+  }
+  return { ...remoteOrder, paymentData: merged };
+}
+
 export function replaceOrderRecord(record: StoredOrderRecord): StoredOrderRecord {
   ensureStorageSyncListener();
   const existing = getOrderRecord(record.order.id);
-  const baseOrder = preserveDisplayAmounts(record.order, existing?.order);
+  const baseOrder = preservePaymentDataFields(preserveDisplayAmounts(record.order, existing?.order), existing?.order);
   const sortedUpdates = [...record.updates].sort((a, b) => a.receivedAt - b.receivedAt);
   const consolidatedOrder = sortedUpdates.reduce((current, update) => mergeOrderUpdate(current, update), baseOrder);
   const next: StoredOrderRecord = {

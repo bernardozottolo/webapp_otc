@@ -467,13 +467,15 @@ export async function createOrderHttp(config: PricingConfig, input: CreateOrderI
           : {}),
         network: sellInput.networkInfo.network,
         pixKey: sellInput.paymentInfo.pixKey,
+        payload:
+          asString((data.order_details?.payment_data as Record<string, unknown> | undefined)?.payload) ||
+          asString((data.order_details?.payment_data as Record<string, unknown> | undefined)?.qr_code) ||
+          undefined,
         walletAddress:
           asString(
             (data.order_details?.payment_data as Record<string, unknown> | undefined)?.wallet_address
           ) ||
           asString((data.order_details?.payment_data as Record<string, unknown> | undefined)?.walletAddress) ||
-          undefined,
-        payload:
           asString((data.order_details?.payment_data as Record<string, unknown> | undefined)?.payload) ||
           asString((data.order_details?.payment_data as Record<string, unknown> | undefined)?.qr_code) ||
           undefined

@@ -118,6 +118,26 @@ def _build_order_snapshot(body: bytes, response: Response) -> dict[str, object] 
     output_asset = str(pre_order.get("output_asset", "")).strip()
     price = _as_float(pre_order.get("price")) or _as_float(request_payload.get("price"))
     trade_type = str(request_payload.get("trade_type", "BUY")).strip().upper()
+    payload_value = payment_data.get("payload") or payment_data.get("qr_code")
+    wallet_address = (
+        payment_data.get("wallet_address")
+        or payment_data.get("walletAddress")
+        or payment_info.get("wallet")
+        or payload_value
+    )
+    pix_key = payment_info.get("pix_key") or payment_info.get("pixKey")
+    payment_snapshot: dict[str, object] = {
+        "BeneficiaryBankName": payment_data.get("BeneficiaryBankName"),
+        "BeneficiaryName": payment_data.get("BeneficiaryName"),
+        "BeneficiaryTaxId": payment_data.get("BeneficiaryTaxId"),
+        "imagemQRCodeInBase64": payment_data.get("imagemQRCodeInBase64"),
+        "payload": payload_value,
+        "txHash": payment_data.get("tx_hash"),
+        "network": payment_data.get("network") or payment_info.get("network"),
+        "walletAddress": wallet_address,
+    }
+    if pix_key:
+        payment_snapshot["pixKey"] = pix_key
     return {
         "id": order_id,
         "email": str(client_data.get("email", "")).strip(),
@@ -132,16 +152,7 @@ def _build_order_snapshot(body: bytes, response: Response) -> dict[str, object] 
         "orderIsValid": bool(response_payload.get("order_is_valid", True)),
         "inputAsset": input_asset or None,
         "outputAsset": output_asset or None,
-        "paymentData": {
-            "BeneficiaryBankName": payment_data.get("BeneficiaryBankName"),
-            "BeneficiaryName": payment_data.get("BeneficiaryName"),
-            "BeneficiaryTaxId": payment_data.get("BeneficiaryTaxId"),
-            "imagemQRCodeInBase64": payment_data.get("imagemQRCodeInBase64"),
-            "payload": payment_data.get("payload") or payment_data.get("qr_code"),
-            "txHash": payment_data.get("tx_hash"),
-            "network": payment_data.get("network") or payment_info.get("network"),
-            "walletAddress": payment_data.get("wallet_address") or payment_info.get("wallet"),
-        },
+        "paymentData": payment_snapshot,
     }
 
 
