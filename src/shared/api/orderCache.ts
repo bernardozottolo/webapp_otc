@@ -14,6 +14,7 @@ export type OrderDisplayVariant =
   | "payment_timeout"
   | "payment_recognized"
   | "order_concluded"
+  | "payment_reproved"
   | "payment_update_timeout"
   | "order_update_timeout";
 
@@ -171,25 +172,48 @@ function normalizeUpdate(update: Omit<OrderUpdatePayload, "receivedAt"> | OrderU
   };
 }
 
-function mergePaymentData(existing: OrderPaymentData | null | undefined, update: OrderUpdatePayload["orderInfo"]["payment_data"]) {
+function mergePaymentInstructions(
+  existing: OrderPaymentData | null | undefined,
+  update: OrderPaymentData | undefined
+): OrderPaymentData {
   const base: OrderPaymentData = existing ? { ...existing } : {};
   if (!update) return base;
-  if (typeof update.qr_code === "string" && update.qr_code.trim()) {
-    base.payload = update.qr_code.trim();
-  }
-  if (update.tx_hash !== undefined) {
-    base.txHash = update.tx_hash ?? null;
-  }
-  if (update.tx_hash_url !== undefined) {
-    base.txHashUrl = update.tx_hash_url ?? null;
-  }
-  if (typeof update.network === "string" && update.network.trim()) {
-    base.network = update.network.trim();
-  }
-  if (typeof update.wallet_address === "string" && update.wallet_address.trim()) {
-    base.walletAddress = update.wallet_address.trim();
-  }
+  if (update.BeneficiaryBankName) base.BeneficiaryBankName = update.BeneficiaryBankName;
+  if (update.BeneficiaryName) base.BeneficiaryName = update.BeneficiaryName;
+  if (update.BeneficiaryTaxId) base.BeneficiaryTaxId = update.BeneficiaryTaxId;
+  if (update.imagemQRCodeInBase64) base.imagemQRCodeInBase64 = update.imagemQRCodeInBase64;
+  if (update.payload) base.payload = update.payload;
+  if (update.network) base.network = update.network;
+  if (update.walletAddress) base.walletAddress = update.walletAddress;
+  if (update.txHash !== undefined) base.txHash = update.txHash;
+  if (update.txHashUrl !== undefined) base.txHashUrl = update.txHashUrl;
   return base;
+}
+
+function applyPaymentDataV2(
+  paymentData: OrderPaymentData,
+  paymentDataV2: OrderUpdatePayload["orderInfo"]["payment_data_v2"],
+  template: string
+): OrderPaymentData {
+  if (!paymentDataV2) return paymentData;
+  const next = { ...paymentData };
+  const payout = paymentDataV2.payout_identifier?.trim();
+  const refund = paymentDataV2.refund_identifier?.trim();
+  if (template === "payment_reproved" && refund) {
+    next.txHash = refund;
+    next.txHashUrl = isHttpUrl(refund) ? refund : next.txHashUrl;
+  } else if (payout) {
+    next.txHash = payout;
+    next.txHashUrl = isHttpUrl(payout) ? payout : next.txHashUrl;
+  } else if (refund) {
+    next.txHash = refund;
+    next.txHashUrl = isHttpUrl(refund) ? refund : next.txHashUrl;
+  }
+  return next;
+}
+
+function isHttpUrl(value: string) {
+  return /^https?:\/\//i.test(value.trim());
 }
 
 export function mergeOrderUpdate(existingOrder: Order, update: OrderUpdatePayload): Order {
@@ -201,29 +225,33 @@ export function mergeOrderUpdate(existingOrder: Order, update: OrderUpdatePayloa
   if (typeof info.price === "number" && Number.isFinite(info.price)) {
     next.price = info.price;
   }
-  const amountToPay =
-    typeof info.amount_to_pay === "number" && Number.isFinite(info.amount_to_pay)
-      ? info.amount_to_pay
-      : typeof info.input_amount === "number" && Number.isFinite(info.input_amount)
-        ? info.input_amount
-        : undefined;
-  if (amountToPay !== undefined) {
-    next.amountToPay = amountToPay;
-    next.quoteTotal = amountToPay;
+  if (typeof info.input_asset === "string" && info.input_asset.trim()) {
+    next.inputAsset = info.input_asset.trim();
   }
-  const nextAmount =
-    typeof info.output_amount_net === "number" && Number.isFinite(info.output_amount_net)
-      ? info.output_amount_net
-      : typeof info.final_amount_to_receive === "number" && Number.isFinite(info.final_amount_to_receive)
-        ? info.final_amount_to_receive
-        : typeof info.total_amount_to_receive === "number" && Number.isFinite(info.total_amount_to_receive)
-          ? info.total_amount_to_receive
-          : undefined;
-  if (nextAmount !== undefined) {
-    next.amount = nextAmount;
+  if (typeof info.output_asset === "string" && info.output_asset.trim()) {
+    next.outputAsset = info.output_asset.trim();
   }
-  if (info.payment_data) {
-    next.paymentData = mergePaymentData(existingOrder.paymentData, info.payment_data);
+  if (typeof info.input_amount === "number" && Number.isFinite(info.input_amount)) {
+    next.amountToPay = info.input_amount;
+    next.quoteTotal = info.input_amount;
+  }
+  if (typeof info.output_amount_net === "number" && Number.isFinite(info.output_amount_net)) {
+    next.amount = info.output_amount_net;
+  }
+  if (typeof info.output_amount_gross === "number" && Number.isFinite(info.output_amount_gross)) {
+    next.outputAmountGross = info.output_amount_gross;
+  }
+  if (typeof info.fee_asset === "number" && Number.isFinite(info.fee_asset)) {
+    next.feeAsset = info.fee_asset;
+  }
+  if (typeof info.fee_fiat === "number" && Number.isFinite(info.fee_fiat)) {
+    next.feeFiat = info.fee_fiat;
+  }
+  if (info.payment_instructions) {
+    next.paymentData = mergePaymentInstructions(existingOrder.paymentData, info.payment_instructions);
+  }
+  if (info.payment_data_v2) {
+    next.paymentData = applyPaymentDataV2(next.paymentData ?? {}, info.payment_data_v2, update.template.trim());
   }
   return next;
 }
@@ -269,6 +297,9 @@ export function getOrderDisplayVariant(
     now - latestUpdate.receivedAt >= orderUpdateTimeoutMs
   ) {
     return "order_update_timeout";
+  }
+  if (latestTemplate === "payment_reproved" || status === "reproved") {
+    return "payment_reproved";
   }
   if (latestTemplate === "payment_recognized" || status === "payment_confirmed") {
     return "payment_recognized";
@@ -411,7 +442,9 @@ function preserveDisplayAmounts(remoteOrder: Order, localOrder: Order | null | u
     amount: localOrder.amount,
     quoteTotal: localOrder.quoteTotal,
     amountToPay: localOrder.amountToPay ?? localOrder.quoteTotal,
-    price: remoteOrder.price ?? localOrder.price
+    price: remoteOrder.price ?? localOrder.price,
+    inputAsset: remoteOrder.inputAsset ?? localOrder.inputAsset,
+    outputAsset: remoteOrder.outputAsset ?? localOrder.outputAsset
   };
 }
 

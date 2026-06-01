@@ -2,36 +2,47 @@ import argparse
 import requests
 
 
+def _base_order_info(args: argparse.Namespace, status: str) -> dict:
+    return {
+        "order_id": args.order_id,
+        "status": status,
+        "input_asset": args.input_asset,
+        "input_amount": args.input_amount,
+        "output_asset": args.output_asset,
+        "output_amount_net": args.output_amount_net,
+    }
+
+
 def build_payload(args: argparse.Namespace) -> dict:
     if args.event == "payment_recognized":
+        order_info = _base_order_info(args, "payment_confirmed")
+        if args.network or args.wallet_address:
+            order_info["payment_instructions"] = {
+                "network": args.network,
+                "wallet_address": args.wallet_address,
+            }
         return {
             "template": "payment_recognized",
             "client_id": args.client_id,
-            "order_info": {
-                "order_id": args.order_id,
-                "status": "payment_confirmed",
-                "payment_data": {
-                    "tx_hash": None,
-                    "network": args.network,
-                    "wallet_address": args.wallet_address,
-                },
-            },
+            "order_info": order_info,
         }
 
     if args.event == "order_concluded":
+        order_info = _base_order_info(args, "concluded")
+        payment_data_v2: dict = {}
+        if args.payout_identifier:
+            payment_data_v2["payout_identifier"] = args.payout_identifier
+        if payment_data_v2:
+            order_info["payment_data_v2"] = payment_data_v2
+        if args.network or args.wallet_address:
+            order_info["payment_instructions"] = {
+                "network": args.network,
+                "wallet_address": args.wallet_address,
+            }
         return {
             "template": "order_concluded",
             "client_id": args.client_id,
-            "order_info": {
-                "order_id": args.order_id,
-                "status": "concluded",
-                "payment_data": {
-                    "tx_hash": args.tx_hash,
-                    "tx_hash_url": args.tx_hash_url,
-                    "network": args.network,
-                    "wallet_address": args.wallet_address,
-                },
-            },
+            "order_info": order_info,
         }
 
     if args.event == "payment_timeout":
@@ -44,6 +55,18 @@ def build_payload(args: argparse.Namespace) -> dict:
             },
         }
 
+    if args.event == "payment_reproved":
+        order_info = _base_order_info(args, "reproved")
+        if args.refund_identifier:
+            order_info["payment_data_v2"] = {
+                "refund_identifier": args.refund_identifier,
+            }
+        return {
+            "template": "payment_reproved",
+            "client_id": args.client_id,
+            "order_info": order_info,
+        }
+
     raise ValueError(f"Evento inválido: {args.event}")
 
 
@@ -54,50 +77,76 @@ def main() -> None:
 
     parser.add_argument(
         "event",
-        choices=["payment_recognized", "order_concluded", "payment_timeout"],
-        help="Tipo de atualização que será enviada."
+        choices=["payment_recognized", "order_concluded", "payment_timeout", "payment_reproved"],
+        help="Tipo de atualização que será enviada.",
     )
 
     parser.add_argument(
         "--order-id",
         required=True,
-        help="ID da ordem criada no create_order."
+        help="ID da ordem criada no create_order.",
     )
 
     parser.add_argument(
         "--client-id",
         default="",
-        help="Client ID opcional da ordem."
+        help="Client ID opcional da ordem.",
     )
 
     parser.add_argument(
         "--base-url",
         default="http://127.0.0.1:8000",
-        help="URL base do backend local."
+        help="URL base do backend local.",
+    )
+
+    parser.add_argument(
+        "--input-asset",
+        default="BRL",
+        help="Moeda/ativo que o cliente transfere (ex.: BRL, USDT).",
+    )
+
+    parser.add_argument(
+        "--input-amount",
+        type=float,
+        default=1000.0,
+        help="Quantidade no input_asset.",
+    )
+
+    parser.add_argument(
+        "--output-asset",
+        default="USDT",
+        help="Moeda/ativo que será enviado ao cliente.",
+    )
+
+    parser.add_argument(
+        "--output-amount-net",
+        type=float,
+        default=180.5,
+        help="Quantidade líquida no output_asset.",
     )
 
     parser.add_argument(
         "--network",
         default="",
-        help="Rede da wallet, ex: BSC."
+        help="Rede da wallet, ex: BSC.",
     )
 
     parser.add_argument(
         "--wallet-address",
         default="",
-        help="Endereço da wallet do usuário."
+        help="Endereço da wallet do usuário.",
     )
 
     parser.add_argument(
-        "--tx-hash-url",
+        "--payout-identifier",
         default="",
-        help="URL da transação. Usado no order_concluded."
+        help="Tx hash ou comprovante do payout. Usado no order_concluded.",
     )
 
     parser.add_argument(
-        "--tx-hash",
+        "--refund-identifier",
         default="",
-        help="Hash da transação. Usado no order_concluded."
+        help="Tx hash ou comprovante do reembolso. Usado no payment_reproved.",
     )
 
     args = parser.parse_args()

@@ -1304,7 +1304,9 @@ button {
 }
 
 .order-highlight-banner--payment_timeout,
-.order-status-card--payment_timeout {
+.order-status-card--payment_timeout,
+.order-highlight-banner--payment_reproved,
+.order-status-card--payment_reproved {
   border-color: color-mix(in srgb, var(--order-page-danger-color) 20%, transparent);
   background: color-mix(in srgb, var(--order-page-danger-color) 8%, #ffffff);
 }

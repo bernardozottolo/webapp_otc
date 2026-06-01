@@ -70,6 +70,24 @@ function formatPriceAmount(locale: string, currencyCode: string, amount: number)
   return formatFiatAmount(locale, currencyCode, amount, 3);
 }
 
+function formatLegAmount(
+  locale: string,
+  fiatCurrency: string,
+  amount: number,
+  asset: string | undefined,
+  fallbackAsset?: string
+) {
+  const resolvedAsset = asset?.trim() || fallbackAsset?.trim() || "";
+  if (resolvedAsset === fiatCurrency) {
+    return formatFiatAmount(locale, fiatCurrency, amount);
+  }
+  return formatAssetAmount(locale, amount, resolvedAsset);
+}
+
+function interpolateSupportEmail(message: string, supportEmail: string) {
+  return message.replace(/\{supportEmail\}/g, supportEmail);
+}
+
 function isHttpUrl(value: string) {
   return /^https?:\/\//i.test(value.trim());
 }
@@ -106,6 +124,8 @@ function resolveStatusLabel(status: string | undefined, texts: OrderPageTextsCon
       return texts.statusLabels.concluded;
     case "cancelled":
       return texts.statusLabels.cancelled;
+    case "reproved":
+      return texts.statusLabels.reproved;
     default:
       return status ?? "";
   }
@@ -123,6 +143,8 @@ function resolveVariantContent(variant: ReturnType<typeof getOrderDisplayVariant
       return texts.orderUpdateTimeout;
     case "order_concluded":
       return texts.orderConcluded;
+    case "payment_reproved":
+      return texts.paymentReproved;
     default:
       return null;
   }
@@ -258,13 +280,23 @@ export function OrderStatusPage({ brand }: OrderStatusPageProps) {
   const beneficiaryName = order?.paymentData?.BeneficiaryName?.trim() || brand.companyName;
   const beneficiaryBankName = order?.paymentData?.BeneficiaryBankName?.trim() ?? "";
   const beneficiaryTaxId = order?.paymentData?.BeneficiaryTaxId?.trim() ?? "";
-  const formattedQuantity = order ? formatAssetAmount(brand.defaultLocale, order.amount, order.asset) : "";
-  const formattedTotal = order ? formatFiatAmount(brand.defaultLocale, brand.fiatCurrency, order.quoteTotal) : "";
   const formattedPrice = order?.price != null ? formatPriceAmount(brand.defaultLocale, brand.fiatCurrency, order.price) : "";
   const orderNumberLabel = `#${order?.id ?? id}`;
   const summaryKicker = order?.tradeSide === "sell" ? texts.summarySellTitle : texts.summaryBuyTitle;
-  const receiveValue = order?.tradeSide === "sell" ? formattedTotal : formattedQuantity;
-  const payValue = order?.tradeSide === "sell" ? formattedQuantity : formattedTotal;
+  const inputAssetFallback = order?.tradeSide === "buy" ? brand.fiatCurrency : order?.asset;
+  const outputAssetFallback = order?.tradeSide === "buy" ? order?.asset : brand.fiatCurrency;
+  const payValue = order
+    ? formatLegAmount(
+        brand.defaultLocale,
+        brand.fiatCurrency,
+        order.amountToPay ?? order.quoteTotal,
+        order.inputAsset,
+        inputAssetFallback
+      )
+    : "";
+  const receiveValue = order
+    ? formatLegAmount(brand.defaultLocale, brand.fiatCurrency, order.amount, order.outputAsset, outputAssetFallback)
+    : "";
   const receivingDataValue = [order?.paymentData?.network?.trim() ?? "", walletMasked].filter(Boolean).join(" - ");
 
   useEffect(() => {
@@ -456,7 +488,7 @@ export function OrderStatusPage({ brand }: OrderStatusPageProps) {
                     </span>
                     <div>
                       <strong>{variantContent.title}</strong>
-                      <p>{variantContent.message}</p>
+                      <p>{interpolateSupportEmail(variantContent.message, brand.supportEmail)}</p>
                     </div>
                   </div>
                 ) : (
@@ -468,7 +500,8 @@ export function OrderStatusPage({ brand }: OrderStatusPageProps) {
                     <p>{texts.waitingMessage}</p>
                   </>
                 )}
-                {displayVariant === "order_concluded" && (hasTxHashValue || hasTxHashLink) ? (
+                {(displayVariant === "order_concluded" || displayVariant === "payment_reproved") &&
+                (hasTxHashValue || hasTxHashLink) ? (
                   <div className="order-transaction-panel order-transaction-panel--inline">
                     {hasTxHashValue ? (
                       <div className="order-txhash-box">

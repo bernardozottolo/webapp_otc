@@ -234,6 +234,11 @@
         "message": "Que pena! Não conseguimos processar o pedido.\nSe você acha que isso é um erro, entre em contato com o suporte pelo e-mail suporte@empresa-exemplo.com.br.",
         "emoji": "💔"
       },
+      "paymentReproved": {
+        "title": "Pedido não processado",
+        "message": "Não foi possível processar seu pedido. O reembolso do valor depositado já foi processado. Em caso de dúvida, entre em contato com {supportEmail}.",
+        "emoji": "↩️"
+      },
       "statusLabels": {
         "created": "Criado",
         "processing": "Processando",
@@ -241,7 +246,8 @@
         "waitingForPayment": "Aguardando pagamento",
         "paymentConfirmed": "Pagamento identificado",
         "concluded": "Pedido concluído",
-        "cancelled": "Cancelado"
+        "cancelled": "Cancelado",
+        "reproved": "Pedido não processado"
       }
     }
   },

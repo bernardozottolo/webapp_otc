@@ -45,6 +45,9 @@ def detect_local_synthetic_status(
             _build_local_payload(record, reason="payment_timeout", latest_update=latest_update),
         )
 
+    if latest_template == "payment_reproved" or status == "reproved":
+        return None, None, None
+
     if (
         status == "waiting_for_payment"
         and payment_timeout_ms > 0

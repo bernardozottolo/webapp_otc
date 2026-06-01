@@ -202,6 +202,11 @@ export interface OrderPaymentData {
   walletAddress?: string;
 }
 
+export interface OrderPaymentDataV2 {
+  payout_identifier?: string | null;
+  refund_identifier?: string | null;
+}
+
 export interface Order {
   id: string;
   email: string;
@@ -209,12 +214,17 @@ export interface Order {
   asset: string;
   amount: number;
   quoteTotal: number;
-  status: "created" | "processing" | "completed" | "waiting_for_payment" | "payment_confirmed" | "concluded" | "cancelled" | string;
+  status: "created" | "processing" | "completed" | "waiting_for_payment" | "payment_confirmed" | "concluded" | "cancelled" | "reproved" | string;
   createdAt: number;
   price?: number;
   amountToPay?: number;
   orderIsValid?: boolean;
   paymentData?: OrderPaymentData | null;
+  inputAsset?: string;
+  outputAsset?: string;
+  outputAmountGross?: number;
+  feeAsset?: number;
+  feeFiat?: number;
 }
 
 export interface OrderUpdatePayload {
@@ -224,19 +234,15 @@ export interface OrderUpdatePayload {
     order_id: string;
     status?: string;
     price?: number;
-    amount_to_pay?: number;
+    input_asset?: string;
     input_amount?: number;
+    output_asset?: string;
+    output_amount_gross?: number;
     output_amount_net?: number;
-    total_amount_to_receive?: number;
-    fee?: number;
-    final_amount_to_receive?: number;
-    payment_data?: {
-      qr_code?: string;
-      tx_hash?: string | null;
-      tx_hash_url?: string | null;
-      network?: string;
-      wallet_address?: string;
-    };
+    fee_asset?: number;
+    fee_fiat?: number;
+    payment_instructions?: OrderPaymentData;
+    payment_data_v2?: OrderPaymentDataV2;
   };
   receivedAt: number;
 }

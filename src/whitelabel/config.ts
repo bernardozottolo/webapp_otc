@@ -95,6 +95,7 @@ export interface OrderStatusLabelsConfig {
   paymentConfirmed: string;
   concluded: string;
   cancelled: string;
+  reproved: string;
 }
 
 export interface OrderPageTextsConfig {
@@ -142,6 +143,7 @@ export interface OrderPageTextsConfig {
   orderConcluded: OrderStatusContentConfig;
   paymentUpdateTimeout: OrderStatusContentConfig;
   orderUpdateTimeout: OrderStatusContentConfig;
+  paymentReproved: OrderStatusContentConfig;
   statusLabels: OrderStatusLabelsConfig;
 }
 
@@ -574,6 +576,12 @@ export const defaultBrandConfig: BrandConfig = {
         message: "Recebemos seu pagamento, mas ainda não tivemos novas atualizações do pedido. Se necessário, entre em contato com o suporte.",
         emoji: "💔"
       },
+      paymentReproved: {
+        title: "Pedido não processado",
+        message:
+          "Não foi possível processar seu pedido. O reembolso do valor depositado já foi processado. Em caso de dúvida, entre em contato com {supportEmail}.",
+        emoji: "↩️"
+      },
       statusLabels: {
         created: "Criado",
         processing: "Processando",
@@ -581,7 +589,8 @@ export const defaultBrandConfig: BrandConfig = {
         waitingForPayment: "Aguardando pagamento",
         paymentConfirmed: "Pagamento identificado",
         concluded: "Pedido concluído",
-        cancelled: "Cancelado"
+        cancelled: "Cancelado",
+        reproved: "Pedido não processado"
       }
     }
   },
@@ -895,7 +904,8 @@ function asOrderStatusLabelsConfig(value: unknown, fallback: OrderStatusLabelsCo
     waitingForPayment: asString(value.waitingForPayment, fallback.waitingForPayment),
     paymentConfirmed: asString(value.paymentConfirmed, fallback.paymentConfirmed),
     concluded: asString(value.concluded, fallback.concluded),
-    cancelled: asString(value.cancelled, fallback.cancelled)
+    cancelled: asString(value.cancelled, fallback.cancelled),
+    reproved: asString(value.reproved, fallback.reproved)
   };
 }
 
@@ -948,6 +958,7 @@ function asOrderPageTextsConfig(value: unknown, fallback: OrderPageTextsConfig):
     orderConcluded: asOrderStatusContentConfig(value.orderConcluded, fallback.orderConcluded),
     paymentUpdateTimeout: asOrderStatusContentConfig(value.paymentUpdateTimeout, fallback.paymentUpdateTimeout),
     orderUpdateTimeout: asOrderStatusContentConfig(value.orderUpdateTimeout, fallback.orderUpdateTimeout),
+    paymentReproved: asOrderStatusContentConfig(value.paymentReproved, fallback.paymentReproved),
     statusLabels: asOrderStatusLabelsConfig(value.statusLabels, fallback.statusLabels)
   };
 }

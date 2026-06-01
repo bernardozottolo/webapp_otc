@@ -110,15 +110,12 @@ def _build_order_snapshot(body: bytes, response: Response) -> dict[str, object] 
         payment_info = {}
     if not isinstance(payment_data, dict):
         payment_data = {}
-    quote_total = _pick_pre_order_float(pre_order, "input_amount", "amount_to_pay")
+    quote_total = _pick_pre_order_float(pre_order, "input_amount")
     if quote_total is None:
         quote_total = _as_float(request_payload.get("amount"))
-    amount = _pick_pre_order_float(
-        pre_order,
-        "output_amount_net",
-        "final_amount_to_receive",
-        "total_amount_to_receive",
-    )
+    amount = _pick_pre_order_float(pre_order, "output_amount_net", "output_amount_gross")
+    input_asset = str(pre_order.get("input_asset", "")).strip()
+    output_asset = str(pre_order.get("output_asset", "")).strip()
     price = _as_float(pre_order.get("price")) or _as_float(request_payload.get("price"))
     trade_type = str(request_payload.get("trade_type", "BUY")).strip().upper()
     return {
@@ -133,6 +130,8 @@ def _build_order_snapshot(body: bytes, response: Response) -> dict[str, object] 
         "price": price,
         "amountToPay": quote_total,
         "orderIsValid": bool(response_payload.get("order_is_valid", True)),
+        "inputAsset": input_asset or None,
+        "outputAsset": output_asset or None,
         "paymentData": {
             "BeneficiaryBankName": payment_data.get("BeneficiaryBankName"),
             "BeneficiaryName": payment_data.get("BeneficiaryName"),

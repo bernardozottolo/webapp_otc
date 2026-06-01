@@ -351,7 +351,8 @@ No fluxo `BUY`, o browser continua falando apenas com a mesma origem da aplicaca
 - Quando `create_order` retorna com sucesso, o FastAPI guarda um snapshot temporario do pedido e a pagina `'/order/:id'` pode ser reaberta ate o TTL configurado.
 - Updates posteriores do OTC podem ser enviados para `POST /api/order-updates` e a pagina `'/order/:id'` faz polling em `GET /api/order-updates/{orderId}` para consolidar status, `txHash` e metadados de pagamento.
 - A tela `'/order/:id'` usa `order.createdAt + orderPage.timer.durationSeconds` para mostrar o countdown de pagamento e troca de visual quando o threshold configurado e atingido.
-- Apenas updates mapeados mudam a estrutura da tela: `payment_timeout`/`cancelled`, `payment_recognized`/`payment_confirmed` e `order_concluded`/`concluded`.
+- Apenas updates mapeados mudam a estrutura da tela: `payment_timeout`/`cancelled`, `payment_recognized`/`payment_confirmed`, `order_concluded`/`concluded` e `payment_reproved`/`reproved` (reembolso após falha de processamento, ex. venda com KYT reprovado).
+- O contrato de `order_info` nos updates usa `input_asset`, `input_amount`, `output_asset`, `output_amount_gross`, `output_amount_net`, `fee_asset`, `fee_fiat`, `payment_instructions` (mesmo conteúdo do `payment_data` do create) e `payment_data_v2` (`payout_identifier`, `refund_identifier`).
 
 ### Simular updates manualmente
 
@@ -363,12 +364,19 @@ window.__OTC_ORDER_UPDATE__?.({
   orderInfo: {
     order_id: "203389547237282",
     status: "payment_confirmed",
-    payment_data: {
-      tx_hash: "0x123"
+    input_asset: "BRL",
+    input_amount: 1000,
+    output_asset: "USDT",
+    output_amount_net: 180.5,
+    payment_instructions: {
+      network: "BSC",
+      wallet_address: "0xabc..."
     }
   }
 });
 ```
+
+Payload HTTP (`POST /api/order-updates`) usa snake_case em `order_info` (ex.: `order_info`, `payment_instructions`, `payment_data_v2`).
 
 Se o frontend estiver sendo servido pelo mesmo FastAPI e no mesmo host, voce tambem pode usar:
 

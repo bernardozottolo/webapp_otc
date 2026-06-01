@@ -1,4 +1,4 @@
-import type { StoredOrderRecord, Order, OrderUpdatePayload } from "../types";
+import type { OrderPaymentData, StoredOrderRecord, Order, OrderUpdatePayload } from "../types";
 
 export interface OrderUpdatesConfig {
   orderBaseUrl: string;
@@ -11,6 +11,66 @@ function asNumber(value: unknown, fallback = 0) {
 
 function asString(value: unknown, fallback = "") {
   return typeof value === "string" ? value : fallback;
+}
+
+function asOptionalString(value: unknown): string | undefined {
+  const parsed = asString(value).trim();
+  return parsed || undefined;
+}
+
+function asNullableString(value: unknown): string | null | undefined {
+  if (value === null) return null;
+  if (value === undefined) return undefined;
+  return asString(value) || null;
+}
+
+function mapPaymentInstructions(value: unknown): OrderPaymentData | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+  const src = value as Record<string, unknown>;
+  const result: OrderPaymentData = {};
+
+  const beneficiaryBankName = asOptionalString(src.BeneficiaryBankName);
+  const beneficiaryName = asOptionalString(src.BeneficiaryName);
+  const beneficiaryTaxId = asOptionalString(src.BeneficiaryTaxId);
+  const imagemQRCodeInBase64 = asOptionalString(src.imagemQRCodeInBase64);
+  const payload = asOptionalString(src.payload) || asOptionalString(src.qr_code);
+  const network = asOptionalString(src.network);
+  const walletAddress = asOptionalString(src.wallet_address);
+
+  if (beneficiaryBankName) result.BeneficiaryBankName = beneficiaryBankName;
+  if (beneficiaryName) result.BeneficiaryName = beneficiaryName;
+  if (beneficiaryTaxId) result.BeneficiaryTaxId = beneficiaryTaxId;
+  if (imagemQRCodeInBase64) result.imagemQRCodeInBase64 = imagemQRCodeInBase64;
+  if (payload) result.payload = payload;
+  if (network) result.network = network;
+  if (walletAddress) result.walletAddress = walletAddress;
+
+  if (src.tx_hash !== undefined) {
+    result.txHash = asNullableString(src.tx_hash);
+  }
+  if (src.tx_hash_url !== undefined) {
+    result.txHashUrl = asNullableString(src.tx_hash_url);
+  }
+
+  return Object.keys(result).length > 0 ? result : undefined;
+}
+
+function mapPaymentDataV2(value: unknown): OrderUpdatePayload["orderInfo"]["payment_data_v2"] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+  const src = value as Record<string, unknown>;
+  const payoutIdentifier = src.payout_identifier;
+  const refundIdentifier = src.refund_identifier;
+  if (payoutIdentifier === undefined && refundIdentifier === undefined) {
+    return undefined;
+  }
+  return {
+    payout_identifier: payoutIdentifier === undefined ? undefined : asNullableString(payoutIdentifier),
+    refund_identifier: refundIdentifier === undefined ? undefined : asNullableString(refundIdentifier)
+  };
 }
 
 function buildOrderUpdatesUrl(baseUrl: string, orderId: string) {
@@ -29,7 +89,6 @@ function mapOrderUpdatePayload(value: unknown): OrderUpdatePayload | null {
     return null;
   }
   const orderInfo = rawOrderInfo as Record<string, unknown>;
-  const paymentData = orderInfo.payment_data;
   return {
     template: asString(raw.template),
     clientId: asString(raw.client_id) || undefined,
@@ -37,31 +96,16 @@ function mapOrderUpdatePayload(value: unknown): OrderUpdatePayload | null {
       order_id: asString(orderInfo.order_id),
       status: asString(orderInfo.status) || undefined,
       price: orderInfo.price == null ? undefined : asNumber(orderInfo.price),
-      amount_to_pay: orderInfo.amount_to_pay == null ? undefined : asNumber(orderInfo.amount_to_pay),
+      input_asset: asOptionalString(orderInfo.input_asset),
       input_amount: orderInfo.input_amount == null ? undefined : asNumber(orderInfo.input_amount),
-      output_amount_net:
-        orderInfo.output_amount_net == null ? undefined : asNumber(orderInfo.output_amount_net),
-      total_amount_to_receive:
-        orderInfo.total_amount_to_receive == null ? undefined : asNumber(orderInfo.total_amount_to_receive),
-      fee: orderInfo.fee == null ? undefined : asNumber(orderInfo.fee),
-      final_amount_to_receive:
-        orderInfo.final_amount_to_receive == null ? undefined : asNumber(orderInfo.final_amount_to_receive),
-      payment_data:
-        paymentData && typeof paymentData === "object" && !Array.isArray(paymentData)
-          ? {
-              qr_code: asString((paymentData as Record<string, unknown>).qr_code) || undefined,
-              tx_hash:
-                (paymentData as Record<string, unknown>).tx_hash == null
-                  ? undefined
-                  : ((paymentData as Record<string, unknown>).tx_hash as string | null),
-              tx_hash_url:
-                (paymentData as Record<string, unknown>).tx_hash_url == null
-                  ? undefined
-                  : ((paymentData as Record<string, unknown>).tx_hash_url as string | null),
-              network: asString((paymentData as Record<string, unknown>).network) || undefined,
-              wallet_address: asString((paymentData as Record<string, unknown>).wallet_address) || undefined
-            }
-          : undefined
+      output_asset: asOptionalString(orderInfo.output_asset),
+      output_amount_gross:
+        orderInfo.output_amount_gross == null ? undefined : asNumber(orderInfo.output_amount_gross),
+      output_amount_net: orderInfo.output_amount_net == null ? undefined : asNumber(orderInfo.output_amount_net),
+      fee_asset: orderInfo.fee_asset == null ? undefined : asNumber(orderInfo.fee_asset),
+      fee_fiat: orderInfo.fee_fiat == null ? undefined : asNumber(orderInfo.fee_fiat),
+      payment_instructions: mapPaymentInstructions(orderInfo.payment_instructions),
+      payment_data_v2: mapPaymentDataV2(orderInfo.payment_data_v2)
     },
     receivedAt: asNumber(raw.received_at, Date.now())
   };

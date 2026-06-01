@@ -66,6 +66,8 @@ def _extract_status_from_update_body(update_body: dict[str, Any]) -> str:
         return order_status or "concluded"
     if template == "payment_timeout":
         return order_status or "payment_timeout"
+    if template == "payment_reproved":
+        return order_status or "reproved"
     return order_status or template
 
 
