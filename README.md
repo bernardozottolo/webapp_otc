@@ -349,7 +349,7 @@ No fluxo `BUY`, o browser continua falando apenas com a mesma origem da aplicaca
 - `get_available_deposit_networks` abastece o dropdown de rede no fluxo de venda (SELL); a taxa reduz o valor exibido em "Você recebe".
 - `check_wallet_risk` roda antes de salvar a wallet; a wallet so e persistida se `risk_result === "approved"`.
 - `check_pix_key_owner` roda antes de salvar a chave PIX/bancária; a chave so e persistida se `key_owner_result === true`.
-- No SELL, `pre_order_validation` e `create_order` enviam `network_info` (rede de depósito) e `payment_info.pix_key` (chave cadastrada no clients_database).
+- No SELL, `pre_order_validation` e `create_order` enviam `network_info` e `payment_info.network` com o codigo da rede de deposito (ex.: `"BSC"`), e `payment_info.pix_key` com a chave cadastrada no clients_database.
 - `pre_order_validation` e `create_order` usam contrato **v2** (`version: "v2"`, `kyc_info` com `name`/`document`/`kyc_result`; resposta de pre-order com `input_*`, `output_*`, `fee_*`). `pre_order_validation` roda antes de `create_order`; se `price_is_valid` for falso, a UI chama `get_pricing` de novo, atualiza a cotacao e pede nova confirmacao.
 - Quando `create_order` retorna com sucesso, o FastAPI guarda um snapshot temporario do pedido e a pagina `'/order/:id'` pode ser reaberta ate o TTL configurado.
 - Updates posteriores do OTC podem ser enviados para `POST /api/order-updates` e a pagina `'/order/:id'` faz polling em `GET /api/order-updates/{orderId}` para consolidar status, `txHash` e metadados de pagamento.

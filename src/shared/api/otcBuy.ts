@@ -173,33 +173,18 @@ function serializeKycInfo(kyc: OtcKycInfoPayload) {
   };
 }
 
-function otcFeeString(value: number) {
-  if (!Number.isFinite(value)) return "0";
-  return String(value);
-}
-
-export function serializeNetworkInfo(network: OtcWithdrawNetwork): Record<string, unknown> {
-  const payload: Record<string, unknown> = {
-    network: network.network
-  };
-  if (network.addressRegex) payload.addressRegex = network.addressRegex;
-  if (network.withdrawDesc !== undefined) payload.withdrawDesc = network.withdrawDesc;
-  payload.withdrawFee = otcFeeString(network.withdrawFee);
-  payload.withdrawFeeBrlEstimate = otcFeeString(network.withdrawFeeBrlEstimate);
-  if (network.withdrawIntegerMultiple) payload.withdrawIntegerMultiple = network.withdrawIntegerMultiple;
-  if (network.withdrawMax) payload.withdrawMax = network.withdrawMax;
-  if (network.withdrawMin) payload.withdrawMin = network.withdrawMin;
-  if (network.withdrawTag !== undefined) payload.withdrawTag = network.withdrawTag;
-  return payload;
+function sellNetworkInfoForOtc(network: OtcWithdrawNetwork): string {
+  return network.network.trim();
 }
 
 function serializePaymentInfoForOtc(
   input: PreOrderValidationInput | CreateOrderInput
 ): Record<string, unknown> {
   if (input.tradeType === "SELL") {
+    const depositNetwork = sellNetworkInfoForOtc(input.networkInfo);
     return {
       pix_key: input.paymentInfo.pixKey,
-      network: input.paymentInfo.network
+      network: depositNetwork
     };
   }
   return {
@@ -223,7 +208,7 @@ function serializePreOrderV2(input: PreOrderValidationInput | CreateOrderInput, 
     payment_info: serializePaymentInfoForOtc(input)
   };
   if (input.tradeType === "SELL") {
-    base.network_info = serializeNetworkInfo(input.networkInfo);
+    base.network_info = sellNetworkInfoForOtc(input.networkInfo);
   }
   return base;
 }
@@ -417,7 +402,7 @@ export async function preOrderValidationHttp(
     kyc_info: serializeKycInfo(input.kycInfo)
   };
   if (input.tradeType === "SELL") {
-    body.network_info = serializeNetworkInfo(input.networkInfo);
+    body.network_info = sellNetworkInfoForOtc(input.networkInfo);
   }
   const data = await postOtcJson<PreOrderPayload>(config, "pre_order_validation", body);
   return mapPreOrderPayload(data, input.price);
@@ -452,7 +437,7 @@ export async function createOrderHttp(config: PricingConfig, input: CreateOrderI
     pre_order: serializePreOrderV2(input, input.preOrder)
   };
   if (input.tradeType === "SELL") {
-    body.network_info = serializeNetworkInfo(input.networkInfo);
+    body.network_info = sellNetworkInfoForOtc(input.networkInfo);
   }
   const data = await postOtcJson<CreateOrderPayload>(config, "create_order", body);
 

@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { otcApiClient } from "../../shared/api/client";
-import { bankKeyTypeToNetwork } from "../../shared/api/clientsDatabase";
 import { setWindowOrderPayload } from "../../shared/api/orderCache";
 import type { CompanyKycOwnerInfo, KycSubmitResult, PreOrderValidationInput } from "../../shared/api/contracts";
 import { I18nHtml, useI18n } from "../../shared/i18n";
@@ -2137,7 +2136,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
         }
         const paymentInfo = {
           pixKey: paymentData.bankKeyValue,
-          network: bankKeyTypeToNetwork(paymentData.bankKeyType)
+          network: networkOption.network
         };
         const preValidateBase = {
           asset,
