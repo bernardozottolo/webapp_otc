@@ -98,6 +98,11 @@ export interface OrderStatusLabelsConfig {
   reproved: string;
 }
 
+export interface OrderPageSellPayNetworkWarningConfig {
+  ariaLabel: string;
+  bullets: string[];
+}
+
 export interface OrderPageTextsConfig {
   title: string;
   loading: string;
@@ -138,6 +143,8 @@ export interface OrderPageTextsConfig {
   sellCopyWalletAddressButtonLabel: string;
   sellCopiedWalletAddressButtonLabel: string;
   sellWalletAddressLabel: string;
+  /** Aviso ao lado de "via REDE" no resumo de venda (leg "você paga"). */
+  sellPayNetworkWarning: OrderPageSellPayNetworkWarningConfig;
   buyLabel: string;
   sellLabel: string;
   waitingMessage: string;
@@ -562,6 +569,13 @@ export const defaultBrandConfig: BrandConfig = {
       sellCopyWalletAddressButtonLabel: "Copiar Endereço da Carteira",
       sellCopiedWalletAddressButtonLabel: "Endereço copiado",
       sellWalletAddressLabel: "Endereço da carteira",
+      sellPayNetworkWarning: {
+        ariaLabel: "Atenção ao enviar cripto",
+        bullets: [
+          "O valor enviado deve ser exatamente o informado neste pedido. Valores diferentes podem não ser reconhecidos.",
+          "Utilize exclusivamente a rede indicada. Enviar por outra rede pode resultar em perda permanente dos ativos."
+        ]
+      },
       buyLabel: "Compra",
       sellLabel: "Venda",
       waitingMessage: "Assim que o pagamento for identificado, atualizaremos esta tela automaticamente.",
@@ -923,6 +937,19 @@ function asOrderStatusLabelsConfig(value: unknown, fallback: OrderStatusLabelsCo
   };
 }
 
+function asOrderPageSellPayNetworkWarningConfig(
+  value: unknown,
+  fallback: OrderPageSellPayNetworkWarningConfig
+): OrderPageSellPayNetworkWarningConfig {
+  if (!isRecord(value)) {
+    return fallback;
+  }
+  return {
+    ariaLabel: asString(value.ariaLabel, fallback.ariaLabel),
+    bullets: asStringArray(value.bullets, fallback.bullets)
+  };
+}
+
 function asOrderPageTextsConfig(value: unknown, fallback: OrderPageTextsConfig): OrderPageTextsConfig {
   if (!isRecord(value)) {
     return fallback;
@@ -970,6 +997,10 @@ function asOrderPageTextsConfig(value: unknown, fallback: OrderPageTextsConfig):
       fallback.sellCopiedWalletAddressButtonLabel
     ),
     sellWalletAddressLabel: asString(value.sellWalletAddressLabel, fallback.sellWalletAddressLabel),
+    sellPayNetworkWarning: asOrderPageSellPayNetworkWarningConfig(
+      value.sellPayNetworkWarning,
+      fallback.sellPayNetworkWarning
+    ),
     buyLabel: asString(value.buyLabel, fallback.buyLabel),
     sellLabel: asString(value.sellLabel, fallback.sellLabel),
     waitingMessage: asString(value.waitingMessage, fallback.waitingMessage),

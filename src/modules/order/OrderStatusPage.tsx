@@ -100,6 +100,34 @@ function isHttpUrl(value: string) {
   return /^https?:\/\//i.test(value.trim());
 }
 
+function SellPayNetworkWarningIcon({
+  ariaLabel,
+  bullets
+}: {
+  ariaLabel: string;
+  bullets: string[];
+}) {
+  if (bullets.length === 0) {
+    return null;
+  }
+  return (
+    <span className="order-pay-network-warning">
+      <button type="button" className="order-pay-network-warning__trigger" aria-label={ariaLabel}>
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z" />
+        </svg>
+      </button>
+      <div className="order-pay-network-warning__popover" role="tooltip">
+        <ul className="order-pay-network-warning__list">
+          {bullets.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      </div>
+    </span>
+  );
+}
+
 async function copyTextToClipboard(value: string) {
   try {
     await navigator.clipboard.writeText(value);
@@ -320,10 +348,8 @@ export function OrderStatusPage({ brand }: OrderStatusPageProps) {
     order && summaryAmountToPay != null
       ? formatLegAmount(brand.defaultLocale, brand.fiatCurrency, summaryAmountToPay, summaryInputAsset, inputAssetFallback)
       : "";
-  const payValue =
-    isSellOrder && sellPayViaNetwork && payValueBase
-      ? `${payValueBase} via ${sellPayViaNetwork}`
-      : payValueBase;
+  const showSellPayViaNetwork = isSellOrder && Boolean(sellPayViaNetwork && payValueBase);
+  const sellPayNetworkWarning = texts.sellPayNetworkWarning;
   const receiveValue =
     order && summaryReceiveAmount != null
       ? formatLegAmount(brand.defaultLocale, brand.fiatCurrency, summaryReceiveAmount, summaryOutputAsset, outputAssetFallback)
@@ -470,7 +496,18 @@ export function OrderStatusPage({ brand }: OrderStatusPageProps) {
               <div className="order-summary-stats">
                 <div className="order-summary-stat">
                   <span>{texts.payTitle}</span>
-                  <strong>{payValue}</strong>
+                  <strong className="order-summary-pay-value">
+                    {payValueBase}
+                    {showSellPayViaNetwork ? (
+                      <span className="order-summary-pay-via">
+                        {` via ${sellPayViaNetwork}`}
+                        <SellPayNetworkWarningIcon
+                          ariaLabel={sellPayNetworkWarning.ariaLabel}
+                          bullets={sellPayNetworkWarning.bullets}
+                        />
+                      </span>
+                    ) : null}
+                  </strong>
                 </div>
                 <div className="order-summary-stat">
                   <span>{texts.receiveTitle}</span>
