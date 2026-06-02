@@ -1396,6 +1396,7 @@ button {
   display: inline-block;
   margin-left: 0.2em;
   vertical-align: middle;
+  height: 100%;
   color: inherit;
 }
 
