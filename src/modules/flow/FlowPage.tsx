@@ -1434,7 +1434,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
   }, [identified, tradeSide, country, asset]);
 
   useEffect(() => {
-    if (!identified || tradeSide !== "sell") {
+    if (tradeSide !== "sell") {
       setDepositNetworks([]);
       setDepositNetwork("");
       setDepositNetworksLoading(false);
@@ -1461,7 +1461,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
     return () => {
       mounted = false;
     };
-  }, [identified, tradeSide, asset]);
+  }, [tradeSide, asset]);
 
   useEffect(() => {
     if (step !== "bio") {
@@ -2635,7 +2635,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
                           </span>
                         </div>
                       ) : null}
-                      {identified && tradeSide === "sell" && depositNetwork ? (
+                      {tradeSide === "sell" && depositNetwork ? (
                         <div className="details-row">
                           <strong>{t("common.networkFee")}</strong>
                           <span>

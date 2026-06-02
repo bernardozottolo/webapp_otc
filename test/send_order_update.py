@@ -1,3 +1,19 @@
+# Exemplos de uso deste script:
+# 
+# Enviar evento payment_recognized com instruções de pagamento:
+# python send_order_update.py payment_recognized --order-id=999 --client-id=TESTE --input-asset=BRL --input-amount=123.45 --output-asset=USDT --output-amount-net=17 --network=BSC --wallet-address=TESTE_WALLET
+#
+# Enviar evento order_concluded com payout_identifier:
+# python send_order_update.py order_concluded --order-id=123 --input-asset=BRL --input-amount=1050 --output-asset=USDT --output-amount-net=20.5 --payout-identifier=TX1234567890 
+#
+# Enviar evento payment_timeout:
+# python send_order_update.py payment_timeout --order-id=888
+#
+# Enviar evento payment_reproved com refund_identifier:
+# python send_order_update.py payment_reproved --order-id=777 --refund-identifier=R123
+#
+# Troque --base-url se necessário para apontar para a URL correta do backend.
+
 import argparse
 import requests
 
