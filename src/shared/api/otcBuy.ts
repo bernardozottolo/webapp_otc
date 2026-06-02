@@ -7,6 +7,7 @@ import type {
   PreOrderValidationInput,
   SellCreateOrderInput
 } from "./contracts";
+import { buildCreateOrderSummaryFromInput } from "./orderCreateSummary";
 import { cacheOrder, getCachedOrder } from "./orderCache";
 import type { PricingConfig } from "./pricing";
 import type { OtcPixKeyOwnerCheck, OtcPreOrderValidation, OtcWalletRiskCheck, OtcWithdrawNetwork, Order } from "../types";
@@ -482,7 +483,7 @@ export async function createOrderHttp(config: PricingConfig, input: CreateOrderI
       },
       price: input.preOrder.price
     };
-    cacheOrder(order);
+    cacheOrder(order, buildCreateOrderSummaryFromInput(input));
     return order;
   }
 
@@ -509,7 +510,7 @@ export async function createOrderHttp(config: PricingConfig, input: CreateOrderI
     },
     price: input.preOrder.price
   };
-  cacheOrder(order);
+  cacheOrder(order, buildCreateOrderSummaryFromInput(input));
   return order;
 }
 

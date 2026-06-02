@@ -424,9 +424,13 @@ export async function preValidateOrder(input: PreOrderValidationInput): Promise<
   };
 }
 
+import { buildCreateOrderSummaryFromInput } from "./orderCreateSummary";
+import { cacheOrder } from "./orderCache";
+
 export async function createOrder(input: CreateOrderInput): Promise<Order> {
   await wait(500);
   const id = String(Math.floor(100000000 + Math.random() * 900000000));
+  const createSummary = buildCreateOrderSummaryFromInput(input);
   if (input.tradeType === "SELL") {
     const order: Order = {
       id,
@@ -442,12 +446,14 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
       outputAsset: input.preOrder.outputAsset,
       paymentData: {
         network: input.networkInfo.network,
-        walletAddress: "0xMOCK_DEPOSIT_WALLET"
+        walletAddress: "0xMOCK_DEPOSIT_WALLET",
+        pixKey: input.paymentInfo.pixKey
       },
       price: input.preOrder.price,
       orderIsValid: true
     };
     db.orders.set(id, order);
+    cacheOrder(order, createSummary);
     return order;
   }
   const order: Order = {
@@ -460,16 +466,21 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
     status: "waiting_for_payment",
     createdAt: Date.now(),
     amountToPay: input.preOrder.inputAmount,
+    price: input.preOrder.price,
+    orderIsValid: true,
+    inputAsset: input.preOrder.inputAsset,
+    outputAsset: input.preOrder.outputAsset || input.asset,
     paymentData: {
       BeneficiaryBankName: "Banco Mock",
       BeneficiaryName: "Mesa OTC Mock",
       BeneficiaryTaxId: "00.000.000/0001-00",
-      payload: `PIX-MOCK-${id}`
-    },
-    price: input.preOrder.price,
-    orderIsValid: true
+      payload: `PIX-MOCK-${id}`,
+      network: input.paymentInfo.network,
+      walletAddress: input.paymentInfo.wallet
+    }
   };
   db.orders.set(id, order);
+  cacheOrder(order, createSummary);
   return order;
 }
 

@@ -1434,12 +1434,6 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
   }, [identified, tradeSide, country, asset]);
 
   useEffect(() => {
-    if (tradeSide !== "sell") {
-      setDepositNetworks([]);
-      setDepositNetwork("");
-      setDepositNetworksLoading(false);
-      return;
-    }
     let mounted = true;
     setDepositNetworksLoading(true);
     const loadDepositNetworks = async () => {
@@ -1461,7 +1455,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
     return () => {
       mounted = false;
     };
-  }, [tradeSide, asset]);
+  }, [asset]);
 
   useEffect(() => {
     if (step !== "bio") {

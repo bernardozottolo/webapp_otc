@@ -1,5 +1,28 @@
 import { defaultBrandConfig, type OrderPersistenceConfig } from "../../whitelabel/config";
-import type { Order, OrderPaymentData, OrderUpdatePayload, StoredOrderRecord } from "../types";
+import type { Order, OrderCreateSummary, OrderPaymentData, OrderUpdatePayload, StoredOrderRecord } from "../types";
+
+export const KNOWN_ORDER_STATUSES = new Set([
+  "created",
+  "processing",
+  "completed",
+  "waiting_for_payment",
+  "payment_confirmed",
+  "concluded",
+  "cancelled",
+  "reproved"
+]);
+
+export function isKnownOrderStatus(status: string | undefined): boolean {
+  const trimmed = status?.trim();
+  if (!trimmed) return false;
+  return KNOWN_ORDER_STATUSES.has(trimmed);
+}
+
+export function shouldApplyOrderUpdate(update: OrderUpdatePayload): boolean {
+  const status = update.orderInfo.status?.trim();
+  if (!status) return true;
+  return isKnownOrderStatus(status);
+}
 
 const ORDER_CACHE_PREFIX = "otc-order:";
 const ORDER_WINDOW_NAME_PREFIX = "otc-order-window:";
@@ -51,6 +74,10 @@ function coerceStoredOrderRecord(value: unknown): StoredOrderRecord | null {
   if (candidate.order && typeof candidate.order === "object" && !Array.isArray(candidate.order) && candidate.order.id) {
     return {
       order: candidate.order as Order,
+      createSummary:
+        candidate.createSummary && typeof candidate.createSummary === "object" && !Array.isArray(candidate.createSummary)
+          ? (candidate.createSummary as OrderCreateSummary)
+          : undefined,
       createdAt: typeof candidate.createdAt === "number" ? candidate.createdAt : Date.now(),
       expiresAt:
         typeof candidate.expiresAt === "number" ? candidate.expiresAt : Date.now() + orderPersistenceConfig.ttlMs,
@@ -153,10 +180,15 @@ function ensureStorageSyncListener() {
   storageListenerAttached = true;
 }
 
-function buildRecord(order: Order, previous?: StoredOrderRecord | null): StoredOrderRecord {
+function buildRecord(
+  order: Order,
+  previous?: StoredOrderRecord | null,
+  createSummary?: OrderCreateSummary
+): StoredOrderRecord {
   const now = Date.now();
   return {
     order,
+    createSummary: createSummary ?? previous?.createSummary,
     createdAt: previous?.createdAt ?? now,
     expiresAt: now + orderPersistenceConfig.ttlMs,
     updates: previous?.updates ?? [],
@@ -218,6 +250,9 @@ function isHttpUrl(value: string) {
 }
 
 export function mergeOrderUpdate(existingOrder: Order, update: OrderUpdatePayload): Order {
+  if (!shouldApplyOrderUpdate(update)) {
+    return existingOrder;
+  }
   const next: Order = { ...existingOrder };
   const info = update.orderInfo;
   if (typeof info.trade_type === "string" && info.trade_type.trim()) {
@@ -226,7 +261,7 @@ export function mergeOrderUpdate(existingOrder: Order, update: OrderUpdatePayloa
   if (typeof info.asset === "string" && info.asset.trim()) {
     next.asset = info.asset.trim();
   }
-  if (typeof info.status === "string" && info.status.trim()) {
+  if (typeof info.status === "string" && isKnownOrderStatus(info.status)) {
     next.status = info.status.trim();
   }
   if (typeof info.price === "number" && Number.isFinite(info.price)) {
@@ -273,7 +308,11 @@ export function getLatestOrderUpdate(record: StoredOrderRecord | null): OrderUpd
   if (!record || record.updates.length === 0) {
     return null;
   }
-  return [...record.updates].sort((a, b) => b.receivedAt - a.receivedAt)[0] ?? null;
+  const applicable = record.updates.filter(shouldApplyOrderUpdate);
+  if (applicable.length === 0) {
+    return null;
+  }
+  return [...applicable].sort((a, b) => b.receivedAt - a.receivedAt)[0] ?? null;
 }
 
 export function getOrderDisplayVariant(
@@ -286,11 +325,14 @@ export function getOrderDisplayVariant(
 ): OrderDisplayVariant {
   const latestUpdate = getLatestOrderUpdate(record);
   const latestTemplate = latestUpdate?.template?.trim();
-  const status = record?.order.status?.trim();
+  const rawStatus = record?.order.status?.trim();
+  const status = isKnownOrderStatus(rawStatus) ? rawStatus : undefined;
   const now = options?.now ?? Date.now();
   const paymentTimeoutMs = options?.paymentTimeoutMs ?? 0;
   const orderUpdateTimeoutMs = options?.orderUpdateTimeoutMs ?? 0;
-  const hasPaymentTimeoutUpdate = record?.updates.some((update) => update.template?.trim() === "payment_timeout");
+  const hasPaymentTimeoutUpdate = record?.updates
+    .filter(shouldApplyOrderUpdate)
+    .some((update) => update.template?.trim() === "payment_timeout");
   if (hasPaymentTimeoutUpdate || latestTemplate === "payment_timeout" || status === "cancelled") {
     return "payment_timeout";
   }
@@ -355,16 +397,16 @@ export function startOrderStoreMaintenance(): void {
   maintenanceTimerId = window.setInterval(() => removeExpiredOrders(), intervalMs);
 }
 
-export function saveOrderRecord(order: Order): StoredOrderRecord {
+export function saveOrderRecord(order: Order, options?: { createSummary?: OrderCreateSummary }): StoredOrderRecord {
   ensureStorageSyncListener();
   const previous = getOrderRecord(order.id);
-  const record = buildRecord(order, previous);
+  const record = buildRecord(order, previous, options?.createSummary);
   syncRecord(record, order.id);
   return record;
 }
 
-export function cacheOrder(order: Order): void {
-  saveOrderRecord(order);
+export function cacheOrder(order: Order, createSummary?: OrderCreateSummary): void {
+  saveOrderRecord(order, createSummary ? { createSummary } : undefined);
 }
 
 export function removeExpiredOrders(now = Date.now()): void {
@@ -434,7 +476,7 @@ export function applyOrderUpdate(update: Omit<OrderUpdatePayload, "receivedAt"> 
   }
   const next: StoredOrderRecord = {
     ...current,
-    order: mergeOrderUpdate(current.order, normalized),
+    order: shouldApplyOrderUpdate(normalized) ? mergeOrderUpdate(current.order, normalized) : current.order,
     updates: [...current.updates, normalized],
     expiresAt: Date.now() + orderPersistenceConfig.ttlMs,
     lastUpdatedAt: Date.now()
@@ -491,9 +533,11 @@ export function replaceOrderRecord(record: StoredOrderRecord): StoredOrderRecord
   const existing = getOrderRecord(record.order.id);
   const baseOrder = preservePaymentDataFields(preserveDisplayAmounts(record.order, existing?.order), existing?.order);
   const sortedUpdates = [...record.updates].sort((a, b) => a.receivedAt - b.receivedAt);
-  const consolidatedOrder = sortedUpdates.reduce((current, update) => mergeOrderUpdate(current, update), baseOrder);
+  const applicableUpdates = sortedUpdates.filter(shouldApplyOrderUpdate);
+  const consolidatedOrder = applicableUpdates.reduce((current, update) => mergeOrderUpdate(current, update), baseOrder);
   const next: StoredOrderRecord = {
     order: consolidatedOrder,
+    createSummary: existing?.createSummary ?? record.createSummary,
     createdAt: record.createdAt,
     expiresAt: record.expiresAt,
     updates: sortedUpdates,

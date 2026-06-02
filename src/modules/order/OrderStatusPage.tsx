@@ -6,6 +6,7 @@ import {
   getOrderPersistenceConfig,
   getOrderRecord,
   getWindowOrderPayload,
+  isKnownOrderStatus,
   removeExpiredOrders,
   replaceOrderRecord,
   subscribeToOrder
@@ -134,7 +135,7 @@ function resolveStatusLabel(status: string | undefined, texts: OrderPageTextsCon
     case "reproved":
       return texts.statusLabels.reproved;
     default:
-      return status ?? "";
+      return "";
   }
 }
 
@@ -248,6 +249,7 @@ export function OrderStatusPage({ brand }: OrderStatusPageProps) {
   }, [id]);
 
   const order = record?.order ?? null;
+  const createSummary = record?.createSummary ?? null;
   const paymentUpdateTimeoutMs = useMemo(
     () => Math.round(orderPage.timer.durationSeconds * 1000 * 1.1),
     [orderPage.timer.durationSeconds]
@@ -265,7 +267,11 @@ export function OrderStatusPage({ brand }: OrderStatusPageProps) {
     [record, paymentUpdateTimeoutMs, orderUpdateTimeoutMs]
   );
   const variantContent = resolveVariantContent(displayVariant, texts);
-  const statusLabel = resolveDisplayStatusLabel(displayVariant, order?.status, texts);
+  const statusLabel = resolveDisplayStatusLabel(
+    displayVariant,
+    isKnownOrderStatus(order?.status) ? order?.status : undefined,
+    texts
+  );
   const shouldShowPaymentCard = displayVariant === "default";
   const deadlineMs = order ? order.createdAt + orderPage.timer.durationSeconds * 1000 : null;
   const timerExpired = remainingSeconds <= 0;
@@ -283,10 +289,11 @@ export function OrderStatusPage({ brand }: OrderStatusPageProps) {
   const txHashHref = isHttpUrl(txHashHrefCandidate) ? txHashHrefCandidate : "";
   const hasTxHashValue = Boolean(txHashValue);
   const hasTxHashLink = Boolean(txHashHref);
-  const isSellOrder = order?.tradeSide === "sell";
+  const isSellOrder = (createSummary?.tradeSide ?? order?.tradeSide) === "sell";
   const bankLabel = brand.bankLabelByCountry[brand.defaultCountry] ?? "PIX";
-  const walletMasked = maskMiddle(order?.paymentData?.walletAddress, 6, 6);
-  const maskedPixKey = maskBankKey(order?.paymentData?.pixKey);
+  const summaryCustomerPayment = createSummary?.customerPayment;
+  const walletMasked = maskMiddle(summaryCustomerPayment?.walletAddress ?? order?.paymentData?.walletAddress, 6, 6);
+  const maskedPixKey = maskBankKey(summaryCustomerPayment?.pixKey ?? order?.paymentData?.pixKey);
   const depositWalletAddress =
     order?.paymentData?.walletAddress?.trim() || order?.paymentData?.payload?.trim() || "";
   const depositNetworkLabel = order?.paymentData?.network?.trim() ?? "";
@@ -298,24 +305,28 @@ export function OrderStatusPage({ brand }: OrderStatusPageProps) {
   const beneficiaryTaxId = order?.paymentData?.BeneficiaryTaxId?.trim() ?? "";
   const formattedPrice = order?.price != null ? formatPriceAmount(brand.defaultLocale, brand.fiatCurrency, order.price) : "";
   const orderNumberLabel = `#${order?.id ?? id}`;
-  const summaryKicker = order?.tradeSide === "sell" ? texts.summarySellTitle : texts.summaryBuyTitle;
-  const inputAssetFallback = order?.tradeSide === "buy" ? brand.fiatCurrency : order?.asset;
-  const outputAssetFallback = order?.tradeSide === "buy" ? order?.asset : brand.fiatCurrency;
-  const payValue = order
-    ? formatLegAmount(
-        brand.defaultLocale,
-        brand.fiatCurrency,
-        order.amountToPay ?? order.quoteTotal,
-        order.inputAsset,
-        inputAssetFallback
-      )
-    : "";
-  const receiveValue = order
-    ? formatLegAmount(brand.defaultLocale, brand.fiatCurrency, order.amount, order.outputAsset, outputAssetFallback)
-    : "";
+  const summaryTradeSide = createSummary?.tradeSide ?? order?.tradeSide;
+  const summaryKicker = summaryTradeSide === "sell" ? texts.summarySellTitle : texts.summaryBuyTitle;
+  const summaryAsset = createSummary?.asset ?? order?.asset;
+  const inputAssetFallback = summaryTradeSide === "buy" ? brand.fiatCurrency : summaryAsset;
+  const outputAssetFallback = summaryTradeSide === "buy" ? summaryAsset : brand.fiatCurrency;
+  const summaryAmountToPay = createSummary?.amountToPay ?? order?.amountToPay ?? order?.quoteTotal;
+  const summaryReceiveAmount = createSummary?.amount ?? order?.amount;
+  const summaryInputAsset = createSummary?.inputAsset ?? order?.inputAsset;
+  const summaryOutputAsset = createSummary?.outputAsset ?? order?.outputAsset;
+  const payValue =
+    order && summaryAmountToPay != null
+      ? formatLegAmount(brand.defaultLocale, brand.fiatCurrency, summaryAmountToPay, summaryInputAsset, inputAssetFallback)
+      : "";
+  const receiveValue =
+    order && summaryReceiveAmount != null
+      ? formatLegAmount(brand.defaultLocale, brand.fiatCurrency, summaryReceiveAmount, summaryOutputAsset, outputAssetFallback)
+      : "";
   const receivingDataValue = isSellOrder
     ? [bankLabel, maskedPixKey].filter(Boolean).join(" - ")
-    : [order?.paymentData?.network?.trim() ?? "", walletMasked].filter(Boolean).join(" - ");
+    : [summaryCustomerPayment?.network?.trim() ?? order?.paymentData?.network?.trim() ?? "", walletMasked]
+        .filter(Boolean)
+        .join(" - ");
 
   useEffect(() => {
     if (!deadlineMs || !shouldShowPaymentCard) {

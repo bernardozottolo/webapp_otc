@@ -258,8 +258,27 @@ export interface OrderUpdatePayload {
   receivedAt: number;
 }
 
+/** Snapshot imutável do create_order (request) para o resumo do pedido na página de acompanhamento. */
+export interface OrderCreateSummary {
+  tradeSide: TradeSide;
+  asset: string;
+  amount: number;
+  amountToPay: number;
+  inputAsset?: string;
+  outputAsset?: string;
+  price?: number;
+  /** Destino de recebimento do cliente (`payment_info` do body do create_order). */
+  customerPayment: {
+    network?: string;
+    walletAddress?: string;
+    pixKey?: string;
+  };
+}
+
 export interface StoredOrderRecord {
   order: Order;
+  /** Resumo congelado na criação do pedido; não é sobrescrito por updates. */
+  createSummary?: OrderCreateSummary;
   createdAt: number;
   expiresAt: number;
   updates: OrderUpdatePayload[];
