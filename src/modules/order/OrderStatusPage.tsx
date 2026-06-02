@@ -461,16 +461,16 @@ export function OrderStatusPage({ brand }: OrderStatusPageProps) {
                 <p className="order-card-kicker">{summaryKicker}</p>
               </div>
 
+              <div className="order-summary-stats">
                 <div className="order-summary-stat">
                   <span>{texts.payTitle}</span>
                   <strong>{payValue}</strong>
                 </div>
-              </div>
-              <div className="order-summary-stats">
                 <div className="order-summary-stat">
                   <span>{texts.receiveTitle}</span>
                   <strong>{receiveValue}</strong>
                 </div>
+              </div>
 
               <div className="order-summary-receiving-card">
                 <span>{texts.customerPaymentTitle}</span>
