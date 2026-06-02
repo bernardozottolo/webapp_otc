@@ -267,6 +267,8 @@ export interface OrderCreateSummary {
   inputAsset?: string;
   outputAsset?: string;
   price?: number;
+  /** Rede de envio da cripto no fluxo SELL (leg "você paga"). */
+  payViaNetwork?: string;
   /** Destino de recebimento do cliente (`payment_info` do body do create_order). */
   customerPayment: {
     network?: string;

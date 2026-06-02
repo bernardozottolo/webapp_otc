@@ -314,10 +314,16 @@ export function OrderStatusPage({ brand }: OrderStatusPageProps) {
   const summaryReceiveAmount = createSummary?.amount ?? order?.amount;
   const summaryInputAsset = createSummary?.inputAsset ?? order?.inputAsset;
   const summaryOutputAsset = createSummary?.outputAsset ?? order?.outputAsset;
-  const payValue =
+  const sellPayViaNetwork =
+    createSummary?.payViaNetwork?.trim() || (isSellOrder ? depositNetworkLabel : "");
+  const payValueBase =
     order && summaryAmountToPay != null
       ? formatLegAmount(brand.defaultLocale, brand.fiatCurrency, summaryAmountToPay, summaryInputAsset, inputAssetFallback)
       : "";
+  const payValue =
+    isSellOrder && sellPayViaNetwork && payValueBase
+      ? `${payValueBase} via ${sellPayViaNetwork}`
+      : payValueBase;
   const receiveValue =
     order && summaryReceiveAmount != null
       ? formatLegAmount(brand.defaultLocale, brand.fiatCurrency, summaryReceiveAmount, summaryOutputAsset, outputAssetFallback)
