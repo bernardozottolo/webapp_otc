@@ -1,7 +1,9 @@
 import type { Country, Locale } from "../shared/types";
 import type { DocumentTypeConfig } from "./documentTypes";
+import type { PixKeyCountryDefaults, PixKeyFormatPreset, PixKeyNormalizeMode, PixKeyTypeConfig } from "./pixKeyTypes";
 
 export type { DocumentTypeConfig } from "./documentTypes";
+export type { PixKeyCountryDefaults, PixKeyTypeConfig } from "./pixKeyTypes";
 
 export type PaymentKind = "crypto" | "bank";
 export type ThemeVariableName =
@@ -194,6 +196,7 @@ export interface TradeAvailabilityTextsConfig {
 
 export interface PaymentFormTextsConfig {
   pixKeyOwnerRejected: string;
+  pixKeyInvalid: string;
 }
 
 export interface FooterContactsConfig {
@@ -269,6 +272,8 @@ export interface BrandConfig {
   enabledPaymentKinds: PaymentKind[];
   bankLabelByCountry: Record<Country, string>;
   documentTypesByCountry: Record<Country, DocumentTypeConfig[]>;
+  pixKeyDefaultsByCountry: Record<Country, PixKeyCountryDefaults>;
+  pixKeyTypesByCountry: Record<Country, PixKeyTypeConfig[]>;
   companyDocumentTypes: Record<Country, string[]>;
   occupations: string[];
   occupationsAvailable: string[];
@@ -382,6 +387,48 @@ export const defaultDocumentTypesByCountry: Record<Country, DocumentTypeConfig[]
   BR: [{ type: "CPF" }, { type: "CNPJ" }]
 };
 
+export const defaultPixKeyDefaultsByCountry: Record<Country, PixKeyCountryDefaults> = {
+  BR: {
+    defaultBackType: "phone",
+    phoneDialCode: "55"
+  }
+};
+
+export const defaultPixKeyTypesByCountry: Record<Country, PixKeyTypeConfig[]> = {
+  BR: [
+    {
+      label: "Telefone",
+      backType: "phone",
+      pattern: "^\\d{10,11}$",
+      normalize: "digits",
+      format: "phone_br",
+      inputMode: "tel"
+    },
+    {
+      label: "E-mail",
+      backType: "email",
+      pattern: "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$",
+      normalize: "lowercase_trim",
+      format: "none",
+      inputMode: "email"
+    },
+    {
+      label: "Documento",
+      backType: "document",
+      pattern: "^(\\d{11}|\\d{14})$",
+      normalize: "digits",
+      format: "br_tax_id"
+    },
+    {
+      label: "Chave aleatória",
+      backType: "random_key",
+      pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      normalize: "uuid",
+      format: "uuid"
+    }
+  ]
+};
+
 export const defaultCompanyDocumentTypes: Record<Country, string[]> = {
   BR: ["CNPJ"]
 };
@@ -449,6 +496,8 @@ export const defaultBrandConfig: BrandConfig = {
   enabledPaymentKinds: ["crypto", "bank"],
   bankLabelByCountry: defaultBankLabelByCountry,
   documentTypesByCountry: defaultDocumentTypesByCountry,
+  pixKeyDefaultsByCountry: defaultPixKeyDefaultsByCountry,
+  pixKeyTypesByCountry: defaultPixKeyTypesByCountry,
   companyDocumentTypes: defaultCompanyDocumentTypes,
   occupations: ["Representante Legal", "Sócio", "Funcionário"],
   occupationsAvailable: ["Representante Legal", "Sócio"],
@@ -457,7 +506,8 @@ export const defaultBrandConfig: BrandConfig = {
     sellUnavailable: "Venda não está disponível no momento."
   },
   paymentFormTexts: {
-    pixKeyOwnerRejected: "Chave PIX precisa pertencer ao dono da conta"
+    pixKeyOwnerRejected: "Chave PIX precisa pertencer ao dono da conta",
+    pixKeyInvalid: "Chave PIX inválida para o tipo selecionado."
   },
   biometryReview: defaultBiometryReviewConfig,
   biometryPreConfirm: defaultBiometryPreConfirmConfig,
@@ -786,6 +836,99 @@ function asDocumentTypesByCountryMap(value: unknown, fallback: Record<Country, D
   };
 }
 
+const PIX_KEY_NORMALIZE_MODES = new Set<PixKeyNormalizeMode>(["digits", "lowercase_trim", "uuid", "none"]);
+const PIX_KEY_FORMAT_PRESETS = new Set<PixKeyFormatPreset>(["phone_br", "br_tax_id", "uuid", "none"]);
+
+function asPixKeyNormalizeMode(value: unknown, fallback: PixKeyNormalizeMode): PixKeyNormalizeMode {
+  const parsed = asString(value, fallback);
+  return PIX_KEY_NORMALIZE_MODES.has(parsed as PixKeyNormalizeMode) ? (parsed as PixKeyNormalizeMode) : fallback;
+}
+
+function asPixKeyFormatPreset(value: unknown, fallback: PixKeyFormatPreset): PixKeyFormatPreset {
+  const parsed = asString(value, fallback);
+  return PIX_KEY_FORMAT_PRESETS.has(parsed as PixKeyFormatPreset) ? (parsed as PixKeyFormatPreset) : fallback;
+}
+
+function asPixKeyInputMode(value: unknown): PixKeyTypeConfig["inputMode"] | undefined {
+  const parsed = asString(value, "");
+  if (parsed === "tel" || parsed === "email" || parsed === "text") {
+    return parsed;
+  }
+  return undefined;
+}
+
+function asPixKeyTypeConfig(value: unknown): PixKeyTypeConfig | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+  const label = asString(value.label, "").trim();
+  const backType = asString(value.backType ?? value.back_type, "").trim();
+  if (!label || !backType) {
+    return null;
+  }
+  const pattern = asOptionalString(value.pattern)?.trim();
+  if (pattern) {
+    try {
+      // eslint-disable-next-line no-new
+      new RegExp(pattern);
+    } catch {
+      return null;
+    }
+  }
+  const normalize = asPixKeyNormalizeMode(value.normalize, "none");
+  const format = asPixKeyFormatPreset(value.format, "none");
+  const inputMode = asPixKeyInputMode(value.inputMode ?? value.input_mode);
+  return {
+    label,
+    backType,
+    ...(pattern ? { pattern } : {}),
+    normalize,
+    format,
+    ...(inputMode ? { inputMode } : {})
+  };
+}
+
+function asPixKeyTypeConfigArray(value: unknown, fallback: PixKeyTypeConfig[]): PixKeyTypeConfig[] {
+  if (!Array.isArray(value)) {
+    return fallback;
+  }
+  const normalized = value.flatMap((item) => {
+    const config = asPixKeyTypeConfig(item);
+    return config ? [config] : [];
+  });
+  return normalized.length > 0 ? normalized : fallback;
+}
+
+function asPixKeyTypesByCountryMap(value: unknown, fallback: Record<Country, PixKeyTypeConfig[]>) {
+  if (!isRecord(value)) {
+    return fallback;
+  }
+  return {
+    BR: asPixKeyTypeConfigArray(value.BR, fallback.BR)
+  };
+}
+
+function asPixKeyCountryDefaults(value: unknown, fallback: PixKeyCountryDefaults): PixKeyCountryDefaults {
+  if (!isRecord(value)) {
+    return fallback;
+  }
+  const defaultBackType = asString(value.defaultBackType ?? value.default_back_type, fallback.defaultBackType).trim();
+  const phoneDialCode = asString(value.phoneDialCode ?? value.phone_dial_code, fallback.phoneDialCode).replace(/\D/g, "");
+  return {
+    defaultBackType: defaultBackType || fallback.defaultBackType,
+    phoneDialCode: phoneDialCode || fallback.phoneDialCode
+  };
+}
+
+function asPixKeyDefaultsByCountryMap(value: unknown, fallback: Record<Country, PixKeyCountryDefaults>) {
+  if (!isRecord(value)) {
+    return fallback;
+  }
+  return {
+    BR: asPixKeyCountryDefaults(value.BR, fallback.BR)
+  };
+}
+
 function asOccupationsAvailable(value: unknown, fallback: string[], occupations: string[]) {
   const normalized = asStringArray(value, fallback);
   const filtered = normalized.filter((item) => occupations.includes(item));
@@ -1081,7 +1224,8 @@ function asPaymentFormTextsConfig(value: unknown, fallback: PaymentFormTextsConf
     return fallback;
   }
   return {
-    pixKeyOwnerRejected: asString(value.pixKeyOwnerRejected, fallback.pixKeyOwnerRejected)
+    pixKeyOwnerRejected: asString(value.pixKeyOwnerRejected, fallback.pixKeyOwnerRejected),
+    pixKeyInvalid: asString(value.pixKeyInvalid, fallback.pixKeyInvalid)
   };
 }
 
@@ -1205,6 +1349,8 @@ export function normalizeRuntimeBrandConfig(raw: unknown, fallback: BrandConfig 
     enabledPaymentKinds: asPaymentKinds(raw.enabledPaymentKinds, fallback.enabledPaymentKinds),
     bankLabelByCountry: asCountryStringMap(raw.bankLabelByCountry, fallback.bankLabelByCountry),
     documentTypesByCountry: asDocumentTypesByCountryMap(raw.documentTypesByCountry, fallback.documentTypesByCountry),
+    pixKeyDefaultsByCountry: asPixKeyDefaultsByCountryMap(raw.pixKeyDefaultsByCountry, fallback.pixKeyDefaultsByCountry),
+    pixKeyTypesByCountry: asPixKeyTypesByCountryMap(raw.pixKeyTypesByCountry, fallback.pixKeyTypesByCountry),
     companyDocumentTypes: asCountryStringArrayMap(raw.companyDocumentTypes, fallback.companyDocumentTypes),
     occupations,
     occupationsAvailable: asOccupationsAvailable(

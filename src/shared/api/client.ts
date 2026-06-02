@@ -18,7 +18,8 @@ import {
   syncApprovedBiometricHttp,
   syncCounterpartyKycHttp,
   verifyOtpEmailHttp,
-  type ClientsDatabaseConfig
+  type ClientsDatabaseConfig,
+  configurePixKeyTypes
 } from "./clientsDatabase";
 import { getNegotiationAssetsHttp, getQuoteHttp, type PricingConfig } from "./pricing";
 import { cacheOrder, configureOrderPersistence, getCachedOrder } from "./orderCache";
@@ -104,6 +105,7 @@ export function configureOtcApi(brand: BrandConfig) {
     orderBaseUrl: effectiveOrderBaseUrl(brand.endpoints.orderBaseUrl)
   };
   documentTypesByCountry = brand.documentTypesByCountry;
+  configurePixKeyTypes(brand.pixKeyTypesByCountry);
   configureOrderPersistence(brand.orderPersistence);
   configureDiditProxy(brand);
 }

@@ -16,6 +16,16 @@ import {
   validateAgainstRegexPattern,
   validateDocumentNumberForType
 } from "../../whitelabel/documentTypes";
+import {
+  findPixKeyTypeConfig,
+  formatPixKeyDisplay,
+  formatPixKeyFromStorage,
+  getPixKeyTypeLabel,
+  normalizePixKeyForStorage,
+  resolvePixKeyBackType,
+  validatePixKeyValue
+} from "../../whitelabel/pixKeyTypes";
+import { bankKeyTypeToNetwork } from "../../shared/api/clientsDatabase";
 import type {
   Country,
   Customer,
@@ -217,7 +227,7 @@ function buildWalletInfoForEmail(payment: PaymentData): { asset: string; wallet:
   return {
     asset,
     wallet,
-    network: payment.bankKeyType?.trim() ?? ""
+    network: bankKeyTypeToNetwork(payment.bankKeyType)
   };
 }
 
@@ -396,8 +406,9 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
   const [network, setNetwork] = useState("");
   const [walletAddress, setWalletAddress] = useState("");
   const [walletValidationMessage, setWalletValidationMessage] = useState<string | null>(null);
-  const [bankKeyType, setBankKeyType] = useState("Telefone");
+  const [bankKeyType, setBankKeyType] = useState("phone");
   const [bankKeyValue, setBankKeyValue] = useState("");
+  const [bankKeyValidationError, setBankKeyValidationError] = useState<string | null>(null);
   const [networksAndFees, setNetworksAndFees] = useState<OtcWithdrawNetwork[]>([]);
   const [networksAndFeesLoading, setNetworksAndFeesLoading] = useState(false);
   const [depositNetworks, setDepositNetworks] = useState<OtcWithdrawNetwork[]>([]);
@@ -419,6 +430,18 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
   const documentTypeConfigs = useMemo(
     () => brand.documentTypesByCountry[country] ?? brand.documentTypesByCountry[brand.defaultCountry] ?? [],
     [brand, country]
+  );
+  const pixKeyTypeConfigs = useMemo(
+    () => brand.pixKeyTypesByCountry[country] ?? brand.pixKeyTypesByCountry[brand.defaultCountry] ?? [],
+    [brand, country]
+  );
+  const pixKeyDefaults = useMemo(
+    () => brand.pixKeyDefaultsByCountry[country] ?? brand.pixKeyDefaultsByCountry[brand.defaultCountry],
+    [brand, country]
+  );
+  const selectedPixKeyTypeConfig = useMemo(
+    () => findPixKeyTypeConfig(pixKeyTypeConfigs, bankKeyType),
+    [pixKeyTypeConfigs, bankKeyType]
   );
   const formatDocumentValidationError = useCallback(
     (error: DocumentValidationError, docType: string) => {
@@ -1366,9 +1389,16 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
         setWalletAddress(paymentData?.walletAddress ?? "");
         setWalletValidationMessage(null);
       } else {
-        setBankKeyType(paymentData?.bankKeyType ?? "Telefone");
-        setBankKeyValue(paymentData?.bankKeyValue ?? "");
+        const backType = resolvePixKeyBackType(paymentData?.bankKeyType ?? pixKeyDefaults.defaultBackType);
+        const typeConfig = findPixKeyTypeConfig(pixKeyTypeConfigs, backType);
+        setBankKeyType(typeConfig?.backType ?? pixKeyDefaults.defaultBackType);
+        setBankKeyValue(
+          paymentData?.bankKeyValue
+            ? formatPixKeyFromStorage(typeConfig, paymentData.bankKeyValue, pixKeyDefaults)
+            : ""
+        );
         setBankKeyOwnerError(null);
+        setBankKeyValidationError(null);
       }
       setStep("payment");
     }, t("loading.fetchingPayment"));
@@ -1922,7 +1952,14 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
         return;
       }
 
-      const owner = await otcApiClient.bankKeyOwnerCheck(bankKeyValue, customerDocument);
+      const pixValidation = validatePixKeyValue(pixKeyTypeConfigs, bankKeyType, bankKeyValue, pixKeyDefaults);
+      if (pixValidation) {
+        setBankKeyValidationError(brand.paymentFormTexts.pixKeyInvalid || t("payment.pixKeyInvalid"));
+        return;
+      }
+      setBankKeyValidationError(null);
+      const normalizedBankKey = normalizePixKeyForStorage(selectedPixKeyTypeConfig, bankKeyValue, pixKeyDefaults);
+      const owner = await otcApiClient.bankKeyOwnerCheck(normalizedBankKey, customerDocument);
       if (!owner.approved) {
         setBankKeyOwnerError(brand.paymentFormTexts.pixKeyOwnerRejected || t("payment.ownerRejected"));
         return;
@@ -1934,8 +1971,8 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
         asset,
         country,
         kind: "bank",
-        bankKeyType,
-        bankKeyValue
+        bankKeyType: resolvePixKeyBackType(bankKeyType),
+        bankKeyValue: normalizedBankKey
       };
       if (!sessionBiometryDone) {
         try {
@@ -2242,7 +2279,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
         ? `${paymentData.network} - ${maskWallet(paymentData.walletAddress)}`
         : null
       : paymentData?.bankKeyValue && paymentData.bankKeyType
-        ? `${paymentData.bankKeyType} - ${maskBankKey(paymentData.bankKeyValue)}`
+        ? `${getPixKeyTypeLabel(pixKeyTypeConfigs, paymentData.bankKeyType)} - ${maskBankKey(paymentData.bankKeyValue)}`
         : null;
 
   const paymentMissingText = tradeSide === "buy" ? t("form.notFoundWallet") : t("form.notFoundBankKey");
@@ -2375,11 +2412,12 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
     setBiometryPreConfirmVariant(null);
     setNetwork("");
     setWalletAddress("");
-    setBankKeyType("Telefone");
+    setBankKeyType(pixKeyDefaults.defaultBackType);
     setBankKeyValue("");
+    setBankKeyValidationError(null);
     setNetworksAndFees([]);
     setNetworksAndFeesLoading(false);
-  }, [resetCompanyRepresentativeState, resetOtpState]);
+  }, [pixKeyDefaults.defaultBackType, resetCompanyRepresentativeState, resetOtpState]);
 
   const resetInactivityTimer = useCallback(() => {
     if (inactivityTimerRef.current !== null) {
@@ -3016,24 +3054,32 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
                   value={bankKeyType}
                   onChange={(e: { target: { value: string } }) => {
                     setBankKeyType(e.target.value);
+                    setBankKeyValue("");
                     setBankKeyOwnerError(null);
+                    setBankKeyValidationError(null);
                   }}
                 >
-                  <option value="Telefone">Telefone</option>
-                  <option value="Email">Email</option>
-                  <option value="Documento">{t("common.document")}</option>
-                  <option value="Aleatoria">Aleatoria</option>
+                  {pixKeyTypeConfigs.map((item) => (
+                    <option key={item.backType} value={item.backType}>
+                      {item.label}
+                    </option>
+                  ))}
                 </select>
               </div>
-              <div className={`modal-field${bankKeyOwnerError ? " modal-field--error" : ""}`}>
+              <div
+                className={`modal-field${bankKeyOwnerError || bankKeyValidationError ? " modal-field--error" : ""}`}
+              >
                 <label>{t("common.keyValue")}</label>
                 <input
                   value={bankKeyValue}
+                  inputMode={selectedPixKeyTypeConfig?.inputMode}
                   onChange={(e: { target: { value: string } }) => {
-                    setBankKeyValue(e.target.value);
+                    setBankKeyValue(formatPixKeyDisplay(selectedPixKeyTypeConfig, e.target.value, pixKeyDefaults));
                     setBankKeyOwnerError(null);
+                    setBankKeyValidationError(null);
                   }}
                 />
+                {bankKeyValidationError ? <p className="modal-field-error">{bankKeyValidationError}</p> : null}
                 {bankKeyOwnerError ? <p className="modal-field-error">{bankKeyOwnerError}</p> : null}
               </div>
             </>

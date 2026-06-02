@@ -48,6 +48,6 @@ db.paymentByContext.set("cliente@exemplo.com:sell:PIX:BR", {
   asset: "PIX",
   country: "BR",
   kind: "bank",
-  bankKeyType: "Telefone",
-  bankKeyValue: "21999992129"
+  bankKeyType: "phone",
+  bankKeyValue: "+5521999992129"
 });

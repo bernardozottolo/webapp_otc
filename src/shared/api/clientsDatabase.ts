@@ -1,3 +1,8 @@
+import {
+  defaultPixKeyTypesByCountry,
+  type PixKeyTypeConfig
+} from "../../whitelabel/config";
+import { networkToPixKeyBackType, pixKeyBackTypeToNetwork } from "../../whitelabel/pixKeyTypes";
 import type { Country, Customer, Limits, PaymentContext, PaymentData } from "../types";
 
 export interface ClientsDatabaseConfig {
@@ -53,19 +58,15 @@ export interface ApprovedCustomerPayload {
   emailVerified: boolean;
 }
 
-const BANK_KEY_TYPE_TO_NETWORK: Record<string, string> = {
-  Telefone: "phone",
-  Email: "email",
-  Documento: "document",
-  Aleatoria: "random"
-};
+let pixKeyTypesByCountry: Record<Country, PixKeyTypeConfig[]> = defaultPixKeyTypesByCountry;
 
-const BANK_NETWORK_TO_KEY_TYPE: Record<string, string> = {
-  phone: "Telefone",
-  email: "Email",
-  document: "Documento",
-  random: "Aleatoria"
-};
+export function configurePixKeyTypes(typesByCountry: Record<Country, PixKeyTypeConfig[]>) {
+  pixKeyTypesByCountry = typesByCountry;
+}
+
+function pixKeyConfigsForCountry(country: Country) {
+  return pixKeyTypesByCountry[country] ?? pixKeyTypesByCountry.BR ?? [];
+}
 
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
@@ -87,17 +88,15 @@ function getPaymentStorageAsset(config: ClientsDatabaseConfig, context: PaymentC
 }
 
 export function bankKeyTypeToNetwork(bankKeyType?: string) {
-  if (!bankKeyType) return "phone";
-  return BANK_KEY_TYPE_TO_NETWORK[bankKeyType] ?? bankKeyType.toLowerCase();
+  return pixKeyBackTypeToNetwork(bankKeyType ?? "");
 }
 
 function toBankNetwork(bankKeyType?: string) {
   return bankKeyTypeToNetwork(bankKeyType);
 }
 
-function toBankKeyType(network?: string) {
-  if (!network) return "Telefone";
-  return BANK_NETWORK_TO_KEY_TYPE[network] ?? network;
+function toBankKeyType(network: string | undefined, country: Country) {
+  return networkToPixKeyBackType(network, pixKeyConfigsForCountry(country));
 }
 
 function normalizeTransactionalLimit(value: unknown): Limits {
@@ -236,7 +235,7 @@ function normalizePaymentData(row: WalletRow, context: PaymentContext): PaymentD
     asset: context.asset,
     country: context.country,
     kind: "bank",
-    bankKeyType: toBankKeyType(row.network ?? undefined),
+    bankKeyType: toBankKeyType(row.network ?? undefined, context.country),
     bankKeyValue: row.address ?? undefined,
     storageAsset: row.asset
   };

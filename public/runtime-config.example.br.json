@@ -29,6 +29,46 @@
       { "type": "CNPJ", "pattern": "^\\d{14}$" }
     ]
   },
+  "pixKeyDefaultsByCountry": {
+    "BR": {
+      "defaultBackType": "phone",
+      "phoneDialCode": "55"
+    }
+  },
+  "pixKeyTypesByCountry": {
+    "BR": [
+      {
+        "label": "Telefone",
+        "backType": "phone",
+        "pattern": "^\\d{10,11}$",
+        "normalize": "digits",
+        "format": "phone_br",
+        "inputMode": "tel"
+      },
+      {
+        "label": "E-mail",
+        "backType": "email",
+        "pattern": "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$",
+        "normalize": "lowercase_trim",
+        "format": "none",
+        "inputMode": "email"
+      },
+      {
+        "label": "Documento",
+        "backType": "document",
+        "pattern": "^(\\d{11}|\\d{14})$",
+        "normalize": "digits",
+        "format": "br_tax_id"
+      },
+      {
+        "label": "Chave aleatória",
+        "backType": "random_key",
+        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+        "normalize": "uuid",
+        "format": "uuid"
+      }
+    ]
+  },
   "companyDocumentTypes": {
     "BR": [
       "CNPJ"
@@ -48,7 +88,8 @@
     "sellUnavailable": "Essa funcionalidade volta em breve ✨"
   },
   "paymentFormTexts": {
-    "pixKeyOwnerRejected": "Chave PIX precisa pertencer ao dono da conta"
+    "pixKeyOwnerRejected": "Chave PIX precisa pertencer ao dono da conta",
+    "pixKeyInvalid": "Chave PIX inválida para o tipo selecionado."
   },
   "biometryReview": {
     "pendingUserMessage": "Sua biometria está em análise. Você será notificado por e-mail em até 48 horas.",
