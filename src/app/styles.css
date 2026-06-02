@@ -1393,9 +1393,10 @@ button {
 
 .order-pay-network-warning {
   position: relative;
-  display: inline;
+  display: inline-block;
   margin-left: 0.2em;
-  vertical-align: baseline;
+  vertical-align: middle;
+  color: inherit;
 }
 
 .order-pay-network-warning__trigger {
@@ -1408,16 +1409,16 @@ button {
   border: 0;
   border-radius: 0;
   background: transparent;
-  color: #111827;
+  color: inherit;
   cursor: help;
-  vertical-align: -0.08em;
-  line-height: 1;
+  vertical-align: middle;
+  line-height: 0;
 }
 
 .order-pay-network-warning__trigger svg {
   width: 0.72em;
   height: 0.72em;
-  fill: currentColor;
+  display: block;
 }
 
 .order-pay-network-warning__popover {

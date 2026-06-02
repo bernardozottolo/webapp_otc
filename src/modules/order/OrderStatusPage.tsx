@@ -115,9 +115,14 @@ function SellPayNetworkWarningIcon({
       <button type="button" className="order-pay-network-warning__trigger" aria-label={ariaLabel}>
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
           <path
-            fill="currentColor"
-            d="M12 2 1.5 20h21L12 2zm0 13.25a1.1 1.1 0 1 0 0 2.2 1.1 1.1 0 0 0 0-2.2zm.15-8.4a1.15 1.15 0 0 0-1.15 1.15v4.2a1.15 1.15 0 0 0 2.3 0v-4.2A1.15 1.15 0 0 0 12.15 6.85z"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinejoin="round"
+            d="M12 3 2 21h20L12 3z"
           />
+          <path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" d="M12 9v5" />
+          <circle cx="12" cy="17" r="1" fill="currentColor" />
         </svg>
       </button>
       <div className="order-pay-network-warning__popover" role="tooltip">
