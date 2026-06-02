@@ -114,7 +114,10 @@ function SellPayNetworkWarningIcon({
     <span className="order-pay-network-warning">
       <button type="button" className="order-pay-network-warning__trigger" aria-label={ariaLabel}>
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-          <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z" />
+          <path
+            fill="currentColor"
+            d="M12 2 1.5 20h21L12 2zm0 13.25a1.1 1.1 0 1 0 0 2.2 1.1 1.1 0 0 0 0-2.2zm.15-8.4a1.15 1.15 0 0 0-1.15 1.15v4.2a1.15 1.15 0 0 0 2.3 0v-4.2A1.15 1.15 0 0 0 12.15 6.85z"
+          />
         </svg>
       </button>
       <div className="order-pay-network-warning__popover" role="tooltip">
@@ -348,7 +351,12 @@ export function OrderStatusPage({ brand }: OrderStatusPageProps) {
     order && summaryAmountToPay != null
       ? formatLegAmount(brand.defaultLocale, brand.fiatCurrency, summaryAmountToPay, summaryInputAsset, inputAssetFallback)
       : "";
-  const showSellPayViaNetwork = isSellOrder && Boolean(sellPayViaNetwork && payValueBase);
+  const payValue =
+    isSellOrder && sellPayViaNetwork && payValueBase
+      ? `${payValueBase} via ${sellPayViaNetwork}`
+      : payValueBase;
+  const showSellPayNetworkWarning =
+    isSellOrder && Boolean(sellPayViaNetwork && payValueBase && texts.sellPayNetworkWarning.bullets.length > 0);
   const sellPayNetworkWarning = texts.sellPayNetworkWarning;
   const receiveValue =
     order && summaryReceiveAmount != null
@@ -496,16 +504,13 @@ export function OrderStatusPage({ brand }: OrderStatusPageProps) {
               <div className="order-summary-stats">
                 <div className="order-summary-stat">
                   <span>{texts.payTitle}</span>
-                  <strong className="order-summary-pay-value">
-                    {payValueBase}
-                    {showSellPayViaNetwork ? (
-                      <span className="order-summary-pay-via">
-                        {` via ${sellPayViaNetwork}`}
-                        <SellPayNetworkWarningIcon
-                          ariaLabel={sellPayNetworkWarning.ariaLabel}
-                          bullets={sellPayNetworkWarning.bullets}
-                        />
-                      </span>
+                  <strong>
+                    {payValue}
+                    {showSellPayNetworkWarning ? (
+                      <SellPayNetworkWarningIcon
+                        ariaLabel={sellPayNetworkWarning.ariaLabel}
+                        bullets={sellPayNetworkWarning.bullets}
+                      />
                     ) : null}
                   </strong>
                 </div>
