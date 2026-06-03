@@ -13,6 +13,7 @@ import {
 } from "../../shared/api/orderCache";
 import { otcApiClient } from "../../shared/api/client";
 import { Modal } from "../../shared/ui/Modal";
+import { formatDisplayAmountWithAsset, formatDisplayFiatAmount } from "../../shared/displayAmount";
 import type { StoredOrderRecord } from "../../shared/types";
 import type { BrandConfig, OrderPageTextsConfig } from "../../whitelabel/config";
 
@@ -47,49 +48,8 @@ function formatCountdown(totalSeconds: number) {
   return [minutes, seconds].map((part) => String(part).padStart(2, "0")).join(":");
 }
 
-function formatFiatAmount(locale: string, currencyCode: string, amount: number, fractionDigits = 2) {
-  try {
-    return new Intl.NumberFormat(locale, {
-      style: "currency",
-      currency: currencyCode,
-      minimumFractionDigits: fractionDigits,
-      maximumFractionDigits: fractionDigits
-    }).format(amount);
-  } catch {
-    return `${currencyCode} ${amount.toFixed(fractionDigits)}`;
-  }
-}
-
-function formatAssetAmount(
-  locale: string,
-  amount: number,
-  asset: string | undefined,
-  minimumFractionDigits = 0,
-  maximumFractionDigits = 8
-) {
-  const formatted = new Intl.NumberFormat(locale, {
-    minimumFractionDigits,
-    maximumFractionDigits
-  }).format(amount);
-  return asset ? `${formatted} ${asset}` : formatted;
-}
-
 function formatPriceAmount(locale: string, currencyCode: string, amount: number) {
-  return formatFiatAmount(locale, currencyCode, amount, 3);
-}
-
-function formatLegAmount(
-  locale: string,
-  fiatCurrency: string,
-  amount: number,
-  asset: string | undefined,
-  fallbackAsset?: string
-) {
-  const resolvedAsset = asset?.trim() || fallbackAsset?.trim() || "";
-  if (resolvedAsset === fiatCurrency) {
-    return formatFiatAmount(locale, fiatCurrency, amount);
-  }
-  return formatAssetAmount(locale, amount, resolvedAsset);
+  return formatDisplayFiatAmount(locale, currencyCode, amount, 3);
 }
 
 function interpolateSupportEmail(message: string, supportEmail: string) {
@@ -366,7 +326,13 @@ export function OrderStatusPage({ brand }: OrderStatusPageProps) {
     sellNetworkCode;
   const payValueBase =
     order && summaryAmountToPay != null
-      ? formatLegAmount(brand.defaultLocale, brand.fiatCurrency, summaryAmountToPay, summaryInputAsset, inputAssetFallback)
+      ? formatDisplayAmountWithAsset(
+          brand.defaultLocale,
+          brand.fiatCurrency,
+          summaryAmountToPay,
+          summaryInputAsset,
+          inputAssetFallback
+        )
       : "";
   const payValue =
     isSellOrder && sellNetworkCode && payValueBase ? `${payValueBase} via ${sellNetworkCode}` : payValueBase;
@@ -382,7 +348,13 @@ export function OrderStatusPage({ brand }: OrderStatusPageProps) {
   const sellPayNetworkWarning = texts.sellPayNetworkWarning;
   const receiveValue =
     order && summaryReceiveAmount != null
-      ? formatLegAmount(brand.defaultLocale, brand.fiatCurrency, summaryReceiveAmount, summaryOutputAsset, outputAssetFallback)
+      ? formatDisplayAmountWithAsset(
+          brand.defaultLocale,
+          brand.fiatCurrency,
+          summaryReceiveAmount,
+          summaryOutputAsset,
+          outputAssetFallback
+        )
       : "";
   const receivingDataValue = isSellOrder
     ? [bankLabel, maskedPixKey].filter(Boolean).join(" - ")

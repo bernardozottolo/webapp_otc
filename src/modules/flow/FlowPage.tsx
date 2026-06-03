@@ -47,6 +47,11 @@ import { effectiveOtcQuoteBaseUrl } from "../../whitelabel/config";
 import { createOrderLoadingDocument, createOrderStatusMessageDocument } from "../../whitelabel/orderLoadingDocument";
 import { startBiometricSession } from "../customer/diditAdapter";
 import { getExpectedDetails } from "../../shared/api/diditProxy";
+import {
+  formatDisplayFiatAmount,
+  formatDisplayNumber,
+  DISPLAY_MIN_FRACTION_DIGITS
+} from "../../shared/displayAmount";
 
 type Step = "none" | "email" | "otp" | "kyc" | "bio" | "payment";
 type BiometryReason = "onboarding" | "payment";
@@ -265,25 +270,11 @@ function resolveEmailAuthIntent(
 }
 
 function formatFiatAmount(locale: Locale, currencyCode: string, amount: number) {
-  try {
-    return new Intl.NumberFormat(locale, { style: "currency", currency: currencyCode }).format(amount);
-  } catch {
-    return `${currencyCode} ${amount.toFixed(2)}`;
-  }
+  return formatDisplayFiatAmount(locale, currencyCode, amount);
 }
 
 function formatFiatAmountWithPrecision(locale: Locale, currencyCode: string, amount: number, fractionDigits: number) {
-  const safeFractionDigits = Math.max(0, fractionDigits);
-  try {
-    return new Intl.NumberFormat(locale, {
-      style: "currency",
-      currency: currencyCode,
-      minimumFractionDigits: safeFractionDigits,
-      maximumFractionDigits: safeFractionDigits
-    }).format(amount);
-  } catch {
-    return `${currencyCode} ${amount.toFixed(safeFractionDigits)}`;
-  }
+  return formatDisplayFiatAmount(locale, currencyCode, amount, fractionDigits);
 }
 
 const FIAT_OVER_EPS = 1e-9;
@@ -323,18 +314,12 @@ function normalizeDecimalInput(raw: string, maxFractionDigits: number) {
   return `${integerPart}.${fractionPart.slice(0, maxFractionDigits)}`;
 }
 
-function formatAssetQuoteAmount(amount: number, decimalPrecision: number) {
-  if (!Number.isFinite(amount)) return "0";
-  return amount.toFixed(Math.max(0, decimalPrecision));
+function formatAssetQuoteAmount(locale: Locale, amount: number, decimalPrecision: number) {
+  return formatDisplayNumber(locale, amount, decimalPrecision);
 }
 
-function formatNetworkFeeAmount(amount: number) {
-  if (!Number.isFinite(amount)) return "0";
-  return amount.toLocaleString("en-US", {
-    useGrouping: false,
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 20
-  });
+function formatNetworkFeeAmount(locale: Locale, amount: number) {
+  return formatDisplayNumber(locale, amount, 8);
 }
 
 function normalizeDocumentValue(value: string) {
@@ -2316,18 +2301,21 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
         : actionableQuote?.outputAmount ?? null;
   const outputText =
     actionableQuote && tradeSide === "buy"
-      ? formatAssetQuoteAmount(receiveAmount ?? 0, assetDecimalPrecision)
+      ? formatAssetQuoteAmount(locale, receiveAmount ?? 0, assetDecimalPrecision)
       : actionableQuote && tradeSide === "sell"
-        ? (receiveAmount ?? 0).toFixed(Math.max(0, fiatDecimalPrecision))
+        ? formatDisplayFiatAmount(locale, brand.fiatCurrency, receiveAmount ?? 0, fiatDecimalPrecision)
         : parsedAmount > 0
           ? quoteMissingLabel
-          : "0";
+          : tradeSide === "buy"
+            ? formatAssetQuoteAmount(locale, 0, assetDecimalPrecision)
+            : formatDisplayFiatAmount(locale, brand.fiatCurrency, 0);
   const couponInputTrimmed = couponInput.trim();
   const appliedCouponTrimmed = appliedCoupon.trim();
   const couponDirty = couponInputTrimmed !== appliedCouponTrimmed;
   const hasCouponDiscount =
     !!actionableQuote && Math.abs(actionableQuote.standardUnitPrice - actionableQuote.finalUnitPrice) > Number.EPSILON;
-  const ratePriceText = (amount: number) => amount.toFixed(Math.max(0, fiatDecimalPrecision));
+  const ratePriceText = (amount: number) =>
+    formatDisplayNumber(locale, amount, Math.max(fiatDecimalPrecision, DISPLAY_MIN_FRACTION_DIGITS));
   const rateText = actionableQuote ? (
     hasCouponDiscount ? (
       <>
@@ -2343,7 +2331,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
   ) : parsedAmount > 0 ? (
     `1 ${asset} ≈ ${quoteMissingLabel} ${brand.fiatCurrency}`
   ) : (
-    `1 ${asset} ≈ 0 ${brand.fiatCurrency}`
+    `1 ${asset} ≈ ${ratePriceText(0)} ${brand.fiatCurrency}`
   );
   const quoteUpdatedAtTitle = actionableQuote?.updatedAt
     ? `${t("quote.updatedAt")} ${new Date(actionableQuote.updatedAt).toLocaleTimeString()}`
@@ -2670,7 +2658,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
                             {networksAndFeesLoading
                               ? t("common.loading")
                               : selectedNetworkOption
-                                ? `${formatNetworkFeeAmount(selectedNetworkOption.withdrawFee)} ${asset}${
+                                ? `${formatNetworkFeeAmount(locale, selectedNetworkOption.withdrawFee)} ${asset}${
                                     selectedNetworkFeeBrl !== null && selectedNetworkFeeBrl !== undefined
                                       ? ` (${formatFiatAmountWithPrecision(locale, brand.fiatCurrency, selectedNetworkFeeBrl, fiatDecimalPrecision)})`
                                       : ""
@@ -2686,7 +2674,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
                             {depositNetworksLoading
                               ? t("common.loading")
                               : selectedDepositNetworkOption
-                                ? `${formatNetworkFeeAmount(selectedDepositNetworkOption.withdrawFee)} ${asset}${
+                                ? `${formatNetworkFeeAmount(locale, selectedDepositNetworkOption.withdrawFee)} ${asset}${
                                     selectedDepositNetworkFeeBrl !== null && selectedDepositNetworkFeeBrl !== undefined
                                       ? ` (${formatFiatAmountWithPrecision(locale, brand.fiatCurrency, selectedDepositNetworkFeeBrl, fiatDecimalPrecision)})`
                                       : ""
@@ -3039,7 +3027,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
                 >
                   {networksAndFees.map((item: OtcWithdrawNetwork) => (
                     <option key={item.network} value={item.network}>
-                      {item.userFriendlyNetworkName} - Taxa: {formatNetworkFeeAmount(item.withdrawFee)} {asset}
+                      {item.userFriendlyNetworkName} - Taxa: {formatNetworkFeeAmount(locale, item.withdrawFee)} {asset}
                       {` (${formatFiatAmount(locale, brand.fiatCurrency, item.withdrawFeeBrlEstimate)})`}
                     </option>
                   ))}
