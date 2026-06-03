@@ -358,9 +358,7 @@ export function OrderStatusPage({ brand }: OrderStatusPageProps) {
   const summaryInputAsset = createSummary?.inputAsset ?? order?.inputAsset;
   const summaryOutputAsset = createSummary?.outputAsset ?? order?.outputAsset;
   const sellNetworkCode =
-    createSummary?.payViaNetworkCode?.trim() ||
-    createSummary?.payViaNetwork?.trim() ||
-    (isSellOrder ? depositNetworkLabel : "");
+    createSummary?.payViaNetworkCode?.trim() || (isSellOrder ? depositNetworkLabel : "");
   const sellNetworkDetail =
     createSummary?.payViaNetworkLabel?.trim() ||
     order?.paymentData?.userFriendlyNetworkName?.trim() ||
