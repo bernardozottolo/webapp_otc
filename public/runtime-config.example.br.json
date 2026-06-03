@@ -258,6 +258,7 @@
           "Utilize exclusivamente a rede indicada. Enviar por outra rede pode resultar em perda permanente dos ativos."
         ]
       },
+      "sellDepositNetworkNotice": "⚠️ Envie apenas {asset} pela rede {network}. Envio por outras redes pode resultar em perda.",
       "buyLabel": "Compra",
       "sellLabel": "Venda",
       "waitingMessage": "Assim que o pagamento for identificado, atualizaremos esta tela automaticamente.",

@@ -205,6 +205,7 @@ export interface OrderPaymentData {
   txHash?: string | null;
   txHashUrl?: string | null;
   network?: string;
+  userFriendlyNetworkName?: string;
   walletAddress?: string;
   /** Chave PIX do cliente (fluxo SELL — onde recebe o fiat). */
   pixKey?: string;
@@ -267,7 +268,11 @@ export interface OrderCreateSummary {
   inputAsset?: string;
   outputAsset?: string;
   price?: number;
-  /** Rede de envio da cripto no fluxo SELL (leg "você paga"). */
+  /** Código da rede de depósito no fluxo SELL (ex.: BSC) — leg curta "via …". */
+  payViaNetworkCode?: string;
+  /** Nome amigável completo da rede (ex.: BEP-20 (BSC: BNB Smart Chain)). */
+  payViaNetworkLabel?: string;
+  /** @deprecated Use payViaNetworkCode / payViaNetworkLabel. */
   payViaNetwork?: string;
   /** Destino de recebimento do cliente (`payment_info` do body do create_order). */
   customerPayment: {

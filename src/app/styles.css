@@ -1536,6 +1536,14 @@ button {
   justify-content: flex-start;
 }
 
+.order-sell-deposit-notice {
+  margin: 0.75rem 0 0;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--order-page-muted-color);
+  text-align: center;
+}
+
 .order-copy-button,
 .order-link-button {
   display: inline-flex;

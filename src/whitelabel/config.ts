@@ -147,6 +147,8 @@ export interface OrderPageTextsConfig {
   sellWalletAddressLabel: string;
   /** Aviso ao lado de "via REDE" no resumo de venda (leg "você paga"). */
   sellPayNetworkWarning: OrderPageSellPayNetworkWarningConfig;
+  /** Aviso abaixo do botão de copiar carteira na venda. Placeholders: {asset}, {network}. */
+  sellDepositNetworkNotice: string;
   buyLabel: string;
   sellLabel: string;
   waitingMessage: string;
@@ -626,6 +628,8 @@ export const defaultBrandConfig: BrandConfig = {
           "Utilize exclusivamente a rede indicada. Enviar por outra rede pode resultar em perda permanente dos ativos."
         ]
       },
+      sellDepositNetworkNotice:
+        "⚠️ Envie apenas {asset} pela rede {network}. Envio por outras redes pode resultar em perda.",
       buyLabel: "Compra",
       sellLabel: "Venda",
       waitingMessage: "Assim que o pagamento for identificado, atualizaremos esta tela automaticamente.",
@@ -1144,6 +1148,7 @@ function asOrderPageTextsConfig(value: unknown, fallback: OrderPageTextsConfig):
       value.sellPayNetworkWarning,
       fallback.sellPayNetworkWarning
     ),
+    sellDepositNetworkNotice: asString(value.sellDepositNetworkNotice, fallback.sellDepositNetworkNotice),
     buyLabel: asString(value.buyLabel, fallback.buyLabel),
     sellLabel: asString(value.sellLabel, fallback.sellLabel),
     waitingMessage: asString(value.waitingMessage, fallback.waitingMessage),

@@ -467,6 +467,7 @@ export async function createOrderHttp(config: PricingConfig, input: CreateOrderI
           ? (data.order_details.payment_data as Order["paymentData"])
           : {}),
         network: sellInput.networkInfo.network,
+        userFriendlyNetworkName: sellInput.networkInfo.userFriendlyNetworkName,
         pixKey: sellInput.paymentInfo.pixKey,
         payload:
           asString((data.order_details?.payment_data as Record<string, unknown> | undefined)?.payload) ||

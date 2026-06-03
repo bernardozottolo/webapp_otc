@@ -96,6 +96,13 @@ function interpolateSupportEmail(message: string, supportEmail: string) {
   return message.replace(/\{supportEmail\}/g, supportEmail);
 }
 
+function interpolateTemplate(message: string, vars: Record<string, string>) {
+  return Object.entries(vars).reduce(
+    (result, [key, value]) => result.replace(new RegExp(`\\{${key}\\}`, "g"), value),
+    message
+  );
+}
+
 function isHttpUrl(value: string) {
   return /^https?:\/\//i.test(value.trim());
 }
@@ -350,18 +357,30 @@ export function OrderStatusPage({ brand }: OrderStatusPageProps) {
   const summaryReceiveAmount = createSummary?.amount ?? order?.amount;
   const summaryInputAsset = createSummary?.inputAsset ?? order?.inputAsset;
   const summaryOutputAsset = createSummary?.outputAsset ?? order?.outputAsset;
-  const sellPayViaNetwork =
-    createSummary?.payViaNetwork?.trim() || (isSellOrder ? depositNetworkLabel : "");
+  const sellNetworkCode =
+    createSummary?.payViaNetworkCode?.trim() ||
+    createSummary?.payViaNetwork?.trim() ||
+    (isSellOrder ? depositNetworkLabel : "");
+  const sellNetworkDetail =
+    createSummary?.payViaNetworkLabel?.trim() ||
+    order?.paymentData?.userFriendlyNetworkName?.trim() ||
+    createSummary?.payViaNetwork?.trim() ||
+    sellNetworkCode;
   const payValueBase =
     order && summaryAmountToPay != null
       ? formatLegAmount(brand.defaultLocale, brand.fiatCurrency, summaryAmountToPay, summaryInputAsset, inputAssetFallback)
       : "";
   const payValue =
-    isSellOrder && sellPayViaNetwork && payValueBase
-      ? `${payValueBase} via ${sellPayViaNetwork}`
-      : payValueBase;
+    isSellOrder && sellNetworkCode && payValueBase ? `${payValueBase} via ${sellNetworkCode}` : payValueBase;
   const showSellPayNetworkWarning =
-    isSellOrder && Boolean(sellPayViaNetwork && payValueBase && texts.sellPayNetworkWarning.bullets.length > 0);
+    isSellOrder && Boolean(sellNetworkCode && payValueBase && texts.sellPayNetworkWarning.bullets.length > 0);
+  const sellDepositNetworkNoticeText =
+    isSellOrder && sellNetworkDetail && summaryAsset && texts.sellDepositNetworkNotice.trim()
+      ? interpolateTemplate(texts.sellDepositNetworkNotice, {
+          asset: summaryAsset,
+          network: sellNetworkDetail
+        })
+      : "";
   const sellPayNetworkWarning = texts.sellPayNetworkWarning;
   const receiveValue =
     order && summaryReceiveAmount != null
@@ -562,6 +581,9 @@ export function OrderStatusPage({ brand }: OrderStatusPageProps) {
                     {payloadCopied ? copiedAddressLabel : copyAddressLabel}
                   </button>
                 </div>
+                {isSellOrder && sellDepositNetworkNoticeText ? (
+                  <p className="order-sell-deposit-notice">{sellDepositNetworkNoticeText}</p>
+                ) : null}
               </article>
             ) : (
               <article className={`card order-status-card order-status-card--${displayVariant}`}>
@@ -660,10 +682,10 @@ export function OrderStatusPage({ brand }: OrderStatusPageProps) {
                     <strong>{payValueBase}</strong>
                   </div>
                 ) : null}
-                {depositNetworkLabel ? (
+                {sellNetworkDetail ? (
                   <div className="order-beneficiary-row">
                     <span>{texts.networkLabel}</span>
-                    <strong>{depositNetworkLabel}</strong>
+                    <strong>{sellNetworkDetail}</strong>
                   </div>
                 ) : null}
               </>

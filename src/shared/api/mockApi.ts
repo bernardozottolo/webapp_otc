@@ -326,7 +326,12 @@ export async function getNetworksAndFees(country: Country, asset: string): Promi
   }
   return country === "BR"
     ? [
-        { network: "BSC", userFriendlyNetworkName: "BNB Smart Chain", withdrawFee: 0.3, withdrawFeeBrlEstimate: 1.55 },
+        {
+          network: "BSC",
+          userFriendlyNetworkName: "BEP-20 (BSC: BNB Smart Chain)",
+          withdrawFee: 0.3,
+          withdrawFeeBrlEstimate: 1.55
+        },
         { network: "TRC20", userFriendlyNetworkName: "Tron", withdrawFee: 1.2, withdrawFeeBrlEstimate: 6.18 },
         { network: "ERC20", userFriendlyNetworkName: "Ethereum", withdrawFee: 4.6, withdrawFeeBrlEstimate: 23.69 }
       ]
