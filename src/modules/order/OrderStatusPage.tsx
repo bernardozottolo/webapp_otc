@@ -652,28 +652,41 @@ export function OrderStatusPage({ brand }: OrderStatusPageProps) {
             </div>
           </div>
           <div className="order-beneficiary-card">
-            <div className="order-beneficiary-row">
-              <span>{texts.beneficiaryLabel}</span>
-              <strong>{beneficiaryName}</strong>
-            </div>
-            {isSellOrder && depositNetworkLabel ? (
-              <div className="order-beneficiary-row">
-                <span>{texts.networkLabel}</span>
-                <strong>{depositNetworkLabel}</strong>
-              </div>
-            ) : null}
-            {beneficiaryBankName ? (
-              <div className="order-beneficiary-row">
-                <span>{texts.bankLabel}</span>
-                <strong>{beneficiaryBankName}</strong>
-              </div>
-            ) : null}
-            {beneficiaryTaxId ? (
-              <div className="order-beneficiary-row">
-                <span>{texts.taxIdLabel}</span>
-                <strong>{beneficiaryTaxId}</strong>
-              </div>
-            ) : null}
+            {isSellOrder ? (
+              <>
+                {payValueBase ? (
+                  <div className="order-beneficiary-row">
+                    <span>{texts.payTitle}</span>
+                    <strong>{payValueBase}</strong>
+                  </div>
+                ) : null}
+                {depositNetworkLabel ? (
+                  <div className="order-beneficiary-row">
+                    <span>{texts.networkLabel}</span>
+                    <strong>{depositNetworkLabel}</strong>
+                  </div>
+                ) : null}
+              </>
+            ) : (
+              <>
+                <div className="order-beneficiary-row">
+                  <span>{texts.beneficiaryLabel}</span>
+                  <strong>{beneficiaryName}</strong>
+                </div>
+                {beneficiaryBankName ? (
+                  <div className="order-beneficiary-row">
+                    <span>{texts.bankLabel}</span>
+                    <strong>{beneficiaryBankName}</strong>
+                  </div>
+                ) : null}
+                {beneficiaryTaxId ? (
+                  <div className="order-beneficiary-row">
+                    <span>{texts.taxIdLabel}</span>
+                    <strong>{beneficiaryTaxId}</strong>
+                  </div>
+                ) : null}
+              </>
+            )}
           </div>
         </div>
       </Modal>
