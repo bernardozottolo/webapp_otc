@@ -5,6 +5,7 @@ import { BrowserRouter } from "react-router-dom";
 import { App } from "./app/App";
 import "./app/styles.css";
 import { I18nProvider } from "./shared/i18n";
+import { configureOtcApi } from "./shared/api/client";
 import { loadRuntimeBrandConfig } from "./whitelabel/runtimeConfig";
 
 const rootElement = document.getElementById("root");
@@ -42,6 +43,7 @@ function renderStartupError(message: string) {
 async function bootstrap() {
   try {
     const brand = await loadRuntimeBrandConfig();
+    configureOtcApi(brand);
     root.render(
       <React.StrictMode>
         <BrowserRouter>

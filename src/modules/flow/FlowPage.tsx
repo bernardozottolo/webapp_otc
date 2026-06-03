@@ -43,6 +43,7 @@ import type {
 } from "../../shared/types";
 import { Modal } from "../../shared/ui/Modal";
 import type { BrandConfig } from "../../whitelabel/config";
+import { effectiveOtcQuoteBaseUrl } from "../../whitelabel/config";
 import { createOrderLoadingDocument, createOrderStatusMessageDocument } from "../../whitelabel/orderLoadingDocument";
 import { startBiometricSession } from "../customer/diditAdapter";
 import { getExpectedDetails } from "../../shared/api/diditProxy";
@@ -414,6 +415,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
   const [depositNetworks, setDepositNetworks] = useState<OtcWithdrawNetwork[]>([]);
   const [depositNetwork, setDepositNetwork] = useState("");
   const [depositNetworksLoading, setDepositNetworksLoading] = useState(false);
+  const [depositNetworksLoadError, setDepositNetworksLoadError] = useState(false);
   const [bankKeyOwnerError, setBankKeyOwnerError] = useState<string | null>(null);
   const [blockingUi, setBlockingUi] = useState<BlockingUiState | null>(null);
   const bioAutostartedRef = useRef(false);
@@ -443,6 +445,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
     () => findPixKeyTypeConfig(pixKeyTypeConfigs, bankKeyType),
     [pixKeyTypeConfigs, bankKeyType]
   );
+  const otcQuoteBaseUrl = useMemo(() => effectiveOtcQuoteBaseUrl(brand.endpoints), [brand.endpoints]);
   const formatDocumentValidationError = useCallback(
     (error: DocumentValidationError, docType: string) => {
       if (error === "required") {
@@ -1466,6 +1469,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
   useEffect(() => {
     let mounted = true;
     setDepositNetworksLoading(true);
+    setDepositNetworksLoadError(false);
     const loadDepositNetworks = async () => {
       try {
         const networks = await otcApiClient.getDepositNetworks(asset);
@@ -1477,6 +1481,12 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
           }
           return networks[0]?.network ?? "";
         });
+        setDepositNetworksLoadError(false);
+      } catch {
+        if (!mounted) return;
+        setDepositNetworks([]);
+        setDepositNetwork("");
+        setDepositNetworksLoadError(true);
       } finally {
         if (mounted) setDepositNetworksLoading(false);
       }
@@ -1485,7 +1495,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
     return () => {
       mounted = false;
     };
-  }, [asset]);
+  }, [asset, otcQuoteBaseUrl]);
 
   useEffect(() => {
     if (step !== "bio") {
@@ -2589,6 +2599,9 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
                           ))}
                         </select>
                       </div>
+                      {depositNetworksLoadError ? (
+                        <p className="field-feedback field-feedback--error">{t("form.depositNetworksLoadError")}</p>
+                      ) : null}
                     </div>
                   ) : null}
 
