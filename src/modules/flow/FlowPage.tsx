@@ -939,11 +939,14 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
   const belowMinimumNegotiationValue =
     fiatLegAmount !== null && minNegotiationValueFiat > 0 && fiatLegAmount + 1e-6 < minNegotiationValueFiat;
 
+  const sellDepositNetworkMissing = tradeSide === "sell" && !depositNetwork.trim();
+
   const anonymousFlowBlocked =
     !identified &&
     (!parsedAmount ||
       belowMinimumNegotiationValue ||
       exceedsLimit ||
+      sellDepositNetworkMissing ||
       (tradeSide === "sell" &&
         parsedAmount > 0 &&
         (quoteLoading || !actionableQuote || (effectiveMaxFiat !== null && actionableQuote.totalFiat > effectiveMaxFiat + 1e-6))));
@@ -1460,12 +1463,9 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
         const networks = await otcApiClient.getDepositNetworks(asset);
         if (!mounted) return;
         setDepositNetworks(networks);
-        setDepositNetwork((current) => {
-          if (current && networks.some((item) => item.network === current)) {
-            return current;
-          }
-          return networks[0]?.network ?? "";
-        });
+        setDepositNetwork((current) =>
+          current && networks.some((item) => item.network === current) ? current : ""
+        );
         setDepositNetworksLoadError(false);
       } catch {
         if (!mounted) return;
@@ -2416,6 +2416,9 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
     setBankKeyValidationError(null);
     setNetworksAndFees([]);
     setNetworksAndFeesLoading(false);
+    setDepositNetwork("");
+    setDepositNetworks([]);
+    setDepositNetworksLoadError(false);
   }, [pixKeyDefaults.defaultBackType, resetCompanyRepresentativeState, resetOtpState]);
 
   const resetInactivityTimer = useCallback(() => {
@@ -2579,7 +2582,9 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
                           value={depositNetwork}
                           onChange={(e: { target: { value: string } }) => setDepositNetwork(e.target.value)}
                           disabled={depositNetworksLoading || depositNetworks.length === 0}
+                          required
                         >
+                          <option value="">{t("form.selectDepositNetwork")}</option>
                           {depositNetworks.map((item: OtcWithdrawNetwork) => (
                             <option key={item.network} value={item.network}>
                               {item.userFriendlyNetworkName}
@@ -2743,7 +2748,10 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
                     onClick={handleConfirmOrder}
                     disabled={
                       identified
-                        ? !actionableQuote || !parsedAmount || transactionalGateBlocksOrder
+                        ? !actionableQuote ||
+                          !parsedAmount ||
+                          transactionalGateBlocksOrder ||
+                          sellDepositNetworkMissing
                         : anonymousFlowBlocked
                     }
                   >
