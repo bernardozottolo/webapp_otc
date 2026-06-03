@@ -939,14 +939,14 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
   const belowMinimumNegotiationValue =
     fiatLegAmount !== null && minNegotiationValueFiat > 0 && fiatLegAmount + 1e-6 < minNegotiationValueFiat;
 
-  const sellDepositNetworkMissing = tradeSide === "sell" && !depositNetwork.trim();
+  const sellDepositNetworkMissing =
+    identified && tradeSide === "sell" && !depositNetwork.trim();
 
   const anonymousFlowBlocked =
     !identified &&
     (!parsedAmount ||
       belowMinimumNegotiationValue ||
       exceedsLimit ||
-      sellDepositNetworkMissing ||
       (tradeSide === "sell" &&
         parsedAmount > 0 &&
         (quoteLoading || !actionableQuote || (effectiveMaxFiat !== null && actionableQuote.totalFiat > effectiveMaxFiat + 1e-6))));
@@ -1455,6 +1455,14 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
   }, [identified, tradeSide, country, asset]);
 
   useEffect(() => {
+    if (!identified || tradeSide !== "sell") {
+      setDepositNetworks([]);
+      setDepositNetwork("");
+      setDepositNetworksLoading(false);
+      setDepositNetworksLoadError(false);
+      return;
+    }
+
     let mounted = true;
     setDepositNetworksLoading(true);
     setDepositNetworksLoadError(false);
@@ -1480,7 +1488,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
     return () => {
       mounted = false;
     };
-  }, [asset, otcQuoteBaseUrl]);
+  }, [asset, otcQuoteBaseUrl, identified, tradeSide]);
 
   useEffect(() => {
     if (step !== "bio") {
@@ -2574,7 +2582,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
                     {limitMessage ? <p className="field-feedback field-feedback--error">{limitMessage}</p> : null}
                   </div>
 
-                  {tradeSide === "sell" ? (
+                  {tradeSide === "sell" && identified ? (
                     <div className="row">
                       <label>{t("common.network")}</label>
                       <div className="field-shell field-shell--network-select">
