@@ -279,6 +279,8 @@ export interface OrderCreateSummary {
     network?: string;
     walletAddress?: string;
     pixKey?: string;
+    /** backType da chave PIX (phone, email, document, random_key) — congelado na criação. */
+    pixKeyType?: string;
   };
 }
 

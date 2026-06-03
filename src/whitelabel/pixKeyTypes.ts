@@ -265,3 +265,65 @@ export function networkToPixKeyBackType(network: string | undefined | null, conf
   }
   return configs[0]?.backType ?? (resolved || "phone");
 }
+
+/** Infere o backType a partir do valor persistido (ex.: +55…, CPF, e-mail, UUID). */
+export function inferPixKeyBackTypeFromStored(
+  configs: PixKeyTypeConfig[],
+  storedValue: string,
+  defaults?: PixKeyCountryDefaults
+): string {
+  const trimmed = storedValue.trim();
+  if (!trimmed || configs.length === 0) {
+    return configs[0]?.backType ?? "phone";
+  }
+
+  if (trimmed.includes("@")) {
+    const email = findPixKeyTypeConfig(configs, "email");
+    if (email) return email.backType;
+  }
+
+  const hexCompact = trimmed.replace(/[^0-9a-f]/gi, "");
+  if (hexCompact.length === 32) {
+    const random = findPixKeyTypeConfig(configs, "random_key");
+    if (random) return random.backType;
+  }
+
+  const digits = digitsOnly(trimmed);
+  if (trimmed.startsWith("+") || (digits.length >= 10 && digits.length <= 13)) {
+    const phone = findPixKeyTypeConfig(configs, "phone");
+    if (phone && validatePixKeyValue(configs, phone.backType, trimmed, defaults) === null) {
+      return phone.backType;
+    }
+  }
+
+  if (digits.length === 11 || digits.length === 14) {
+    const document = findPixKeyTypeConfig(configs, "document");
+    if (document && validatePixKeyValue(configs, document.backType, trimmed, defaults) === null) {
+      return document.backType;
+    }
+  }
+
+  for (const config of configs) {
+    if (validatePixKeyValue(configs, config.backType, trimmed, defaults) === null) {
+      return config.backType;
+    }
+  }
+
+  return configs[0]?.backType ?? "phone";
+}
+
+/** Formata chave PIX persistida para exibição (sem máscara). */
+export function formatStoredPixKeyForDisplay(
+  configs: PixKeyTypeConfig[],
+  storedValue: string,
+  options?: { backTypeHint?: string; defaults?: PixKeyCountryDefaults }
+): string {
+  const trimmed = storedValue?.trim() ?? "";
+  if (!trimmed) return "";
+
+  const backType = options?.backTypeHint?.trim()
+    ? resolvePixKeyBackType(options.backTypeHint)
+    : inferPixKeyBackTypeFromStored(configs, trimmed, options?.defaults);
+  const config = findPixKeyTypeConfig(configs, backType);
+  return formatPixKeyFromStorage(config, trimmed, options?.defaults);
+}

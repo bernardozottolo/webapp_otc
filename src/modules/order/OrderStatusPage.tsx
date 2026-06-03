@@ -16,16 +16,10 @@ import { Modal } from "../../shared/ui/Modal";
 import { formatDisplayAmountWithAsset, formatDisplayFiatAmount } from "../../shared/displayAmount";
 import type { StoredOrderRecord } from "../../shared/types";
 import type { BrandConfig, OrderPageTextsConfig } from "../../whitelabel/config";
+import { formatStoredPixKeyForDisplay } from "../../whitelabel/pixKeyTypes";
 
 interface OrderStatusPageProps {
   brand: BrandConfig;
-}
-
-function maskBankKey(value: string | undefined | null) {
-  const trimmed = value?.trim() ?? "";
-  if (!trimmed) return "";
-  if (trimmed.length <= 8) return trimmed;
-  return `${trimmed.slice(0, 3)}****${trimmed.slice(-4)}`;
 }
 
 function maskMiddle(value: string | undefined | null, visibleStart = 6, visibleEnd = 6) {
@@ -174,6 +168,14 @@ function resolveDisplayStatusLabel(
 }
 
 export function OrderStatusPage({ brand }: OrderStatusPageProps) {
+  const pixKeyTypeConfigs = useMemo(
+    () => brand.pixKeyTypesByCountry[brand.defaultCountry] ?? [],
+    [brand.pixKeyTypesByCountry, brand.defaultCountry]
+  );
+  const pixKeyDefaults = useMemo(
+    () => brand.pixKeyDefaultsByCountry[brand.defaultCountry],
+    [brand.pixKeyDefaultsByCountry, brand.defaultCountry]
+  );
   const { id = "" } = useParams();
   const [record, setRecord] = useState<StoredOrderRecord | null>(null);
   const [notFound, setNotFound] = useState(false);
@@ -296,7 +298,11 @@ export function OrderStatusPage({ brand }: OrderStatusPageProps) {
   const bankLabel = brand.bankLabelByCountry[brand.defaultCountry] ?? "PIX";
   const summaryCustomerPayment = createSummary?.customerPayment;
   const walletMasked = maskMiddle(summaryCustomerPayment?.walletAddress ?? order?.paymentData?.walletAddress, 6, 6);
-  const maskedPixKey = maskBankKey(summaryCustomerPayment?.pixKey ?? order?.paymentData?.pixKey);
+  const pixKeyRaw = summaryCustomerPayment?.pixKey ?? order?.paymentData?.pixKey ?? "";
+  const formattedPixKey = formatStoredPixKeyForDisplay(pixKeyTypeConfigs, pixKeyRaw, {
+    backTypeHint: summaryCustomerPayment?.pixKeyType,
+    defaults: pixKeyDefaults
+  });
   const depositWalletAddress =
     order?.paymentData?.walletAddress?.trim() || order?.paymentData?.payload?.trim() || "";
   const depositNetworkLabel = order?.paymentData?.network?.trim() ?? "";
@@ -357,7 +363,7 @@ export function OrderStatusPage({ brand }: OrderStatusPageProps) {
         )
       : "";
   const receivingDataValue = isSellOrder
-    ? [bankLabel, maskedPixKey].filter(Boolean).join(" - ")
+    ? [bankLabel, formattedPixKey].filter(Boolean).join(" - ")
     : [summaryCustomerPayment?.network?.trim() ?? order?.paymentData?.network?.trim() ?? "", walletMasked]
         .filter(Boolean)
         .join(" - ");

@@ -16,7 +16,8 @@ export function buildCreateOrderSummaryFromInput(input: CreateOrderInput): Order
       payViaNetworkLabel:
         input.networkInfo.userFriendlyNetworkName.trim() || input.networkInfo.network.trim(),
       customerPayment: {
-        pixKey: input.paymentInfo.pixKey.trim()
+        pixKey: input.paymentInfo.pixKey.trim(),
+        pixKeyType: input.paymentInfo.pixKeyType?.trim() || undefined
       }
     };
   }

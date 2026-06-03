@@ -72,6 +72,8 @@ export type BuyOrderPaymentInfo = {
 export type SellOrderPaymentInfo = {
   pixKey: string;
   network: string;
+  /** backType da chave (phone, email, document, random_key). */
+  pixKeyType?: string;
 };
 
 export interface BuyPreOrderValidationInput {

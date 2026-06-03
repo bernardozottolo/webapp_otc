@@ -2162,7 +2162,8 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
         }
         const paymentInfo = {
           pixKey: paymentData.bankKeyValue,
-          network: networkOption.network
+          network: networkOption.network,
+          pixKeyType: paymentData.bankKeyType
         };
         const preValidateBase = {
           asset,
