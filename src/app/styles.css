@@ -1664,7 +1664,7 @@ button {
   }
 
   .order-layout {
-    grid-template-columns: minmax(0, 1fr) minmax(300px, 340px);
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
     align-items: stretch;
   }
 
