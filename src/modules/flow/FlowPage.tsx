@@ -2593,8 +2593,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
                         >
                           {depositNetworks.map((item: OtcWithdrawNetwork) => (
                             <option key={item.network} value={item.network}>
-                              {item.userFriendlyNetworkName} - Taxa: {formatNetworkFeeAmount(item.withdrawFee)} {asset}
-                              {` (${formatFiatAmountWithPrecision(locale, brand.fiatCurrency, item.withdrawFeeBrlEstimate, fiatDecimalPrecision)})`}
+                              {item.userFriendlyNetworkName}
                             </option>
                           ))}
                         </select>
