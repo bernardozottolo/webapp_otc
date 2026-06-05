@@ -264,32 +264,27 @@
       "waitingMessage": "Assim que o pagamento for identificado, atualizaremos esta tela automaticamente.",
       "paymentTimeout": {
         "title": "Pagamento expirado",
-        "html": "<div class=\"order-status-html\"><span class=\"order-status-html__emoji\" aria-hidden=\"true\">⏰</span><div class=\"order-status-html__body\"><p><strong>Pedido {orderNumber}</strong> — prazo encerrado.</p><p>O prazo de pagamento terminou. Gere um novo pedido para continuar.</p><p>Em caso de dúvida: <a href=\"mailto:{supportEmail}\">{supportEmail}</a></p></div></div>"
+        "html": "<div class=\"order-status-html order-status-html--danger\" style=\"text-align: center;\"><div class=\"order-status-html__content\"><h3 class=\"order-status-html__title\"><span aria-hidden=\"true\">❌</span> Prazo de pagamento encerrado</h3><p class=\"order-status-html__text\">Não identificamos o pagamento dentro do prazo, então este pedido foi cancelado automaticamente.</p><p class=\"order-status-html__text\">Para continuar, volte ao Menu Principal e gere um novo pedido.</p><div class=\"order-status-html__actions\" style=\"margin-top: 20px; display: flex; gap: 12px; justify-content: center; align-items: center; flex-wrap: wrap;\"><button class=\"order-status-html__button order-status-html__button--primary\" type=\"button\" onclick=\"window.location.href='/'\">Menu Principal</button><button class=\"order-status-html__button order-status-html__button--secondary\" type=\"button\" onclick=\"window.location.href='mailto:{supportEmail}'\">Falar com suporte</button></div></div></div>"
       },
       "paymentRecognized": {
         "title": "Pagamento reconhecido",
-        "message": "Pagamento reconhecido, pegue um café e aguarde que já enviamos as cripto. Pode levar até 5 minutos.",
-        "emoji": "☕"
+        "html": "<div class=\"order-status-html order-status-html--warning\" style=\"text-align: center;\"><div class=\"order-status-html__content\"><h3 class=\"order-status-html__title\"><span aria-hidden=\"true\">☕</span> Pagamento reconhecido</h3><p class=\"order-status-html__text\">Recebemos seu pagamento e já estamos processando o envio das cripto para a carteira informada.</p><p class=\"order-status-html__text\">Esse processo pode levar até 5 minutos. Esta página será atualizada automaticamente.</p></div></div>"
       },
       "orderConcluded": {
         "title": "Pedido concluído",
-        "message": "Tudo certo. As criptos foram enviadas para a carteira informada.",
-        "emoji": "✅"
+        "html": "<div class=\"order-status-html order-status-html--success\" style=\"text-align: center;\"><div class=\"order-status-html__content\"><h3 class=\"order-status-html__title\"><span aria-hidden=\"true\">✅</span> Pedido concluído com sucesso</h3><p class=\"order-status-html__text\">Tudo certo. As criptos foram enviadas para a carteira informada.</p><p class=\"order-status-html__text\">Obrigado por utilizar a Infinite Ativos Virtuais.</p><div class=\"order-status-html__actions\" style=\"margin-top: 20px; display: flex; gap: 12px; justify-content: center; align-items: center; flex-wrap: wrap;\"><button class=\"order-status-html__button order-status-html__button--primary\" type=\"button\" onclick=\"window.location.href='/'\">Menu Principal</button></div></div></div>"
       },
       "paymentUpdateTimeout": {
         "title": "Pagamento expirado",
-        "message": "Que pena! Não conseguimos processar o pagamento.\nSe você acha que isso é um erro, entre em contato com o suporte pelo e-mail suporte@empresa-exemplo.com.br.",
-        "emoji": "💔"
+        "html": "<div class=\"order-status-html order-status-html--danger\" style=\"text-align: center;\"><div class=\"order-status-html__content\"><h3 class=\"order-status-html__title\"><span aria-hidden=\"true\">💔</span> Pagamento não processado</h3><p class=\"order-status-html__text\">Não conseguimos processar a confirmação do pagamento no prazo esperado.</p><p class=\"order-status-html__text\">Se você realizou o pagamento ou acredita que isso é um erro, fale com o suporte.</p><div class=\"order-status-html__actions\" style=\"margin-top: 20px; display: flex; gap: 12px; justify-content: center; align-items: center; flex-wrap: wrap;\"><button class=\"order-status-html__button order-status-html__button--primary\" type=\"button\" onclick=\"window.location.href='/'\">Menu Principal</button><button class=\"order-status-html__button order-status-html__button--secondary\" type=\"button\" onclick=\"window.location.href='mailto:{supportEmail}'\">Falar com suporte</button></div></div></div>"
       },
       "orderUpdateTimeout": {
         "title": "Pedido atrasado",
-        "message": "Que pena! Não conseguimos processar o pedido.\nSe você acha que isso é um erro, entre em contato com o suporte pelo e-mail suporte@empresa-exemplo.com.br.",
-        "emoji": "💔"
+        "html": "<div class=\"order-status-html order-status-html--danger\" style=\"text-align: center;\"><div class=\"order-status-html__content\"><h3 class=\"order-status-html__title\"><span aria-hidden=\"true\">💔</span> Processamento atrasado</h3><p class=\"order-status-html__text\">Não conseguimos concluir o processamento do pedido no prazo esperado.</p><p class=\"order-status-html__text\">Se você acredita que isso é um erro, fale com o suporte.</p><div class=\"order-status-html__actions\" style=\"margin-top: 20px; display: flex; gap: 12px; justify-content: center; align-items: center; flex-wrap: wrap;\"><button class=\"order-status-html__button order-status-html__button--primary\" type=\"button\" onclick=\"window.location.href='/'\">Menu Principal</button><button class=\"order-status-html__button order-status-html__button--secondary\" type=\"button\" onclick=\"window.location.href='mailto:{supportEmail}'\">Falar com suporte</button></div></div></div>"
       },
       "paymentReproved": {
         "title": "Pedido não processado",
-        "message": "Não foi possível processar seu pedido. O reembolso do valor depositado já foi processado. Em caso de dúvida, entre em contato com {supportEmail}.",
-        "emoji": "↩️"
+        "html": "<div class=\"order-status-html order-status-html--danger\" style=\"text-align: center;\"><div class=\"order-status-html__content\"><h3 class=\"order-status-html__title\"><span aria-hidden=\"true\">↩️</span> Pedido não processado</h3><p class=\"order-status-html__text\">Não foi possível concluir este pedido. O reembolso do valor depositado já foi processado.</p><p class=\"order-status-html__text\">Em caso de dúvida, fale com o suporte.</p><div class=\"order-status-html__actions\" style=\"margin-top: 20px; display: flex; gap: 12px; justify-content: center; align-items: center; flex-wrap: wrap;\"><button class=\"order-status-html__button order-status-html__button--primary\" type=\"button\" onclick=\"window.location.href='/'\">Menu Principal</button><button class=\"order-status-html__button order-status-html__button--secondary\" type=\"button\" onclick=\"window.location.href='mailto:{supportEmail}'\">Falar com suporte</button></div></div></div>"
       },
       "statusLabels": {
         "created": "Criado",
