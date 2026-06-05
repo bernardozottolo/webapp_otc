@@ -14,6 +14,7 @@ import {
 import { otcApiClient } from "../../shared/api/client";
 import { Modal } from "../../shared/ui/Modal";
 import { formatDisplayAmountWithAsset, formatDisplayFiatAmount } from "../../shared/displayAmount";
+import { interpolateOrderStatusHtml, type OrderStatusHtmlVars } from "../../shared/orderStatusHtml";
 import type { StoredOrderRecord } from "../../shared/types";
 import type { BrandConfig, OrderPageTextsConfig } from "../../whitelabel/config";
 import { formatStoredPixKeyForDisplay } from "../../whitelabel/pixKeyTypes";
@@ -44,10 +45,6 @@ function formatCountdown(totalSeconds: number) {
 
 function formatPriceAmount(locale: string, currencyCode: string, amount: number) {
   return formatDisplayFiatAmount(locale, currencyCode, amount, 3);
-}
-
-function interpolateSupportEmail(message: string, supportEmail: string) {
-  return message.replace(/\{supportEmail\}/g, supportEmail);
 }
 
 function interpolateTemplate(message: string, vars: Record<string, string>) {
@@ -368,6 +365,44 @@ export function OrderStatusPage({ brand }: OrderStatusPageProps) {
         .filter(Boolean)
         .join(" - ");
 
+  const orderStatusHtmlVars = useMemo((): OrderStatusHtmlVars => {
+    const rawStatus = order && isKnownOrderStatus(order.status) ? order.status : "";
+    return {
+      orderId: order?.id ?? id,
+      orderNumber: orderNumberLabel,
+      supportEmail: brand.supportEmail,
+      companyName: brand.companyName,
+      email: order?.email ?? "",
+      status: rawStatus,
+      statusLabel: resolveStatusLabel(rawStatus, texts),
+      tradeSide: summaryTradeSide ?? "",
+      tradeSideLabel: summaryTradeSide === "sell" ? texts.sellLabel : texts.buyLabel,
+      asset: summaryAsset ?? order?.asset ?? "",
+      payValue,
+      receiveValue,
+      receivingData: receivingDataValue
+    };
+  }, [
+    order,
+    id,
+    orderNumberLabel,
+    brand.supportEmail,
+    brand.companyName,
+    texts,
+    summaryTradeSide,
+    summaryAsset,
+    payValue,
+    receiveValue,
+    receivingDataValue
+  ]);
+
+  const variantStatusHtml = useMemo(() => {
+    if (!variantContent?.html.trim()) {
+      return "";
+    }
+    return interpolateOrderStatusHtml(variantContent.html, orderStatusHtmlVars);
+  }, [variantContent, orderStatusHtmlVars]);
+
   useEffect(() => {
     if (!deadlineMs || !shouldShowPaymentCard) {
       setRemainingSeconds(0);
@@ -565,13 +600,10 @@ export function OrderStatusPage({ brand }: OrderStatusPageProps) {
               <article className={`card order-status-card order-status-card--${displayVariant}`}>
                 {variantContent ? (
                   <div className={`order-highlight-banner order-highlight-banner--${displayVariant}`}>
-                    <span className="order-highlight-banner__emoji" aria-hidden="true">
-                      {variantContent.emoji}
-                    </span>
-                    <div>
-                      <strong>{variantContent.title}</strong>
-                      <p>{interpolateSupportEmail(variantContent.message, brand.supportEmail)}</p>
-                    </div>
+                    <div
+                      className="order-highlight-banner__html"
+                      dangerouslySetInnerHTML={{ __html: variantStatusHtml }}
+                    />
                   </div>
                 ) : (
                   <>

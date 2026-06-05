@@ -1,3 +1,4 @@
+import { buildLegacyOrderStatusHtml } from "../shared/orderStatusHtml";
 import type { Country, Locale } from "../shared/types";
 import type { DocumentTypeConfig } from "./documentTypes";
 import type { PixKeyCountryDefaults, PixKeyFormatPreset, PixKeyNormalizeMode, PixKeyTypeConfig } from "./pixKeyTypes";
@@ -84,9 +85,10 @@ export interface OrderTimerConfig {
 }
 
 export interface OrderStatusContentConfig {
+  /** Rótulo do badge de status no topo da página. */
   title: string;
-  message: string;
-  emoji: string;
+  /** HTML renderizado no card de status. Placeholders: ver `OrderStatusHtmlVars` em `orderStatusHtml.ts`. */
+  html: string;
 }
 
 export interface OrderStatusLabelsConfig {
@@ -635,34 +637,42 @@ export const defaultBrandConfig: BrandConfig = {
       waitingMessage: "Assim que o pagamento for identificado, atualizaremos esta tela automaticamente.",
       paymentTimeout: {
         title: "Pagamento expirado",
-        message: "O prazo de pagamento terminou. Gere um novo pedido para continuar.",
-        emoji: "⏰"
+        html: buildLegacyOrderStatusHtml(
+          "⏰",
+          "O prazo de pagamento terminou. Gere um novo pedido para continuar."
+        )
       },
       paymentRecognized: {
         title: "Pagamento reconhecido",
-        message: "Pagamento reconhecido, pegue um café e aguarde que já enviamos as cripto. Pode levar até 5 minutos.",
-        emoji: "☕"
+        html: buildLegacyOrderStatusHtml(
+          "☕",
+          "Pagamento reconhecido, pegue um café e aguarde que já enviamos as cripto. Pode levar até 5 minutos."
+        )
       },
       orderConcluded: {
         title: "Pedido concluído",
-        message: "Tudo certo. As criptos foram enviadas para a carteira informada.",
-        emoji: "✅"
+        html: buildLegacyOrderStatusHtml("✅", "Tudo certo. As criptos foram enviadas para a carteira informada.")
       },
       paymentUpdateTimeout: {
         title: "Pagamento expirado",
-        message: "Que pena! Não conseguimos processar o pagamento. Se você acha que isso é um erro, entre em contato com o suporte.",
-        emoji: "💔"
+        html: buildLegacyOrderStatusHtml(
+          "💔",
+          "Que pena! Não conseguimos processar o pagamento. Se você acha que isso é um erro, entre em contato com o suporte."
+        )
       },
       orderUpdateTimeout: {
         title: "Pedido atrasado",
-        message: "Recebemos seu pagamento, mas ainda não tivemos novas atualizações do pedido. Se necessário, entre em contato com o suporte.",
-        emoji: "💔"
+        html: buildLegacyOrderStatusHtml(
+          "💔",
+          "Recebemos seu pagamento, mas ainda não tivemos novas atualizações do pedido. Se necessário, entre em contato com o suporte."
+        )
       },
       paymentReproved: {
         title: "Pedido não processado",
-        message:
-          "Não foi possível processar seu pedido. O reembolso do valor depositado já foi processado. Em caso de dúvida, entre em contato com {supportEmail}.",
-        emoji: "↩️"
+        html: buildLegacyOrderStatusHtml(
+          "↩️",
+          "Não foi possível processar seu pedido. O reembolso do valor depositado já foi processado. Em caso de dúvida, entre em contato com {supportEmail}."
+        )
       },
       statusLabels: {
         created: "Criado",
@@ -1061,11 +1071,17 @@ function asOrderStatusContentConfig(value: unknown, fallback: OrderStatusContent
   if (!isRecord(value)) {
     return fallback;
   }
-  return {
-    title: asString(value.title, fallback.title),
-    message: asString(value.message, fallback.message),
-    emoji: asString(value.emoji, fallback.emoji)
-  };
+  const title = asString(value.title, fallback.title);
+  const htmlFromConfig = typeof value.html === "string" ? value.html : "";
+  const legacyMessage = asString(value.message, "");
+  const legacyEmoji = asString(value.emoji, "");
+  const html =
+    htmlFromConfig.trim() ||
+    (legacyMessage || legacyEmoji
+      ? buildLegacyOrderStatusHtml(legacyEmoji, legacyMessage)
+      : "") ||
+    fallback.html;
+  return { title, html };
 }
 
 function asOrderStatusLabelsConfig(value: unknown, fallback: OrderStatusLabelsConfig): OrderStatusLabelsConfig {

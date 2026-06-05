@@ -264,8 +264,7 @@
       "waitingMessage": "Assim que o pagamento for identificado, atualizaremos esta tela automaticamente.",
       "paymentTimeout": {
         "title": "Pagamento expirado",
-        "message": "O prazo de pagamento terminou. Gere um novo pedido para continuar.\nSe você acha que isso é um erro, entre em contato com o suporte pelo e-mail suporte@empresa-exemplo.com.br.",
-        "emoji": "⏰"
+        "html": "<div class=\"order-status-html\"><span class=\"order-status-html__emoji\" aria-hidden=\"true\">⏰</span><div class=\"order-status-html__body\"><p><strong>Pedido {orderNumber}</strong> — prazo encerrado.</p><p>O prazo de pagamento terminou. Gere um novo pedido para continuar.</p><p>Em caso de dúvida: <a href=\"mailto:{supportEmail}\">{supportEmail}</a></p></div></div>"
       },
       "paymentRecognized": {
         "title": "Pagamento reconhecido",

@@ -103,6 +103,7 @@ O arquivo `public/runtime-config.local.json` esta no `.gitignore` e deve ser pre
   - `orderPage.timer.warningThresholdSeconds` — ponto em segundos para ativar o estado visual de urgencia do timer.
   - `orderPage.timer.normal` / `orderPage.timer.warning` — cores de fundo, borda e texto do timer nos estados normal e warning.
   - `orderPage.texts.*` — todos os textos principais da tela do pedido, incluindo labels, CTA de copiar PIX e mensagens dos estados `payment_timeout`, `payment_recognized` e `order_concluded`.
+  - Estados do card de status (`paymentTimeout`, `paymentRecognized`, `orderConcluded`, `paymentUpdateTimeout`, `orderUpdateTimeout`, `paymentReproved`): use `title` no badge superior e `html` (HTML livre) no quadrante. Placeholders no HTML: `{orderId}`, `{orderNumber}`, `{supportEmail}`, `{companyName}`, `{email}`, `{status}`, `{statusLabel}`, `{tradeSide}`, `{tradeSideLabel}`, `{asset}`, `{payValue}`, `{receiveValue}`, `{receivingData}`. Configs antigas com `emoji` + `message` continuam válidas (convertidas automaticamente).
 - Tema visual:
   - `primaryColor`
   - `theme.cssVariables`
