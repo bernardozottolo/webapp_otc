@@ -154,8 +154,10 @@ export interface OrderPageTextsConfig {
   buyLabel: string;
   sellLabel: string;
   waitingMessage: string;
+  paymentSubmittedButtonLabel: string;
+  undoPaymentSubmittedButtonLabel: string;
   paymentTimeout: OrderStatusContentConfig;
-  paymentRecognized: OrderStatusContentConfig;
+  paymentProcessing: OrderStatusContentConfig;
   orderConcluded: OrderStatusContentConfig;
   paymentUpdateTimeout: OrderStatusContentConfig;
   orderUpdateTimeout: OrderStatusContentConfig;
@@ -635,6 +637,8 @@ export const defaultBrandConfig: BrandConfig = {
       buyLabel: "Compra",
       sellLabel: "Venda",
       waitingMessage: "Assim que o pagamento for identificado, atualizaremos esta tela automaticamente.",
+      paymentSubmittedButtonLabel: "Já Realizei o Pagamento",
+      undoPaymentSubmittedButtonLabel: "Voltar ao pagamento",
       paymentTimeout: {
         title: "Pagamento expirado",
         html: buildLegacyOrderStatusHtml(
@@ -642,11 +646,11 @@ export const defaultBrandConfig: BrandConfig = {
           "O prazo de pagamento terminou. Gere um novo pedido para continuar."
         )
       },
-      paymentRecognized: {
-        title: "Pagamento reconhecido",
+      paymentProcessing: {
+        title: "Processando pagamento",
         html: buildLegacyOrderStatusHtml(
-          "☕",
-          "Pagamento reconhecido, pegue um café e aguarde que já enviamos as cripto. Pode levar até 5 minutos."
+          "⏳",
+          "Estamos processando o seu pagamento. Isso pode demorar alguns minutos. Esta página será atualizada automaticamente."
         )
       },
       orderConcluded: {
@@ -1168,8 +1172,16 @@ function asOrderPageTextsConfig(value: unknown, fallback: OrderPageTextsConfig):
     buyLabel: asString(value.buyLabel, fallback.buyLabel),
     sellLabel: asString(value.sellLabel, fallback.sellLabel),
     waitingMessage: asString(value.waitingMessage, fallback.waitingMessage),
+    paymentSubmittedButtonLabel: asString(value.paymentSubmittedButtonLabel, fallback.paymentSubmittedButtonLabel),
+    undoPaymentSubmittedButtonLabel: asString(
+      value.undoPaymentSubmittedButtonLabel,
+      fallback.undoPaymentSubmittedButtonLabel
+    ),
     paymentTimeout: asOrderStatusContentConfig(value.paymentTimeout, fallback.paymentTimeout),
-    paymentRecognized: asOrderStatusContentConfig(value.paymentRecognized, fallback.paymentRecognized),
+    paymentProcessing: asOrderStatusContentConfig(
+      isRecord(value) ? (value.paymentProcessing ?? value.paymentRecognized) : value,
+      fallback.paymentProcessing
+    ),
     orderConcluded: asOrderStatusContentConfig(value.orderConcluded, fallback.orderConcluded),
     paymentUpdateTimeout: asOrderStatusContentConfig(value.paymentUpdateTimeout, fallback.paymentUpdateTimeout),
     orderUpdateTimeout: asOrderStatusContentConfig(value.orderUpdateTimeout, fallback.orderUpdateTimeout),

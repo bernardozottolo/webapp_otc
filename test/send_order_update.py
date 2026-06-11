@@ -1,7 +1,7 @@
 # Exemplos de uso deste script:
 # 
-# Enviar evento payment_recognized com instruções de pagamento:
-# python send_order_update.py payment_recognized --order-id=999 --client-id=TESTE --input-asset=BRL --input-amount=123.45 --output-asset=USDT --output-amount-net=17 --network=BSC --wallet-address=TESTE_WALLET
+# Enviar evento payment_processing com instruções de pagamento:
+# python send_order_update.py payment_processing --order-id=999 --client-id=TESTE --input-asset=BRL --input-amount=123.45 --output-asset=USDT --output-amount-net=17 --network=BSC --wallet-address=TESTE_WALLET
 #
 # Enviar evento order_concluded com payout_identifier:
 # python send_order_update.py order_concluded --order-id=123 --input-asset=BRL --input-amount=1050 --output-asset=USDT --output-amount-net=20.5 --payout-identifier=TX1234567890 
@@ -30,15 +30,15 @@ def _base_order_info(args: argparse.Namespace, status: str) -> dict:
 
 
 def build_payload(args: argparse.Namespace) -> dict:
-    if args.event == "payment_recognized":
-        order_info = _base_order_info(args, "payment_confirmed")
+    if args.event == "payment_processing":
+        order_info = _base_order_info(args, "processing")
         if args.network or args.wallet_address:
             order_info["payment_instructions"] = {
                 "network": args.network,
                 "wallet_address": args.wallet_address,
             }
         return {
-            "template": "payment_recognized",
+            "template": "payment_processing",
             "client_id": args.client_id,
             "order_info": order_info,
         }
@@ -93,7 +93,7 @@ def main() -> None:
 
     parser.add_argument(
         "event",
-        choices=["payment_recognized", "order_concluded", "payment_timeout", "payment_reproved"],
+        choices=["payment_processing", "order_concluded", "payment_timeout", "payment_reproved"],
         help="Tipo de atualização que será enviada.",
     )
 

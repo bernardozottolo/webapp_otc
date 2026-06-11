@@ -1202,7 +1202,7 @@ button {
   color: var(--order-page-danger-color);
 }
 
-.order-status-badge--payment_recognized {
+.order-status-badge--payment_processing {
   border-color: color-mix(in srgb, var(--order-page-warning-color) 34%, transparent);
   background: color-mix(in srgb, var(--order-page-warning-color) 12%, #ffffff);
   color: var(--order-page-warning-color);
@@ -1340,8 +1340,8 @@ button {
   background: color-mix(in srgb, var(--order-page-danger-color) 8%, #ffffff);
 }
 
-.order-highlight-banner--payment_recognized,
-.order-status-card--payment_recognized {
+.order-highlight-banner--payment_processing,
+.order-status-card--payment_processing {
   border-color: color-mix(in srgb, var(--order-page-warning-color) 26%, transparent);
   background: color-mix(in srgb, var(--order-page-warning-color) 10%, #ffffff);
 }
@@ -1547,6 +1547,15 @@ button {
   margin-top: auto;
   display: flex;
   justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.order-status-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 4px;
 }
 
 .order-payment-actions--start {

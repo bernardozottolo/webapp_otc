@@ -334,7 +334,7 @@ def get_settings() -> Settings:
         order_notification_statuses=_parse_notification_statuses(
             os.getenv(
                 "ORDER_NOTIFICATION_STATUSES",
-                "payment_confirmed,completed,concluded,cancelled,failed,expired,timeout,payment_timeout,order_update_timeout",
+                "processing,completed,concluded,cancelled,failed,expired,timeout,payment_timeout,order_update_timeout",
             )
         ),
         backend_company_key=backend_company_key,

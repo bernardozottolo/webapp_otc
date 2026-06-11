@@ -60,8 +60,8 @@ def _extract_status_from_update_body(update_body: dict[str, Any]) -> str:
     order_status = ""
     if isinstance(order_info, dict):
         order_status = normalize_order_status(str(order_info.get("status", "")))
-    if template == "payment_recognized":
-        return order_status or "payment_confirmed"
+    if template == "payment_processing":
+        return order_status or "processing"
     if template == "order_concluded":
         return order_status or "concluded"
     if template == "payment_timeout":

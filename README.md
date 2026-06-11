@@ -102,8 +102,8 @@ O arquivo `public/runtime-config.local.json` esta no `.gitignore` e deve ser pre
   - `orderPage.timer.durationSeconds` — duracao do countdown de pagamento.
   - `orderPage.timer.warningThresholdSeconds` — ponto em segundos para ativar o estado visual de urgencia do timer.
   - `orderPage.timer.normal` / `orderPage.timer.warning` — cores de fundo, borda e texto do timer nos estados normal e warning.
-  - `orderPage.texts.*` — todos os textos principais da tela do pedido, incluindo labels, CTA de copiar PIX e mensagens dos estados `payment_timeout`, `payment_recognized` e `order_concluded`.
-  - Estados do card de status (`paymentTimeout`, `paymentRecognized`, `orderConcluded`, `paymentUpdateTimeout`, `orderUpdateTimeout`, `paymentReproved`): use `title` no badge superior e `html` (HTML livre) no quadrante. Placeholders no HTML: `{orderId}`, `{orderNumber}`, `{supportEmail}`, `{companyName}`, `{email}`, `{status}`, `{statusLabel}`, `{tradeSide}`, `{tradeSideLabel}`, `{asset}`, `{payValue}`, `{receiveValue}`, `{receivingData}`. Configs antigas com `emoji` + `message` continuam válidas (convertidas automaticamente).
+  - `orderPage.texts.*` — todos os textos principais da tela do pedido, incluindo labels, CTA de copiar PIX, `paymentSubmittedButtonLabel` / `undoPaymentSubmittedButtonLabel` e mensagens dos estados `payment_timeout`, `payment_processing` e `order_concluded`.
+  - Estados do card de status (`paymentTimeout`, `paymentProcessing`, `orderConcluded`, `paymentUpdateTimeout`, `orderUpdateTimeout`, `paymentReproved`): use `title` no badge superior e `html` (HTML livre) no quadrante. Placeholders no HTML: `{orderId}`, `{orderNumber}`, `{supportEmail}`, `{companyName}`, `{email}`, `{status}`, `{statusLabel}`, `{tradeSide}`, `{tradeSideLabel}`, `{asset}`, `{payValue}`, `{receiveValue}`, `{receivingData}`. Configs antigas com `emoji` + `message` ou chave `paymentRecognized` continuam válidas (convertidas automaticamente).
 - Tema visual:
   - `primaryColor`
   - `theme.cssVariables`
@@ -367,7 +367,8 @@ No fluxo `BUY`, o browser continua falando apenas com a mesma origem da aplicaca
 - Quando `create_order` retorna com sucesso, o FastAPI guarda um snapshot temporario do pedido e a pagina `'/order/:id'` pode ser reaberta ate o TTL configurado.
 - Updates posteriores do OTC podem ser enviados para `POST /api/order-updates` e a pagina `'/order/:id'` faz polling em `GET /api/order-updates/{orderId}` para consolidar status, `txHash` e metadados de pagamento.
 - A tela `'/order/:id'` usa `order.createdAt + orderPage.timer.durationSeconds` para mostrar o countdown de pagamento e troca de visual quando o threshold configurado e atingido.
-- Apenas updates mapeados mudam a estrutura da tela: `payment_timeout`/`cancelled`, `payment_recognized`/`payment_confirmed`, `order_concluded`/`concluded` e `payment_reproved`/`reproved` (reembolso após falha de processamento, ex. venda com KYT reprovado).
+- Apenas updates mapeados mudam a estrutura da tela: `payment_timeout`/`cancelled`, `payment_processing`/`processing`, `order_concluded`/`concluded` e `payment_reproved`/`reproved` (reembolso após falha de processamento, ex. venda com KYT reprovado).
+- O cliente pode marcar localmente "Já Realizei o Pagamento" (persistido no cache do pedido) para exibir `paymentProcessing` antes do update do backend; pode desfazer enquanto o status continuar `waiting_for_payment`.
 - O contrato de `order_info` nos updates usa `input_asset`, `input_amount`, `output_asset`, `output_amount_gross`, `output_amount_net`, `fee_asset`, `fee_fiat`, `payment_instructions` (mesmo conteúdo do `payment_data` do create) e `payment_data_v2` (`payout_identifier`, `refund_identifier`).
 
 ### Simular updates manualmente
@@ -376,10 +377,10 @@ Durante desenvolvimento, o frontend expõe um helper global para aplicar updates
 
 ```js
 window.__OTC_ORDER_UPDATE__?.({
-  template: "payment_recognized",
+  template: "payment_processing",
   orderInfo: {
     order_id: "203389547237282",
-    status: "payment_confirmed",
+    status: "processing",
     input_asset: "BRL",
     input_amount: 1000,
     output_asset: "USDT",

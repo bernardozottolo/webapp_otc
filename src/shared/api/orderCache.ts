@@ -35,11 +35,45 @@ let maintenanceTimerId: number | null = null;
 export type OrderDisplayVariant =
   | "default"
   | "payment_timeout"
-  | "payment_recognized"
+  | "payment_processing"
   | "order_concluded"
   | "payment_reproved"
   | "payment_update_timeout"
   | "order_update_timeout";
+
+function normalizeClientFlags(value: unknown): StoredOrderRecord["clientFlags"] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+  const flags = value as StoredOrderRecord["clientFlags"];
+  if (!flags?.paymentSubmitted) {
+    return undefined;
+  }
+  return { paymentSubmitted: true };
+}
+
+export function isLocalPaymentSubmittedOnly(record: StoredOrderRecord | null | undefined): boolean {
+  if (!record?.clientFlags?.paymentSubmitted) {
+    return false;
+  }
+  const status = record.order.status?.trim();
+  return status === "waiting_for_payment";
+}
+
+export function setOrderPaymentSubmitted(orderId: string, submitted: boolean): StoredOrderRecord | null {
+  const current = getOrderRecord(orderId);
+  if (!current) {
+    return null;
+  }
+  const next: StoredOrderRecord = {
+    ...current,
+    clientFlags: submitted ? { paymentSubmitted: true } : undefined,
+    expiresAt: Date.now() + orderPersistenceConfig.ttlMs,
+    lastUpdatedAt: Date.now()
+  };
+  syncRecord(next, orderId);
+  return next;
+}
 
 function getStorage(): Storage | null {
   if (typeof window === "undefined") {
@@ -78,6 +112,7 @@ function coerceStoredOrderRecord(value: unknown): StoredOrderRecord | null {
         candidate.createSummary && typeof candidate.createSummary === "object" && !Array.isArray(candidate.createSummary)
           ? (candidate.createSummary as OrderCreateSummary)
           : undefined,
+      clientFlags: normalizeClientFlags(candidate.clientFlags),
       createdAt: typeof candidate.createdAt === "number" ? candidate.createdAt : Date.now(),
       expiresAt:
         typeof candidate.expiresAt === "number" ? candidate.expiresAt : Date.now() + orderPersistenceConfig.ttlMs,
@@ -189,11 +224,19 @@ function buildRecord(
   return {
     order,
     createSummary: createSummary ?? previous?.createSummary,
+    clientFlags: previous?.clientFlags,
     createdAt: previous?.createdAt ?? now,
     expiresAt: now + orderPersistenceConfig.ttlMs,
     updates: previous?.updates ?? [],
     lastUpdatedAt: now
   };
+}
+
+function preserveClientFlags(order: Order, previous?: StoredOrderRecord | null): StoredOrderRecord["clientFlags"] {
+  if (order.status?.trim() !== "waiting_for_payment") {
+    return undefined;
+  }
+  return previous?.clientFlags?.paymentSubmitted ? { paymentSubmitted: true } : undefined;
 }
 
 function normalizeUpdate(update: Omit<OrderUpdatePayload, "receivedAt"> | OrderUpdatePayload): OrderUpdatePayload {
@@ -336,29 +379,34 @@ export function getOrderDisplayVariant(
   if (hasPaymentTimeoutUpdate || latestTemplate === "payment_timeout" || status === "cancelled") {
     return "payment_timeout";
   }
+  if (latestTemplate === "payment_reproved" || status === "reproved") {
+    return "payment_reproved";
+  }
+  if (
+    latestTemplate === "payment_processing" ||
+    status === "processing" ||
+    (record?.clientFlags?.paymentSubmitted && status === "waiting_for_payment")
+  ) {
+    return "payment_processing";
+  }
   if (
     status === "waiting_for_payment" &&
     paymentTimeoutMs > 0 &&
     record &&
     record.updates.length === 0 &&
+    !record.clientFlags?.paymentSubmitted &&
     now - record.createdAt >= paymentTimeoutMs
   ) {
     return "payment_update_timeout";
   }
   if (
-    status === "payment_confirmed" &&
+    status === "processing" &&
     orderUpdateTimeoutMs > 0 &&
     latestUpdate &&
-    (latestTemplate === "payment_recognized" || latestUpdate.orderInfo.status?.trim() === "payment_confirmed") &&
+    latestTemplate === "payment_processing" &&
     now - latestUpdate.receivedAt >= orderUpdateTimeoutMs
   ) {
     return "order_update_timeout";
-  }
-  if (latestTemplate === "payment_reproved" || status === "reproved") {
-    return "payment_reproved";
-  }
-  if (latestTemplate === "payment_recognized" || status === "payment_confirmed") {
-    return "payment_recognized";
   }
   if (latestTemplate === "order_concluded" || status === "concluded") {
     return "order_concluded";
@@ -474,9 +522,11 @@ export function applyOrderUpdate(update: Omit<OrderUpdatePayload, "receivedAt"> 
   if (!current) {
     return null;
   }
+  const mergedOrder = shouldApplyOrderUpdate(normalized) ? mergeOrderUpdate(current.order, normalized) : current.order;
   const next: StoredOrderRecord = {
     ...current,
-    order: shouldApplyOrderUpdate(normalized) ? mergeOrderUpdate(current.order, normalized) : current.order,
+    order: mergedOrder,
+    clientFlags: preserveClientFlags(mergedOrder, current),
     updates: [...current.updates, normalized],
     expiresAt: Date.now() + orderPersistenceConfig.ttlMs,
     lastUpdatedAt: Date.now()
@@ -538,6 +588,7 @@ export function replaceOrderRecord(record: StoredOrderRecord): StoredOrderRecord
   const next: StoredOrderRecord = {
     order: consolidatedOrder,
     createSummary: existing?.createSummary ?? record.createSummary,
+    clientFlags: preserveClientFlags(consolidatedOrder, existing ?? record),
     createdAt: record.createdAt,
     expiresAt: record.expiresAt,
     updates: sortedUpdates,

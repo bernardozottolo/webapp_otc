@@ -62,15 +62,15 @@ def detect_local_synthetic_status(
         )
 
     if (
-        status == "payment_confirmed"
+        status == "processing"
         and order_update_timeout_ms > 0
         and latest_update is not None
         and (
-            latest_template == "payment_recognized"
+            latest_template == "payment_processing"
             or (
                 isinstance(latest_update.get("order_info"), dict)
                 and normalize_order_status(str(latest_update["order_info"].get("status", "")))
-                == "payment_confirmed"
+                == "processing"
             )
         )
         and latest_received_at > 0
@@ -78,7 +78,7 @@ def detect_local_synthetic_status(
     ):
         return (
             "order_update_timeout",
-            "payment_confirmed",
+            "processing",
             _build_local_payload(record, reason="order_update_timeout", latest_update=latest_update),
         )
 

@@ -284,10 +284,17 @@ export interface OrderCreateSummary {
   };
 }
 
+export interface StoredOrderRecordClientFlags {
+  /** Usuário marcou "Já realizei o pagamento" antes de update do backend. */
+  paymentSubmitted?: boolean;
+}
+
 export interface StoredOrderRecord {
   order: Order;
   /** Resumo congelado na criação do pedido; não é sobrescrito por updates. */
   createSummary?: OrderCreateSummary;
+  /** Flags apenas no cliente; preservadas entre reloads até TTL. */
+  clientFlags?: StoredOrderRecordClientFlags;
   createdAt: number;
   expiresAt: number;
   updates: OrderUpdatePayload[];

@@ -7,8 +7,10 @@ import {
   getOrderRecord,
   getWindowOrderPayload,
   isKnownOrderStatus,
+  isLocalPaymentSubmittedOnly,
   removeExpiredOrders,
   replaceOrderRecord,
+  setOrderPaymentSubmitted,
   subscribeToOrder
 } from "../../shared/api/orderCache";
 import { otcApiClient } from "../../shared/api/client";
@@ -139,8 +141,8 @@ function resolveVariantContent(variant: ReturnType<typeof getOrderDisplayVariant
       return texts.paymentTimeout;
     case "payment_update_timeout":
       return texts.paymentUpdateTimeout;
-    case "payment_recognized":
-      return texts.paymentRecognized;
+    case "payment_processing":
+      return texts.paymentProcessing;
     case "order_update_timeout":
       return texts.orderUpdateTimeout;
     case "order_concluded":
@@ -469,6 +471,18 @@ export function OrderStatusPage({ brand }: OrderStatusPageProps) {
     window.setTimeout(() => setPayloadCopied(false), 1800);
   };
 
+  const showUndoPaymentSubmitted = isLocalPaymentSubmittedOnly(record);
+
+  const handlePaymentSubmitted = () => {
+    if (!id) return;
+    setOrderPaymentSubmitted(id, true);
+  };
+
+  const handleUndoPaymentSubmitted = () => {
+    if (!id) return;
+    setOrderPaymentSubmitted(id, false);
+  };
+
   const handleCopyTxHash = async () => {
     if (!txHashValue) return;
     await copyTextToClipboard(txHashValue);
@@ -591,6 +605,9 @@ export function OrderStatusPage({ brand }: OrderStatusPageProps) {
                   >
                     {payloadCopied ? copiedAddressLabel : copyAddressLabel}
                   </button>
+                  <button type="button" className="order-link-button" onClick={handlePaymentSubmitted}>
+                    {texts.paymentSubmittedButtonLabel}
+                  </button>
                 </div>
                 {isSellOrder && sellDepositNetworkNoticeText ? (
                   <p className="order-sell-deposit-notice">{sellDepositNetworkNoticeText}</p>
@@ -599,12 +616,21 @@ export function OrderStatusPage({ brand }: OrderStatusPageProps) {
             ) : (
               <article className={`card order-status-card order-status-card--${displayVariant}`}>
                 {variantContent ? (
-                  <div className={`order-highlight-banner order-highlight-banner--${displayVariant}`}>
-                    <div
-                      className="order-highlight-banner__html"
-                      dangerouslySetInnerHTML={{ __html: variantStatusHtml }}
-                    />
-                  </div>
+                  <>
+                    <div className={`order-highlight-banner order-highlight-banner--${displayVariant}`}>
+                      <div
+                        className="order-highlight-banner__html"
+                        dangerouslySetInnerHTML={{ __html: variantStatusHtml }}
+                      />
+                    </div>
+                    {showUndoPaymentSubmitted ? (
+                      <div className="order-status-actions">
+                        <button type="button" className="order-link-button" onClick={handleUndoPaymentSubmitted}>
+                          {texts.undoPaymentSubmittedButtonLabel}
+                        </button>
+                      </div>
+                    ) : null}
+                  </>
                 ) : (
                   <>
                     <div className="order-status-card__emoji" aria-hidden="true">
