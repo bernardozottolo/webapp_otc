@@ -141,6 +141,8 @@ function resolveVariantContent(variant: ReturnType<typeof getOrderDisplayVariant
       return texts.paymentTimeout;
     case "payment_update_timeout":
       return texts.paymentUpdateTimeout;
+    case "payment_submitted":
+      return texts.paymentSubmitted;
     case "payment_processing":
       return texts.paymentProcessing;
     case "order_update_timeout":

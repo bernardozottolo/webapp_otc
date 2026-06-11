@@ -1202,6 +1202,7 @@ button {
   color: var(--order-page-danger-color);
 }
 
+.order-status-badge--payment_submitted,
 .order-status-badge--payment_processing {
   border-color: color-mix(in srgb, var(--order-page-warning-color) 34%, transparent);
   background: color-mix(in srgb, var(--order-page-warning-color) 12%, #ffffff);
@@ -1340,6 +1341,8 @@ button {
   background: color-mix(in srgb, var(--order-page-danger-color) 8%, #ffffff);
 }
 
+.order-highlight-banner--payment_submitted,
+.order-status-card--payment_submitted,
 .order-highlight-banner--payment_processing,
 .order-status-card--payment_processing {
   border-color: color-mix(in srgb, var(--order-page-warning-color) 26%, transparent);

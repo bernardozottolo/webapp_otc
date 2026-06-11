@@ -35,6 +35,9 @@ let maintenanceTimerId: number | null = null;
 export type OrderDisplayVariant =
   | "default"
   | "payment_timeout"
+  /** Cliente marcou "Já realizei o pagamento" (ainda sem confirmação do backend). */
+  | "payment_submitted"
+  /** Backend confirmou processamento (`payment_processing` / `processing`). */
   | "payment_processing"
   | "order_concluded"
   | "payment_reproved"
@@ -382,11 +385,10 @@ export function getOrderDisplayVariant(
   if (latestTemplate === "payment_reproved" || status === "reproved") {
     return "payment_reproved";
   }
-  if (
-    latestTemplate === "payment_processing" ||
-    status === "processing" ||
-    (record?.clientFlags?.paymentSubmitted && status === "waiting_for_payment")
-  ) {
+  if (record?.clientFlags?.paymentSubmitted && status === "waiting_for_payment") {
+    return "payment_submitted";
+  }
+  if (latestTemplate === "payment_processing" || status === "processing") {
     return "payment_processing";
   }
   if (

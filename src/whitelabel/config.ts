@@ -156,7 +156,10 @@ export interface OrderPageTextsConfig {
   waitingMessage: string;
   paymentSubmittedButtonLabel: string;
   undoPaymentSubmittedButtonLabel: string;
+  /** Card exibido quando o cliente marca "Já realizei o pagamento" (sem confirmação do backend). */
+  paymentSubmitted: OrderStatusContentConfig;
   paymentTimeout: OrderStatusContentConfig;
+  /** Card exibido quando o backend reconhece o pagamento (`payment_processing` / `processing`). */
   paymentProcessing: OrderStatusContentConfig;
   orderConcluded: OrderStatusContentConfig;
   paymentUpdateTimeout: OrderStatusContentConfig;
@@ -639,6 +642,13 @@ export const defaultBrandConfig: BrandConfig = {
       waitingMessage: "Assim que o pagamento for identificado, atualizaremos esta tela automaticamente.",
       paymentSubmittedButtonLabel: "Já Realizei o Pagamento",
       undoPaymentSubmittedButtonLabel: "Voltar ao pagamento",
+      paymentSubmitted: {
+        title: "Processando pagamento",
+        html: buildLegacyOrderStatusHtml(
+          "⏳",
+          "Recebemos a sua informação de pagamento. Estamos processando e verificando a transação — isso pode demorar alguns minutos. Esta página será atualizada automaticamente."
+        )
+      },
       paymentTimeout: {
         title: "Pagamento expirado",
         html: buildLegacyOrderStatusHtml(
@@ -647,10 +657,10 @@ export const defaultBrandConfig: BrandConfig = {
         )
       },
       paymentProcessing: {
-        title: "Processando pagamento",
+        title: "Pagamento reconhecido",
         html: buildLegacyOrderStatusHtml(
-          "⏳",
-          "Estamos processando o seu pagamento. Isso pode demorar alguns minutos. Esta página será atualizada automaticamente."
+          "☕",
+          "Recebemos seu pagamento e já estamos processando o envio das cripto para a carteira informada.\n\nEsse processo pode levar até 5 minutos. Esta página será atualizada automaticamente."
         )
       },
       orderConcluded: {
@@ -1177,6 +1187,7 @@ function asOrderPageTextsConfig(value: unknown, fallback: OrderPageTextsConfig):
       value.undoPaymentSubmittedButtonLabel,
       fallback.undoPaymentSubmittedButtonLabel
     ),
+    paymentSubmitted: asOrderStatusContentConfig(value.paymentSubmitted, fallback.paymentSubmitted),
     paymentTimeout: asOrderStatusContentConfig(value.paymentTimeout, fallback.paymentTimeout),
     paymentProcessing: asOrderStatusContentConfig(
       isRecord(value) ? (value.paymentProcessing ?? value.paymentRecognized) : value,

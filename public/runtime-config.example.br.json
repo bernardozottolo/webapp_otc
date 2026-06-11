@@ -264,13 +264,17 @@
       "waitingMessage": "Assim que o pagamento for identificado, atualizaremos esta tela automaticamente.",
       "paymentSubmittedButtonLabel": "Já Realizei o Pagamento",
       "undoPaymentSubmittedButtonLabel": "Voltar ao pagamento",
+      "paymentSubmitted": {
+        "title": "Processando pagamento",
+        "html": "<div class=\"order-status-html order-status-html--warning\" style=\"text-align: center;\"><div class=\"order-status-html__content\"><h3 class=\"order-status-html__title\"><span aria-hidden=\"true\">⏳</span> Processando pagamento</h3><p class=\"order-status-html__text\">Recebemos a sua informação de pagamento do pedido {orderNumber}. Estamos processando e verificando a transação — isso pode demorar alguns minutos.</p><p class=\"order-status-html__text\">Esta página será atualizada automaticamente.</p></div></div>"
+      },
       "paymentTimeout": {
         "title": "Pagamento expirado",
         "html": "<div class=\"order-status-html order-status-html--danger\" style=\"text-align: center;\"><div class=\"order-status-html__content\"><h3 class=\"order-status-html__title\"><span aria-hidden=\"true\">❌</span> Prazo de pagamento encerrado</h3><p class=\"order-status-html__text\">Não identificamos o pagamento dentro do prazo, então este pedido foi cancelado automaticamente.</p><p class=\"order-status-html__text\">Para continuar, volte ao Menu Principal e gere um novo pedido.</p><div class=\"order-status-html__actions\" style=\"margin-top: 20px; display: flex; gap: 12px; justify-content: center; align-items: center; flex-wrap: wrap;\"><button class=\"order-status-html__button order-status-html__button--primary\" type=\"button\" onclick=\"window.location.href='/'\">Menu Principal</button><button class=\"order-status-html__button order-status-html__button--secondary\" type=\"button\" onclick=\"window.location.href='mailto:{supportEmail}'\">Falar com suporte</button></div></div></div>"
       },
       "paymentProcessing": {
-        "title": "Processando pagamento",
-        "html": "<div class=\"order-status-html order-status-html--warning\" style=\"text-align: center;\"><div class=\"order-status-html__content\"><h3 class=\"order-status-html__title\"><span aria-hidden=\"true\">⏳</span> Processando pagamento</h3><p class=\"order-status-html__text\">Estamos processando o seu pagamento do pedido {orderNumber}. Isso pode demorar alguns minutos.</p><p class=\"order-status-html__text\">Esta página será atualizada automaticamente.</p></div></div>"
+        "title": "Pagamento reconhecido",
+        "html": "<div class=\"order-status-html order-status-html--warning\" style=\"text-align: center;\"><div class=\"order-status-html__content\"><h3 class=\"order-status-html__title\"><span aria-hidden=\"true\">☕</span> Pagamento reconhecido</h3><p class=\"order-status-html__text\">Recebemos seu pagamento e já estamos processando o envio das cripto para a carteira informada.</p><p class=\"order-status-html__text\">Esse processo pode levar até 5 minutos. Esta página será atualizada automaticamente.</p></div></div>"
       },
       "orderConcluded": {
         "title": "Pedido concluído",
