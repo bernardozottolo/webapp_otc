@@ -18,6 +18,11 @@ export interface OrderStatusHtmlVars {
   receivingData: string;
 }
 
+/** Variáveis HTML "raw" permitidas em `orderPage.texts.*.html` (sem escape). */
+export interface OrderStatusHtmlRawVars {
+  undoPaymentSubmittedButton: string;
+}
+
 function escapeHtml(text: string) {
   return text
     .replace(/&/g, "&amp;")
@@ -36,10 +41,18 @@ export function buildLegacyOrderStatusHtml(emoji: string, message: string) {
   return `<div class="order-status-html order-status-html--legacy"><span class="order-status-html__emoji" aria-hidden="true">${escapeHtml(emojiTrimmed)}</span><div class="order-status-html__body">${body}</div></div>`;
 }
 
-/** Substitui `{chave}`; valores dinâmicos são escapados (o HTML do config não é alterado). */
-export function interpolateOrderStatusHtml(html: string, vars: OrderStatusHtmlVars) {
+/** Substitui placeholders; valores dinâmicos são escapados e raw vars entram sem escape. */
+export function interpolateOrderStatusHtml(
+  html: string,
+  vars: OrderStatusHtmlVars,
+  rawVars: Partial<OrderStatusHtmlRawVars> = {}
+) {
+  const htmlWithRawVars = Object.entries(rawVars).reduce(
+    (result, [key, value]) => result.replace(new RegExp(`\\{${key}\\}`, "g"), value ?? ""),
+    html
+  );
   return Object.entries(vars).reduce(
     (result, [key, value]) => result.replace(new RegExp(`\\{${key}\\}`, "g"), escapeHtml(value ?? "")),
-    html
+    htmlWithRawVars
   );
 }

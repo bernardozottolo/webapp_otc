@@ -266,7 +266,7 @@
       "undoPaymentSubmittedButtonLabel": "Voltar ao pagamento",
       "paymentSubmitted": {
         "title": "Processando pagamento",
-        "html": "<div class=\"order-status-html order-status-html--warning\" style=\"text-align: center;\"><div class=\"order-status-html__content\"><h3 class=\"order-status-html__title\"><span aria-hidden=\"true\">⏳</span> Processando pagamento</h3><p class=\"order-status-html__text\">Recebemos a sua informação de pagamento do pedido {orderNumber}. Estamos processando e verificando a transação — isso pode demorar alguns minutos.</p><p class=\"order-status-html__text\">Esta página será atualizada automaticamente.</p></div></div>"
+        "html": "<div class=\"order-status-html order-status-html--warning\" style=\"text-align: center;\"><div class=\"order-status-html__content\"><h3 class=\"order-status-html__title\"><span aria-hidden=\"true\">⏳</span> Processando pagamento</h3><p class=\"order-status-html__text\">Recebemos a sua informação de pagamento do pedido {orderNumber}. Estamos processando e verificando a transação — isso pode demorar alguns minutos.</p><p class=\"order-status-html__text\">Esta página será atualizada automaticamente.</p><div class=\"order-status-html__actions\" style=\"margin-top: 20px; display: flex; gap: 12px; justify-content: center; align-items: center; flex-wrap: wrap;\">{undoPaymentSubmittedButton}</div></div></div>"
       },
       "paymentTimeout": {
         "title": "Pagamento expirado",

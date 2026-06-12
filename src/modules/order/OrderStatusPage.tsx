@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from "react";
 import { useParams } from "react-router-dom";
 import {
   cacheOrder,
@@ -16,7 +16,11 @@ import {
 import { otcApiClient } from "../../shared/api/client";
 import { Modal } from "../../shared/ui/Modal";
 import { formatDisplayAmountWithAsset, formatDisplayFiatAmount } from "../../shared/displayAmount";
-import { interpolateOrderStatusHtml, type OrderStatusHtmlVars } from "../../shared/orderStatusHtml";
+import {
+  interpolateOrderStatusHtml,
+  type OrderStatusHtmlRawVars,
+  type OrderStatusHtmlVars
+} from "../../shared/orderStatusHtml";
 import type { StoredOrderRecord } from "../../shared/types";
 import type { BrandConfig, OrderPageTextsConfig } from "../../whitelabel/config";
 import { formatStoredPixKeyForDisplay } from "../../whitelabel/pixKeyTypes";
@@ -400,12 +404,25 @@ export function OrderStatusPage({ brand }: OrderStatusPageProps) {
     receivingDataValue
   ]);
 
+  const showUndoPaymentSubmitted = isLocalPaymentSubmittedOnly(record);
+  const rawOrderStatusHtmlVars = useMemo(
+    (): Partial<OrderStatusHtmlRawVars> => ({
+      undoPaymentSubmittedButton: showUndoPaymentSubmitted
+        ? `<button type="button" class="order-link-button" data-order-action="undo-payment-submitted">${texts.undoPaymentSubmittedButtonLabel}</button>`
+        : ""
+    }),
+    [showUndoPaymentSubmitted, texts.undoPaymentSubmittedButtonLabel]
+  );
+
   const variantStatusHtml = useMemo(() => {
     if (!variantContent?.html.trim()) {
       return "";
     }
-    return interpolateOrderStatusHtml(variantContent.html, orderStatusHtmlVars);
-  }, [variantContent, orderStatusHtmlVars]);
+    return interpolateOrderStatusHtml(variantContent.html, orderStatusHtmlVars, rawOrderStatusHtmlVars);
+  }, [variantContent, orderStatusHtmlVars, rawOrderStatusHtmlVars]);
+
+  const supportsEmbeddedUndoPaymentSubmittedButton =
+    variantContent?.html.includes("{undoPaymentSubmittedButton}") ?? false;
 
   useEffect(() => {
     if (!deadlineMs || !shouldShowPaymentCard) {
@@ -473,7 +490,21 @@ export function OrderStatusPage({ brand }: OrderStatusPageProps) {
     window.setTimeout(() => setPayloadCopied(false), 1800);
   };
 
-  const showUndoPaymentSubmitted = isLocalPaymentSubmittedOnly(record);
+  const handleVariantStatusHtmlClick = (event: MouseEvent<HTMLDivElement>) => {
+    const target = event.target;
+    if (!(target instanceof Element)) {
+      return;
+    }
+    const actionElement = target.closest("[data-order-action]");
+    if (!(actionElement instanceof HTMLElement)) {
+      return;
+    }
+    const action = actionElement.dataset.orderAction;
+    if (action === "undo-payment-submitted") {
+      event.preventDefault();
+      handleUndoPaymentSubmitted();
+    }
+  };
 
   const handlePaymentSubmitted = () => {
     if (!id) return;
@@ -622,10 +653,11 @@ export function OrderStatusPage({ brand }: OrderStatusPageProps) {
                     <div className={`order-highlight-banner order-highlight-banner--${displayVariant}`}>
                       <div
                         className="order-highlight-banner__html"
+                        onClick={handleVariantStatusHtmlClick}
                         dangerouslySetInnerHTML={{ __html: variantStatusHtml }}
                       />
                     </div>
-                    {showUndoPaymentSubmitted ? (
+                    {showUndoPaymentSubmitted && !supportsEmbeddedUndoPaymentSubmittedButton ? (
                       <div className="order-status-actions">
                         <button type="button" className="order-link-button" onClick={handleUndoPaymentSubmitted}>
                           {texts.undoPaymentSubmittedButtonLabel}
