@@ -229,17 +229,79 @@ function mapStoredOrderRecord(value: unknown): StoredOrderRecord | null {
 }
 
 export async function getOrderRecordHttp(config: OrderUpdatesConfig, orderId: string): Promise<StoredOrderRecord | null> {
-  const response = await fetch(buildOrderUpdatesUrl(config.orderBaseUrl, orderId), {
+  const url = buildOrderUpdatesUrl(config.orderBaseUrl, orderId);
+  // #region agent log
+  fetch("http://127.0.0.1:7804/ingest/8a6b34d7-7fdd-4a17-b244-19ff7da698d1", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "739830" },
+    body: JSON.stringify({
+      sessionId: "739830",
+      runId: "initial-debug",
+      hypothesisId: "H3",
+      location: "src/shared/api/orderUpdates.ts:232",
+      message: "order-updates fetch start",
+      data: {
+        url,
+        orderIdSuffix: orderId.slice(-6),
+        hasCustomBaseUrl: Boolean(config.orderBaseUrl.trim()),
+        pageOrigin: typeof window !== "undefined" ? window.location.origin : ""
+      },
+      timestamp: Date.now()
+    })
+  }).catch(() => {});
+  // #endregion
+  const response = await fetch(url, {
     method: "GET",
     headers: {
       Accept: "application/json"
     }
   });
+  // #region agent log
+  fetch("http://127.0.0.1:7804/ingest/8a6b34d7-7fdd-4a17-b244-19ff7da698d1", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "739830" },
+    body: JSON.stringify({
+      sessionId: "739830",
+      runId: "initial-debug",
+      hypothesisId: response.ok ? "H2" : "H1",
+      location: "src/shared/api/orderUpdates.ts:249",
+      message: "order-updates fetch response",
+      data: {
+        url,
+        orderIdSuffix: orderId.slice(-6),
+        status: response.status,
+        ok: response.ok,
+        contentType: response.headers.get("content-type") ?? ""
+      },
+      timestamp: Date.now()
+    })
+  }).catch(() => {});
+  // #endregion
   if (response.status === 404) {
     return null;
   }
   if (!response.ok) {
     const text = await response.text().catch(() => "");
+    // #region agent log
+    fetch("http://127.0.0.1:7804/ingest/8a6b34d7-7fdd-4a17-b244-19ff7da698d1", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "739830" },
+      body: JSON.stringify({
+        sessionId: "739830",
+        runId: "initial-debug",
+        hypothesisId: "H1",
+        location: "src/shared/api/orderUpdates.ts:266",
+        message: "order-updates fetch non-ok body",
+        data: {
+          url,
+          orderIdSuffix: orderId.slice(-6),
+          status: response.status,
+          bodyPreview: text.slice(0, 200)
+        },
+        timestamp: Date.now()
+      })
+    }).catch(() => {});
+    // #endregion
     throw new Error(text || `order updates failed with status ${response.status}`);
   }
   return mapStoredOrderRecord(await response.json());
