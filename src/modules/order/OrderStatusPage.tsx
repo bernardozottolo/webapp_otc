@@ -77,6 +77,14 @@ function isHttpUrl(value: string) {
   return /^https?:\/\//i.test(value.trim());
 }
 
+function buildTxHashExplorerUrl(txHash: string) {
+  const trimmed = txHash.trim();
+  if (!trimmed || isHttpUrl(trimmed)) {
+    return "";
+  }
+  return `https://blockscan.com/tx/${encodeURIComponent(trimmed)}`;
+}
+
 function SellPayNetworkWarningIcon({
   ariaLabel,
   bullets
@@ -308,7 +316,8 @@ export function OrderStatusPage({ brand }: OrderStatusPageProps) {
   const txHashUrlRawValue = order?.paymentData?.txHashUrl?.trim() ?? "";
   const txHashValue = isHttpUrl(txHashRawValue) && !txHashUrlRawValue ? "" : txHashRawValue;
   const txHashMaskedValue = maskMiddle(txHashValue, 6, 6);
-  const txHashHrefCandidate = txHashUrlRawValue || (isHttpUrl(txHashRawValue) ? txHashRawValue : "");
+  const txHashHrefCandidate =
+    txHashUrlRawValue || (isHttpUrl(txHashRawValue) ? txHashRawValue : buildTxHashExplorerUrl(txHashRawValue));
   const txHashHref = isHttpUrl(txHashHrefCandidate) ? txHashHrefCandidate : "";
   const hasTxHashValue = Boolean(txHashValue);
   const hasTxHashLink = Boolean(txHashHref);
