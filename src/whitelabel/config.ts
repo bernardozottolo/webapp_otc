@@ -622,7 +622,7 @@ export const defaultBrandConfig: BrandConfig = {
       txHashLinkLabel: "Clique aqui para ver o comprovante da transação",
       copyTxHashLabel: "Copiar transação",
       copiedTxHashLabel: "Transação copiada",
-      payloadLabel: "Payload PIX",
+      payloadLabel: "",
       qrCodeAltLabel: "QR Code do pagamento",
       qrUnavailableMessage: "QR Code indisponível.",
       copyPixButtonLabel: "Copiar Pix Cópia e Cola",
