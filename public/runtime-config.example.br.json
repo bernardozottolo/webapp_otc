@@ -248,7 +248,7 @@
       "payloadLabel": "Payload PIX",
       "qrCodeAltLabel": "QR Code do pagamento",
       "qrUnavailableMessage": "QR Code indisponível.",
-      "copyPixButtonLabel": "Copiar Pix Cópia e Cola",
+      "copyPixButtonLabel": "Pix Copia e Cola",
       "copiedPixButtonLabel": "PIX copiado",
       "sellWalletAddressLabel": "Endereço da carteira",
       "sellPayNetworkWarning": {

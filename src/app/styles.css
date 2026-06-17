@@ -1682,6 +1682,16 @@ button {
   justify-content: center;
 }
 
+@media (min-width: 641px) {
+  .order-qr-code {
+    width: min(100%, 270px);
+  }
+
+  .order-qr-code--modal {
+    width: min(100%, 285px);
+  }
+}
+
 @media (min-width: 860px) {
   .order-page-shell {
     padding: 24px 18px 34px;
@@ -1698,7 +1708,7 @@ button {
   }
 
   .order-payment-modal__content {
-    grid-template-columns: minmax(180px, 190px) minmax(0, 1fr);
+    grid-template-columns: minmax(270px, 285px) minmax(0, 1fr);
     align-items: start;
   }
 }

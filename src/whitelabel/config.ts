@@ -625,7 +625,7 @@ export const defaultBrandConfig: BrandConfig = {
       payloadLabel: "",
       qrCodeAltLabel: "QR Code do pagamento",
       qrUnavailableMessage: "QR Code indisponível.",
-      copyPixButtonLabel: "Copiar Pix Cópia e Cola",
+      copyPixButtonLabel: "Pix Copia e Cola",
       copiedPixButtonLabel: "PIX copiado",
       sellCopyWalletAddressButtonLabel: "Copiar Endereço da Carteira",
       sellCopiedWalletAddressButtonLabel: "Endereço copiado",
