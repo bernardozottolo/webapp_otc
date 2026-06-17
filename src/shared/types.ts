@@ -274,6 +274,9 @@ export interface OrderCreateSummary {
   payViaNetworkLabel?: string;
   /** @deprecated Use payViaNetworkCode / payViaNetworkLabel. */
   payViaNetwork?: string;
+  /** Documento do cliente congelado na criação (ex.: CPF/CNPJ usado no create_order). */
+  customerDocument?: string;
+  customerDocumentType?: string;
   /** Destino de recebimento do cliente (`payment_info` do body do create_order). */
   customerPayment: {
     network?: string;

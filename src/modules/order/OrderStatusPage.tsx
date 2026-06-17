@@ -60,6 +60,19 @@ function interpolateTemplate(message: string, vars: Record<string, string>) {
   );
 }
 
+function formatDocumentForDisplay(document: string, documentType?: string) {
+  const trimmed = document.trim();
+  const digits = trimmed.replace(/\D/g, "");
+  const normalizedType = documentType?.trim().toUpperCase();
+  if (normalizedType === "CPF" && digits.length === 11) {
+    return digits.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+  }
+  if (normalizedType === "CNPJ" && digits.length === 14) {
+    return digits.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
+  }
+  return trimmed;
+}
+
 function isHttpUrl(value: string) {
   return /^https?:\/\//i.test(value.trim());
 }
@@ -357,6 +370,11 @@ export function OrderStatusPage({ brand }: OrderStatusPageProps) {
         })
       : "";
   const sellPayNetworkWarning = texts.sellPayNetworkWarning;
+  const summaryCustomerDocument = createSummary?.customerDocument?.trim() ?? "";
+  const summaryCustomerDocumentType = createSummary?.customerDocumentType?.trim() ?? "";
+  const formattedCustomerDocument = summaryCustomerDocument
+    ? formatDocumentForDisplay(summaryCustomerDocument, summaryCustomerDocumentType)
+    : "";
   const receiveValue =
     order && summaryReceiveAmount != null
       ? formatDisplayAmountWithAsset(
@@ -372,6 +390,14 @@ export function OrderStatusPage({ brand }: OrderStatusPageProps) {
     : [summaryCustomerPayment?.network?.trim() ?? order?.paymentData?.network?.trim() ?? "", walletMasked]
         .filter(Boolean)
         .join(" - ");
+  const buyPaymentOwnershipNoticeText =
+    !isSellOrder && formattedCustomerDocument && texts.buyPaymentOwnershipNotice.trim()
+      ? interpolateTemplate(texts.buyPaymentOwnershipNotice, {
+          document: formattedCustomerDocument,
+          documentType: summaryCustomerDocumentType
+        })
+      : "";
+  const paymentCardNoticeText = isSellOrder ? sellDepositNetworkNoticeText : buyPaymentOwnershipNoticeText;
 
   const orderStatusHtmlVars = useMemo((): OrderStatusHtmlVars => {
     const rawStatus = order && isKnownOrderStatus(order.status) ? order.status : "";
@@ -642,8 +668,8 @@ export function OrderStatusPage({ brand }: OrderStatusPageProps) {
                     {texts.paymentSubmittedButtonLabel}
                   </button>
                 </div>
-                {isSellOrder && sellDepositNetworkNoticeText ? (
-                  <p className="order-sell-deposit-notice">{sellDepositNetworkNoticeText}</p>
+                {paymentCardNoticeText ? (
+                  <p className="order-payment-notice">{paymentCardNoticeText}</p>
                 ) : null}
               </article>
             ) : (

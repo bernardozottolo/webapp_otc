@@ -1565,7 +1565,7 @@ button {
   justify-content: flex-start;
 }
 
-.order-sell-deposit-notice {
+.order-payment-notice {
   margin: 0.75rem 0 0;
   font-size: 0.8rem;
   line-height: 1.45;

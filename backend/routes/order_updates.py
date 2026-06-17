@@ -59,7 +59,7 @@ async def get_order_updates(
     settings: Annotated[Settings, Depends(get_settings)],
     store: Annotated[InMemoryOrderStore, Depends(get_order_store)],
 ) -> dict[str, Any]:
-    stored = store.get_record(order_id)
+    stored = store.get_record(order_id, touch_ttl=True)
     if stored is None:
         raise HTTPException(status_code=404, detail="Order not found")
 

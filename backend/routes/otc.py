@@ -156,6 +156,47 @@ def _build_order_snapshot(body: bytes, response: Response) -> dict[str, object] 
     }
 
 
+def _build_order_create_summary(body: bytes) -> dict[str, object] | None:
+    try:
+        request_payload = json.loads(body.decode("utf-8")) if body else {}
+    except Exception:
+        return None
+    if not isinstance(request_payload, dict):
+        return None
+    pre_order = request_payload.get("pre_order")
+    payment_info = request_payload.get("payment_info")
+    if not isinstance(pre_order, dict):
+        pre_order = {}
+    if not isinstance(payment_info, dict):
+        payment_info = {}
+    trade_type = str(request_payload.get("trade_type", "BUY")).strip().upper()
+    trade_side = "sell" if trade_type == "SELL" else "buy"
+    summary: dict[str, object] = {
+        "tradeSide": trade_side,
+        "asset": str(request_payload.get("asset", "")).strip(),
+        "amount": _pick_pre_order_float(pre_order, "output_amount_net", "output_amount_gross") or 0,
+        "amountToPay": _pick_pre_order_float(pre_order, "input_amount", "amount_to_pay") or 0,
+        "inputAsset": str(pre_order.get("input_asset", "")).strip() or None,
+        "outputAsset": str(pre_order.get("output_asset", "")).strip() or None,
+        "price": _as_float(pre_order.get("price")) or _as_float(request_payload.get("price")),
+        "customerDocument": str(request_payload.get("document", "")).strip() or None,
+        "customerDocumentType": str(request_payload.get("document_type", "")).strip() or None,
+    }
+    if trade_side == "sell":
+        network = str(request_payload.get("network_info", "")).strip()
+        summary["payViaNetworkCode"] = network or None
+        summary["payViaNetworkLabel"] = network or None
+        summary["customerPayment"] = {
+            "pixKey": str(payment_info.get("pix_key") or payment_info.get("pixKey") or "").strip() or None,
+        }
+    else:
+        summary["customerPayment"] = {
+            "network": str(payment_info.get("network", "")).strip() or None,
+            "walletAddress": str(payment_info.get("wallet", "")).strip() or None,
+        }
+    return summary
+
+
 def _build_order_audit_data(body: bytes, response: Response) -> dict[str, object] | None:
     try:
         request_payload = json.loads(body.decode("utf-8")) if body else {}
@@ -275,7 +316,7 @@ async def otc_create_order(
     if store is not None:
         snapshot = _build_order_snapshot(body, response)
         if snapshot is not None:
-            store.save_order(snapshot)
+            store.save_order(snapshot, _build_order_create_summary(body))
     audit_data = _build_order_audit_data(body, response)
     if audit_data is not None:
         await write_audit_event(

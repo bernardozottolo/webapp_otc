@@ -15,6 +15,8 @@ export function buildCreateOrderSummaryFromInput(input: CreateOrderInput): Order
       payViaNetworkCode: input.networkInfo.network.trim(),
       payViaNetworkLabel:
         input.networkInfo.userFriendlyNetworkName.trim() || input.networkInfo.network.trim(),
+      customerDocument: input.document.trim(),
+      customerDocumentType: input.documentType.trim(),
       customerPayment: {
         pixKey: input.paymentInfo.pixKey.trim(),
         pixKeyType: input.paymentInfo.pixKeyType?.trim() || undefined
@@ -29,6 +31,8 @@ export function buildCreateOrderSummaryFromInput(input: CreateOrderInput): Order
     inputAsset: input.preOrder.inputAsset,
     outputAsset: input.preOrder.outputAsset || input.asset,
     price: input.preOrder.price,
+    customerDocument: input.document.trim(),
+    customerDocumentType: input.documentType.trim(),
     customerPayment: {
       network: input.paymentInfo.network.trim(),
       walletAddress: input.paymentInfo.wallet.trim()

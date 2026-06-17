@@ -1,4 +1,5 @@
 import type { OrderPaymentData, StoredOrderRecord, Order, OrderUpdatePayload } from "../types";
+import type { OrderCreateSummary, TradeSide } from "../types";
 
 export interface OrderUpdatesConfig {
   orderBaseUrl: string;
@@ -82,6 +83,50 @@ function mapPaymentDataV2(value: unknown): OrderUpdatePayload["orderInfo"]["paym
   return {
     payout_identifier: payoutIdentifier === undefined ? undefined : asNullableString(payoutIdentifier),
     refund_identifier: refundIdentifier === undefined ? undefined : asNullableString(refundIdentifier)
+  };
+}
+
+function asTradeSide(value: unknown): TradeSide | undefined {
+  const normalized = asString(value).trim().toLowerCase();
+  if (normalized === "buy" || normalized === "sell") {
+    return normalized;
+  }
+  return undefined;
+}
+
+function mapOrderCreateSummary(value: unknown): OrderCreateSummary | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+  const src = value as Record<string, unknown>;
+  const tradeSide = asTradeSide(src.tradeSide ?? src.trade_side);
+  if (!tradeSide) {
+    return undefined;
+  }
+  const rawCustomerPayment = src.customerPayment ?? src.customer_payment;
+  const customerPayment =
+    rawCustomerPayment && typeof rawCustomerPayment === "object" && !Array.isArray(rawCustomerPayment)
+      ? (rawCustomerPayment as Record<string, unknown>)
+      : {};
+  return {
+    tradeSide,
+    asset: asString(src.asset),
+    amount: asNumber(src.amount),
+    amountToPay: asNumber(src.amountToPay ?? src.amount_to_pay),
+    inputAsset: asOptionalString(src.inputAsset ?? src.input_asset),
+    outputAsset: asOptionalString(src.outputAsset ?? src.output_asset),
+    price: src.price == null ? undefined : asNumber(src.price),
+    payViaNetworkCode: asOptionalString(src.payViaNetworkCode ?? src.pay_via_network_code),
+    payViaNetworkLabel: asOptionalString(src.payViaNetworkLabel ?? src.pay_via_network_label),
+    payViaNetwork: asOptionalString(src.payViaNetwork ?? src.pay_via_network),
+    customerDocument: asOptionalString(src.customerDocument ?? src.customer_document),
+    customerDocumentType: asOptionalString(src.customerDocumentType ?? src.customer_document_type),
+    customerPayment: {
+      network: asOptionalString(customerPayment.network),
+      walletAddress: asOptionalString(customerPayment.walletAddress ?? customerPayment.wallet_address),
+      pixKey: asOptionalString(customerPayment.pixKey ?? customerPayment.pix_key),
+      pixKeyType: asOptionalString(customerPayment.pixKeyType ?? customerPayment.pix_key_type)
+    }
   };
 }
 
@@ -175,6 +220,7 @@ function mapStoredOrderRecord(value: unknown): StoredOrderRecord | null {
       : createOrderShell(orderId, createdAt);
   return {
     order,
+    createSummary: mapOrderCreateSummary(raw.createSummary ?? raw.create_summary),
     createdAt,
     expiresAt,
     updates,

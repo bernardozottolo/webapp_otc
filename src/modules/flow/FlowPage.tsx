@@ -1371,6 +1371,53 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
     return profile;
   };
 
+  const refreshCounterpartyKycSilently = useCallback(
+    async (profileCustomer: Customer | null | undefined, emailValue: string, reason: string) => {
+      const targetEmail = (profileCustomer?.email ?? emailValue).trim().toLowerCase();
+      const normalizedDocument = normalizeDocumentValue(profileCustomer?.documentNumber ?? "");
+      const normalizedPersonType = (profileCustomer?.personType ?? profileCustomer?.documentType ?? "").trim();
+      if (!targetEmail || !normalizedDocument || !normalizedPersonType) {
+        return false;
+      }
+      const kyc = await submitCounterpartyKyc({
+        emailValue: targetEmail,
+        documentTypeValue: normalizedPersonType,
+        documentNumberValue: normalizedDocument
+      });
+      emitFrontendTelemetry("frontend_document_kyc_submitted", {
+        kyc_request: {
+          email: targetEmail,
+          document_type: normalizedPersonType,
+          document_number: normalizedDocument,
+          reason
+        },
+        kyc_response: kyc
+      });
+      if (!kyc.approved) {
+        setIdentified(false);
+        setPendingKyc(null);
+        resetCompanyRepresentativeState();
+        openKycRejectedModal();
+        return true;
+      }
+      await syncApprovedCounterpartyKyc({
+        emailValue: targetEmail,
+        documentTypeValue: normalizedPersonType,
+        documentNumberValue: normalizedDocument,
+        kyc
+      });
+      await loadIdentityContext(targetEmail, "kyc_refresh");
+      return true;
+    },
+    [
+      loadIdentityContext,
+      openKycRejectedModal,
+      resetCompanyRepresentativeState,
+      submitCounterpartyKyc,
+      syncApprovedCounterpartyKyc
+    ]
+  );
+
   const openPaymentModal = async () => {
     await runWithBlockingUi(async () => {
       if (tradeSide === "buy") {
@@ -1559,10 +1606,16 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
           return;
         }
         if (hasExpiredCounterpartyKyc(profile.customer, brand.backend.otcKycValidityDays)) {
-          setIdentified(false);
-          await prepareCounterpartyKycStep("refresh", profile.customer.email, profile.customer);
           resetOtpState();
-          alert(t("kyc.refreshRequired"));
+          const refreshed = await refreshCounterpartyKycSilently(
+            profile.customer,
+            profile.customer.email,
+            "login_counterparty_kyc_refresh"
+          );
+          if (!refreshed) {
+            setIdentified(false);
+            alert(t("kyc.internalBlocked"));
+          }
           return;
         }
         resetOtpState();
@@ -1570,10 +1623,16 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
       }
 
       if (pending.intent === "kyc_refresh") {
-        setIdentified(false);
-        await prepareCounterpartyKycStep("refresh", pending.customer?.email ?? email, pending.customer ?? undefined);
         resetOtpState();
-        alert(t("kyc.refreshRequired"));
+        const refreshed = await refreshCounterpartyKycSilently(
+          pending.customer,
+          pending.customer?.email ?? email,
+          "otp_counterparty_kyc_refresh"
+        );
+        if (!refreshed) {
+          setIdentified(false);
+          alert(t("kyc.internalBlocked"));
+        }
         return;
       }
 

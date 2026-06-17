@@ -151,6 +151,8 @@ export interface OrderPageTextsConfig {
   sellPayNetworkWarning: OrderPageSellPayNetworkWarningConfig;
   /** Aviso abaixo do botão de copiar carteira na venda. Placeholders: {asset}, {network}. */
   sellDepositNetworkNotice: string;
+  /** Aviso abaixo do bloco de pagamento na compra. Placeholders: {document}, {documentType}. */
+  buyPaymentOwnershipNotice: string;
   buyLabel: string;
   sellLabel: string;
   waitingMessage: string;
@@ -637,6 +639,8 @@ export const defaultBrandConfig: BrandConfig = {
       },
       sellDepositNetworkNotice:
         "⚠️ Envie apenas {asset} pela rede {network}. Envio por outras redes pode resultar em perda.",
+      buyPaymentOwnershipNotice:
+        "Utilize uma conta bancária de mesma titularidade do {documentType} {document}. Transferências realizadas por terceiros ou por contas de outra titularidade serão devolvidas.",
       buyLabel: "Compra",
       sellLabel: "Venda",
       waitingMessage: "Assim que o pagamento for identificado, atualizaremos esta tela automaticamente.",
@@ -1179,6 +1183,7 @@ function asOrderPageTextsConfig(value: unknown, fallback: OrderPageTextsConfig):
       fallback.sellPayNetworkWarning
     ),
     sellDepositNetworkNotice: asString(value.sellDepositNetworkNotice, fallback.sellDepositNetworkNotice),
+    buyPaymentOwnershipNotice: asString(value.buyPaymentOwnershipNotice, fallback.buyPaymentOwnershipNotice),
     buyLabel: asString(value.buyLabel, fallback.buyLabel),
     sellLabel: asString(value.sellLabel, fallback.sellLabel),
     waitingMessage: asString(value.waitingMessage, fallback.waitingMessage),
