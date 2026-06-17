@@ -316,7 +316,7 @@ async def otc_create_order(
     if store is not None:
         snapshot = _build_order_snapshot(body, response)
         if snapshot is not None:
-            store.save_order(snapshot, _build_order_create_summary(body))
+            await store.save_order(snapshot, _build_order_create_summary(body))
     audit_data = _build_order_audit_data(body, response)
     if audit_data is not None:
         await write_audit_event(

@@ -17,7 +17,7 @@ from .config import configure_app_logging, get_settings
 from .didit_client import DiditClient
 from .logging_middleware import RequestLoggingMiddleware
 from .otc_client import OtcUpstreamClient
-from .order_store import InMemoryOrderStore
+from .order_store import InMemoryOrderStore, RedisOrderStore
 from .biometry_pending.worker import BiometryPendingWorker
 from .routes.admin_security import router as admin_security_router
 from .routes.biometry_pending import router as biometry_pending_router
@@ -89,7 +89,15 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Didit Proxy", version="0.1.0", lifespan=lifespan)
 app.state.settings = settings
-app.state.order_store = InMemoryOrderStore(settings.order_updates_ttl_ms)
+app.state.order_store = (
+    RedisOrderStore(redis_client, settings.order_updates_ttl_ms)
+    if redis_client is not None
+    else InMemoryOrderStore(settings.order_updates_ttl_ms)
+)
+logging.getLogger("didit_proxy").info(
+    "Order store backend: %s",
+    "redis" if redis_client is not None else "memory",
+)
 app.state.biometric_rate_limiter = FileBiometricRateLimiter(
     settings.biometric_rate_limit_file,
     settings.biometric_rate_limit_per_ip_per_day,
