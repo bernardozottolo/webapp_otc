@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-import json
-import time
-from pathlib import Path
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -62,31 +59,6 @@ async def get_order_updates(
     settings: Annotated[Settings, Depends(get_settings)],
     store: Annotated[OrderStore, Depends(get_order_store)],
 ) -> dict[str, Any]:
-    # #region agent log
-    try:
-        Path(__file__).resolve().parents[2].joinpath("debug-739830.log").open("a", encoding="utf-8").write(
-            json.dumps(
-                {
-                    "sessionId": "739830",
-                    "runId": "initial-debug",
-                    "hypothesisId": "H2",
-                    "location": "backend/routes/order_updates.py:64",
-                    "message": "order-updates route reached",
-                    "data": {
-                        "orderIdSuffix": order_id[-6:],
-                        "host": request.headers.get("host", ""),
-                        "forwardedFor": request.headers.get("x-forwarded-for", ""),
-                        "client": request.client.host if request.client else "",
-                    },
-                    "timestamp": int(time.time() * 1000),
-                },
-                ensure_ascii=True,
-            )
-            + "\n"
-        )
-    except Exception:
-        pass
-    # #endregion
     stored = await store.get_record(order_id, touch_ttl=True)
     if stored is None:
         raise HTTPException(status_code=404, detail="Order not found")
