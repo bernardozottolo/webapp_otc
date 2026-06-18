@@ -183,8 +183,10 @@ function serializePaymentInfoForOtc(
 ): Record<string, unknown> {
   if (input.tradeType === "SELL") {
     const depositNetwork = sellNetworkInfoForOtc(input.networkInfo);
+    const networkLabel = input.networkInfo.userFriendlyNetworkName.trim() || depositNetwork;
     return {
       pix_key: input.paymentInfo.pixKey,
+      pix_key_type: input.paymentInfo.pixKeyType?.trim() || undefined,
       network: depositNetwork
     };
   }
@@ -404,6 +406,8 @@ export async function preOrderValidationHttp(
   };
   if (input.tradeType === "SELL") {
     body.network_info = sellNetworkInfoForOtc(input.networkInfo);
+    body.network_label =
+      input.networkInfo.userFriendlyNetworkName.trim() || input.networkInfo.network.trim();
   }
   const data = await postOtcJson<PreOrderPayload>(config, "pre_order_validation", body);
   return mapPreOrderPayload(data, input.price);
@@ -439,6 +443,8 @@ export async function createOrderHttp(config: PricingConfig, input: CreateOrderI
   };
   if (input.tradeType === "SELL") {
     body.network_info = sellNetworkInfoForOtc(input.networkInfo);
+    body.network_label =
+      input.networkInfo.userFriendlyNetworkName.trim() || input.networkInfo.network.trim();
   }
   const data = await postOtcJson<CreateOrderPayload>(config, "create_order", body);
 

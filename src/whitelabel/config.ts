@@ -555,7 +555,7 @@ export const defaultBrandConfig: BrandConfig = {
     message: ""
   },
   orderPersistence: {
-    ttlMs: 60 * 60 * 1000,
+    ttlMs: 7 * 24 * 60 * 60 * 1000,
     pollIntervalMs: 5_000
   },
   orderPage: {

@@ -106,7 +106,9 @@ export function configureOtcApi(brand: BrandConfig) {
   };
   documentTypesByCountry = brand.documentTypesByCountry;
   configurePixKeyTypes(brand.pixKeyTypesByCountry);
-  configureOrderPersistence(brand.orderPersistence);
+  configureOrderPersistence(brand.orderPersistence, {
+    orderBaseUrl: effectiveOrderBaseUrl(brand.endpoints.orderBaseUrl)
+  });
   configureDiditProxy(brand);
 }
 

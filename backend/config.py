@@ -81,6 +81,34 @@ def _load_runtime_backend_identity(repo_root: Path, runtime_config_path: str) ->
     return "", "webapp"
 
 
+def _load_runtime_order_persistence_ttl_ms(repo_root: Path, runtime_config_path: str) -> int | None:
+    raw = _load_runtime_json(repo_root, runtime_config_path)
+    if raw is None:
+        return None
+    section = raw.get("orderPersistence")
+    if not isinstance(section, dict):
+        return None
+    ttl_raw = section.get("ttlMs")
+    try:
+        parsed = int(ttl_raw)
+    except (TypeError, ValueError):
+        return None
+    return parsed if parsed > 0 else None
+
+
+def _resolve_order_updates_ttl_ms(repo_root: Path, runtime_config_path: str) -> int:
+    raw_env = os.getenv("ORDER_UPDATES_TTL_MS", "").strip()
+    if raw_env:
+        try:
+            return max(60_000, int(raw_env))
+        except ValueError:
+            pass
+    runtime_ttl = _load_runtime_order_persistence_ttl_ms(repo_root, runtime_config_path)
+    if runtime_ttl is not None:
+        return max(60_000, runtime_ttl)
+    return 7 * 24 * 60 * 60 * 1000
+
+
 @dataclass(slots=True)
 class BiometryReviewSettings:
     pending_user_message: str
@@ -294,7 +322,7 @@ def get_settings() -> Settings:
         otc_upstream_base_url=os.getenv("OTC_UPSTREAM_API_BASE_URL", "").strip(),
         clients_database_api_base_url=os.getenv("CLIENTS_DATABASE_API_BASE_URL", "").strip(),
         order_update_webhook_url=os.getenv("ORDER_UPDATE_WEBHOOK_URL", "").strip(),
-        order_updates_ttl_ms=max(60_000, int(os.getenv("ORDER_UPDATES_TTL_MS", "3600000").strip() or "3600000")),
+        order_updates_ttl_ms=_resolve_order_updates_ttl_ms(repo_root, runtime_config_path),
         biometric_rate_limit_per_ip_per_day=max(
             1,
             int(os.getenv("BIOMETRIC_RATE_LIMIT_PER_IP_PER_DAY", "3").strip() or "3"),

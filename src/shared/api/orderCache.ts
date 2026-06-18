@@ -1,5 +1,6 @@
 import { defaultBrandConfig, type OrderPersistenceConfig } from "../../whitelabel/config";
 import type { Order, OrderCreateSummary, OrderPaymentData, OrderUpdatePayload, StoredOrderRecord } from "../types";
+import { patchOrderClientFlagsHttp, type OrderUpdatesConfig } from "./orderUpdates";
 
 export const KNOWN_ORDER_STATUSES = new Set([
   "created",
@@ -29,6 +30,7 @@ const ORDER_WINDOW_NAME_PREFIX = "otc-order-window:";
 const memoryCache = new Map<string, StoredOrderRecord>();
 const listeners = new Map<string, Set<(record: StoredOrderRecord | null) => void>>();
 let orderPersistenceConfig: OrderPersistenceConfig = defaultBrandConfig.orderPersistence;
+let orderUpdatesRemoteConfig: OrderUpdatesConfig | null = null;
 let storageListenerAttached = false;
 let maintenanceTimerId: number | null = null;
 
@@ -76,6 +78,24 @@ export function setOrderPaymentSubmitted(orderId: string, submitted: boolean): S
   };
   syncRecord(next, orderId);
   return next;
+}
+
+export async function setOrderPaymentSubmittedRemote(
+  orderId: string,
+  submitted: boolean
+): Promise<StoredOrderRecord | null> {
+  const config = orderUpdatesRemoteConfig;
+  if (config && !config.orderBaseUrl.startsWith("mock://")) {
+    try {
+      const remote = await patchOrderClientFlagsHttp(config, orderId, submitted ? { paymentSubmitted: true } : undefined);
+      if (remote) {
+        return replaceOrderRecord(remote);
+      }
+    } catch {
+      // Fall back to local-only update when the backend is temporarily unavailable.
+    }
+  }
+  return setOrderPaymentSubmitted(orderId, submitted);
 }
 
 function getStorage(): Storage | null {
@@ -422,12 +442,18 @@ export function hasOrderTxHashLink(record: StoredOrderRecord | null): boolean {
   return Boolean(txHash || txHashUrl);
 }
 
-export function configureOrderPersistence(config: Partial<OrderPersistenceConfig>): void {
+export function configureOrderPersistence(
+  config: Partial<OrderPersistenceConfig>,
+  remoteConfig?: OrderUpdatesConfig
+): void {
   orderPersistenceConfig = {
     ttlMs: config.ttlMs && config.ttlMs > 0 ? config.ttlMs : orderPersistenceConfig.ttlMs,
     pollIntervalMs:
       config.pollIntervalMs && config.pollIntervalMs > 0 ? config.pollIntervalMs : orderPersistenceConfig.pollIntervalMs
   };
+  if (remoteConfig) {
+    orderUpdatesRemoteConfig = remoteConfig;
+  }
   removeExpiredOrders();
   startOrderStoreMaintenance();
 }
@@ -589,8 +615,11 @@ export function replaceOrderRecord(record: StoredOrderRecord): StoredOrderRecord
   const consolidatedOrder = applicableUpdates.reduce((current, update) => mergeOrderUpdate(current, update), baseOrder);
   const next: StoredOrderRecord = {
     order: consolidatedOrder,
-    createSummary: existing?.createSummary ?? record.createSummary,
-    clientFlags: preserveClientFlags(consolidatedOrder, existing ?? record),
+    createSummary: record.createSummary ?? existing?.createSummary,
+    clientFlags:
+      record.clientFlags !== undefined
+        ? record.clientFlags
+        : preserveClientFlags(consolidatedOrder, existing ?? record),
     createdAt: record.createdAt,
     expiresAt: record.expiresAt,
     updates: sortedUpdates,

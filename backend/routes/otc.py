@@ -184,10 +184,16 @@ def _build_order_create_summary(body: bytes) -> dict[str, object] | None:
     }
     if trade_side == "sell":
         network = str(request_payload.get("network_info", "")).strip()
+        network_label = str(request_payload.get("network_label", "")).strip()
         summary["payViaNetworkCode"] = network or None
-        summary["payViaNetworkLabel"] = network or None
+        summary["payViaNetworkLabel"] = network_label or network or None
+        summary["payViaNetwork"] = summary["payViaNetworkLabel"]
         summary["customerPayment"] = {
             "pixKey": str(payment_info.get("pix_key") or payment_info.get("pixKey") or "").strip() or None,
+            "pixKeyType": str(
+                payment_info.get("pix_key_type") or payment_info.get("pixKeyType") or ""
+            ).strip()
+            or None,
         }
     else:
         summary["customerPayment"] = {

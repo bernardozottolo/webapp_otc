@@ -34,6 +34,11 @@ def detect_local_synthetic_status(
 
     status = normalize_order_status(str(order.get("status", "")))
     created_at = int(record.get("created_at", 0) or 0)
+    client_flags = record.get("client_flags")
+    payment_submitted = (
+        isinstance(client_flags, dict)
+        and (client_flags.get("payment_submitted") is True or client_flags.get("paymentSubmitted") is True)
+    )
 
     payment_timeout_ms = settings.order_notification_local_payment_timeout_ms
     order_update_timeout_ms = settings.order_notification_local_order_update_timeout_ms
@@ -52,6 +57,7 @@ def detect_local_synthetic_status(
         status == "waiting_for_payment"
         and payment_timeout_ms > 0
         and len(updates) == 0
+        and not payment_submitted
         and created_at > 0
         and now - created_at >= payment_timeout_ms
     ):

@@ -130,6 +130,18 @@ function mapOrderCreateSummary(value: unknown): OrderCreateSummary | undefined {
   };
 }
 
+function mapClientFlags(value: unknown): StoredOrderRecord["clientFlags"] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+  const src = value as Record<string, unknown>;
+  const paymentSubmitted = src.paymentSubmitted === true || src.payment_submitted === true;
+  if (!paymentSubmitted) {
+    return undefined;
+  }
+  return { paymentSubmitted: true };
+}
+
 function buildOrderUpdatesUrl(baseUrl: string, orderId: string) {
   const normalized = baseUrl.replace(/\/+$/, "");
   const path = `/api/order-updates/${encodeURIComponent(orderId)}`;
@@ -221,11 +233,41 @@ function mapStoredOrderRecord(value: unknown): StoredOrderRecord | null {
   return {
     order,
     createSummary: mapOrderCreateSummary(raw.createSummary ?? raw.create_summary),
+    clientFlags: mapClientFlags(raw.clientFlags ?? raw.client_flags),
     createdAt,
     expiresAt,
     updates,
     lastUpdatedAt
   };
+}
+
+export async function patchOrderClientFlagsHttp(
+  config: OrderUpdatesConfig,
+  orderId: string,
+  clientFlags: StoredOrderRecord["clientFlags"]
+): Promise<StoredOrderRecord | null> {
+  const normalized = config.orderBaseUrl.replace(/\/+$/, "");
+  const path = `/api/order-updates/${encodeURIComponent(orderId)}/client-flags`;
+  const url = normalized ? `${normalized}${path}` : path;
+  const response = await fetch(url, {
+    method: "PATCH",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      paymentSubmitted: clientFlags?.paymentSubmitted === true,
+      payment_submitted: clientFlags?.paymentSubmitted === true
+    })
+  });
+  if (response.status === 404) {
+    return null;
+  }
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(text || `order client flags failed with status ${response.status}`);
+  }
+  return mapStoredOrderRecord(await response.json());
 }
 
 export async function getOrderRecordHttp(config: OrderUpdatesConfig, orderId: string): Promise<StoredOrderRecord | null> {

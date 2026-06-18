@@ -87,3 +87,25 @@ async def get_order_updates(
         )
 
     return stored
+
+
+@router.patch("/{order_id}/client-flags")
+async def patch_order_client_flags(
+    order_id: str,
+    payload: dict[str, Any],
+    request: Request,
+    store: Annotated[OrderStore, Depends(get_order_store)],
+) -> dict[str, Any]:
+    stored = await store.set_client_flags(order_id, payload)
+    if stored is None:
+        raise HTTPException(status_code=404, detail="Order not found")
+    await write_audit_event(
+        request,
+        "order_client_flags_updated",
+        {
+            "order_id": order_id,
+            "client_flags": stored.get("client_flags"),
+        },
+        sanitize=False,
+    )
+    return stored

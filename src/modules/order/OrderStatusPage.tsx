@@ -10,7 +10,7 @@ import {
   isLocalPaymentSubmittedOnly,
   removeExpiredOrders,
   replaceOrderRecord,
-  setOrderPaymentSubmitted,
+  setOrderPaymentSubmittedRemote,
   subscribeToOrder
 } from "../../shared/api/orderCache";
 import { otcApiClient } from "../../shared/api/client";
@@ -221,16 +221,19 @@ export function OrderStatusPage({ brand }: OrderStatusPageProps) {
     setInitialRefreshComplete(false);
     setFirstPollComplete(false);
     firstPollMarkedRef.current = false;
+    setRecord(null);
+    setNotFound(false);
 
-    const hydrateFromLocal = () => {
+    const applyLocalFallback = () => {
       const openerOrder = getWindowOrderPayload(id);
       if (openerOrder) {
         cacheOrder(openerOrder);
       }
       const localRecord = getOrderRecord(id);
-      if (!mounted) return;
+      if (!mounted) return localRecord;
       setRecord(localRecord);
       setNotFound(localRecord == null);
+      return localRecord;
     };
 
     const refresh = async (source: "initial" | "poll" = "initial") => {
@@ -248,20 +251,26 @@ export function OrderStatusPage({ brand }: OrderStatusPageProps) {
           }
           return;
         }
+        if (source === "initial") {
+          applyLocalFallback();
+          setInitialRefreshComplete(true);
+          setFirstPollComplete(true);
+          return;
+        }
       } catch {
-        // Keep the latest local snapshot when polling fails.
+        if (!mounted) return;
+        if (source === "initial") {
+          applyLocalFallback();
+          setInitialRefreshComplete(true);
+          setFirstPollComplete(true);
+          return;
+        }
       }
-      const localRecord = getOrderRecord(id);
-      if (!mounted) return;
-      setRecord(localRecord);
-      setNotFound(localRecord == null);
-      setInitialRefreshComplete(true);
       if (source === "poll" && !firstPollMarkedRef.current) {
         firstPollMarkedRef.current = true;
         setFirstPollComplete(true);
       }
     };
-    hydrateFromLocal();
     const unsubscribe = subscribeToOrder(id, (nextRecord) => {
       if (!mounted) return;
       setRecord(nextRecord);
@@ -543,12 +552,12 @@ export function OrderStatusPage({ brand }: OrderStatusPageProps) {
 
   const handlePaymentSubmitted = () => {
     if (!id) return;
-    setOrderPaymentSubmitted(id, true);
+    void setOrderPaymentSubmittedRemote(id, true);
   };
 
   const handleUndoPaymentSubmitted = () => {
     if (!id) return;
-    setOrderPaymentSubmitted(id, false);
+    void setOrderPaymentSubmittedRemote(id, false);
   };
 
   const handleCopyTxHash = async () => {
@@ -558,7 +567,7 @@ export function OrderStatusPage({ brand }: OrderStatusPageProps) {
     window.setTimeout(() => setTxHashCopied(false), 1800);
   };
 
-  if (!initialRefreshComplete || (!order && !firstPollComplete)) {
+  if (!initialRefreshComplete || (!order && !firstPollComplete && !notFound)) {
     return (
       <section className="order-page-shell order-page-shell--loading" style={pageVars}>
         <div

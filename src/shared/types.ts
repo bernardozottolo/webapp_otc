@@ -296,7 +296,7 @@ export interface StoredOrderRecord {
   order: Order;
   /** Resumo congelado na criação do pedido; não é sobrescrito por updates. */
   createSummary?: OrderCreateSummary;
-  /** Flags apenas no cliente; preservadas entre reloads até TTL. */
+  /** Flags de UI do cliente; persistidas no backend quando disponivel. */
   clientFlags?: StoredOrderRecordClientFlags;
   createdAt: number;
   expiresAt: number;

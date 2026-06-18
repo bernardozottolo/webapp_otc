@@ -95,7 +95,7 @@ O arquivo `public/runtime-config.local.json` esta no `.gitignore` e deve ser pre
   - `endpoints.paymentBaseUrl`
   - `endpoints.orderBaseUrl` — para persistencia e updates de `'/order/:id'`, use `""` em modo real (same-origin com FastAPI) ou `mock://order` se quiser desabilitar o polling remoto.
 - Persistencia de pedidos:
-  - `orderPersistence.ttlMs` — por quanto tempo `'/order/:id'` continua acessivel localmente e no backend temporario.
+  - `orderPersistence.ttlMs` — por quanto tempo `'/order/:id'` continua acessivel no backend (Redis) e no cache local do browser. Default recomendado: 7 dias (`604800000` ms). O backend usa `ORDER_UPDATES_TTL_MS` ou este valor do runtime-config.
   - `orderPersistence.pollIntervalMs` — intervalo do polling da pagina do pedido para consultar updates no backend.
 - Pagina do pedido:
   - `orderPage.backgroundColor`, `cardBackgroundColor`, `cardBorderColor`, `titleColor`, `textColor`, `mutedTextColor` — identidade visual da tela `/order/:id`, separada da tela inicial.
@@ -234,7 +234,7 @@ O projeto pode usar um backend Python simples para:
 - `backend/routes/clients_database.py`
 - `backend/routes/didit.py`
 - `backend/routes/otc.py` (`POST /otc/…` face ao upstream OTC)
-- `backend/routes/order_updates.py` (`POST/GET /api/order-updates`)
+- `backend/routes/order_updates.py` (`POST/GET/PATCH /api/order-updates`)
 - `backend/order_store.py` (persistencia temporaria em memoria para snapshots e updates)
 - `backend/requirements.txt`
 - `backend/.env.example`
@@ -250,11 +250,11 @@ O projeto pode usar um backend Python simples para:
 - `CLIENTS_DATABASE_API_BASE_URL` (opcional, default vazio): quando preenchido, o FastAPI aceita `POST /webhook/clients_database` e reenviara o JSON ao `{base}/webhook/clients_database`; para modo real no browser use `backend.clientsDbBaseUrl: ""`.
 - `FRONTEND_DIST_DIR` (opcional, default `dist`)
 - `OTC_UPSTREAM_API_BASE_URL` (opcional, default vazio): quando preenchido, o FastAPI aceita apenas **POST** nas rotas OTC suportadas (`/otc/get_pricing`, `/otc/get_transaction_history`, `/otc/get_counterparty_transactional_limit`, `/otc/pre_order_validation`, `/otc/create_order`, `/otc/counterparty_kyc`, `/otc/get_available_withdraw_networks`, `/otc/get_available_deposit_networks`, `/otc/check_wallet_risk`, `/otc/check_pix_key_owner`) e reenviando o JSON ao `{base}/otc/…`; use `"quoteBaseUrl": ""` (ou `otcViaSameOrigin`) no frontend para mesmo origin sem CORS no dominio OTC.
-- `ORDER_UPDATES_TTL_MS` (opcional, default `3600000`): TTL em milissegundos para snapshots iniciais de `create_order` e updates recebidos em `/api/order-updates`. O `GET /api/order-updates/{orderId}` renova esse TTL enquanto a tela estiver sendo acompanhada ativamente, mas reaberturas depois desse prazo ainda exigem um valor maior no backend.
+- `ORDER_UPDATES_TTL_MS` (opcional, default `604800000` = 7 dias): TTL em milissegundos para snapshots iniciais de `create_order`, flags de cliente e updates recebidos em `/api/order-updates`. Se vazio no `.env`, o backend tenta ler `orderPersistence.ttlMs` do runtime-config. O `GET /api/order-updates/{orderId}` renova esse TTL enquanto a tela estiver sendo acompanhada ativamente.
+- `REDIS_URL` (recomendado em producao): **obrigatorio para acompanhamento cross-device** em `/order/{order_id}`. Sem Redis, o tracking fica apenas em memoria do processo (perde dados no restart e nao replica entre instancias). Tambem sustenta OTP, rate limit, blacklist e filas auxiliares.
 - `PROXY_ALLOW_ORIGINS` (opcional, default `http://localhost:5173,http://127.0.0.1:5173`)
 - `LOG_LEVEL` (opcional, default `INFO`) nivel do logger `didit_proxy` (requisicoes HTTP de entrada em `didit_proxy.http`, saida para a API Didit em `didit_proxy.upstream`)
 - `SEND_EMAIL_URL` (recomendado quando ha OTP por email): endpoint interno usado pelo backend para disparar o email com o codigo OTP
-- `REDIS_URL` (recomendado em producao): necessario para OTP server-side; tambem sustenta rate limit, blacklist de IP e contadores de abuso
 - `RATE_LIMIT_ENABLED` / `IP_BLACKLIST_ENABLED` / `AUDIT_LOG_ENABLED`: ligam a camada operacional; se Redis estiver ausente, rate limit e blacklist sobem desativados com warning, mas OTP por email passa a devolver `503`
 - `RATE_LIMIT_*`: limites por rota (`SEND_EMAIL`, `VERIFY_OTP`, `DIDIT_SESSION`, `CREATE_ORDER`, `GET_PRICING`) e fallback `DEFAULT`
 - `IP_AUTO_BLOCK_*`: threshold, janela e TTL do bloqueio automatico por abuso
@@ -333,7 +333,7 @@ No `public/runtime-config.local.json`, bases reais do browser devem ficar vazias
     "orderBaseUrl": ""
   },
   "orderPersistence": {
-    "ttlMs": 3600000,
+    "ttlMs": 604800000,
     "pollIntervalMs": 15000
   },
   "orderPage": {
@@ -364,8 +364,8 @@ No fluxo `BUY`, o browser continua falando apenas com a mesma origem da aplicaca
 - `check_pix_key_owner` roda antes de salvar a chave PIX/bancária; a chave so e persistida se `key_owner_result === true`. O valor enviado ja passa por validacao regex e normalizacao conforme `pixKeyTypesByCountry` (telefone sempre com `+DDI`, ex.: `+55...`).
 - No SELL, `pre_order_validation` e `create_order` enviam `network_info` e `payment_info.network` com o codigo da rede de deposito (ex.: `"BSC"`), e `payment_info.pix_key` com a chave cadastrada no clients_database (normalizada).
 - `pre_order_validation` e `create_order` usam contrato **v2** (`version: "v2"`, `kyc_info` com `name`/`document`/`kyc_result`; resposta de pre-order com `input_*`, `output_*`, `fee_*`). `pre_order_validation` roda antes de `create_order`; se `price_is_valid` for falso, a UI chama `get_pricing` de novo, atualiza a cotacao e pede nova confirmacao.
-- Quando `create_order` retorna com sucesso, o FastAPI guarda um snapshot temporario do pedido e a pagina `'/order/:id'` pode ser reaberta ate o TTL configurado.
-- Updates posteriores do OTC podem ser enviados para `POST /api/order-updates` e a pagina `'/order/:id'` faz polling em `GET /api/order-updates/{orderId}` para consolidar status, `txHash` e metadados de pagamento.
+- Quando `create_order` retorna com sucesso, o FastAPI guarda um snapshot persistente do pedido (Redis recomendado) e a pagina `'/order/:id'` pode ser aberta diretamente de qualquer lugar enquanto estiver dentro do TTL configurado.
+- Updates posteriores do OTC podem ser enviados para `POST /api/order-updates` e a pagina `'/order/:id'` faz polling em `GET /api/order-updates/{orderId}` para consolidar status, `txHash` e metadados de pagamento. A acao local "Ja realizei o pagamento" persiste via `PATCH /api/order-updates/{orderId}/client-flags`.
 - A tela `'/order/:id'` usa `order.createdAt + orderPage.timer.durationSeconds` para mostrar o countdown de pagamento e troca de visual quando o threshold configurado e atingido.
 - Apenas updates mapeados mudam a estrutura da tela: `payment_timeout`/`cancelled`, `payment_processing`/`processing`, `order_concluded`/`concluded` e `payment_reproved`/`reproved` (reembolso após falha de processamento, ex. venda com KYT reprovado).
 - O cliente pode marcar localmente "Já Realizei o Pagamento" (persistido no cache do pedido) para exibir `paymentSubmitted` antes do update do backend; pode desfazer enquanto o status continuar `waiting_for_payment`. Quando o backend confirmar, a tela passa para `paymentProcessing`.

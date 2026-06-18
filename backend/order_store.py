@@ -9,12 +9,36 @@ from typing import Any, Protocol
 from redis.asyncio import Redis
 
 
+def _normalize_client_flags(value: Any) -> dict[str, Any] | None:
+    if not isinstance(value, dict):
+        return None
+    payment_submitted = value.get("payment_submitted")
+    if payment_submitted is None:
+        payment_submitted = value.get("paymentSubmitted")
+    if payment_submitted is True:
+        return {"payment_submitted": True}
+    return None
+
+
+def _client_flags_for_order(order: dict[str, Any] | None, client_flags: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not client_flags:
+        return None
+    status = str((order or {}).get("status", "")).strip()
+    if status and status != "waiting_for_payment":
+        return None
+    if client_flags.get("payment_submitted") is True:
+        return {"payment_submitted": True}
+    return None
+
+
 class OrderStore(Protocol):
     async def save_order(self, order: dict[str, Any], create_summary: dict[str, Any] | None = None) -> dict[str, Any]: ...
 
     async def add_update(self, update: dict[str, Any]) -> dict[str, Any] | None: ...
 
     async def get_record(self, order_id: str, *, touch_ttl: bool = False) -> dict[str, Any] | None: ...
+
+    async def set_client_flags(self, order_id: str, client_flags: dict[str, Any]) -> dict[str, Any] | None: ...
 
     async def remove_expired(self) -> None: ...
 
@@ -32,6 +56,7 @@ def _build_saved_order_record(
     now_ms: int,
     ttl_ms: int,
 ) -> dict[str, Any]:
+    existing_flags = _normalize_client_flags(existing.get("client_flags")) if existing else None
     return {
         "order_id": order_id,
         "order": deepcopy(order),
@@ -40,6 +65,7 @@ def _build_saved_order_record(
             if create_summary is not None
             else deepcopy(existing.get("create_summary")) if existing else None
         ),
+        "client_flags": _client_flags_for_order(order, existing_flags),
         "created_at": existing.get("created_at", now_ms) if existing else now_ms,
         "expires_at": now_ms + ttl_ms,
         "updates": deepcopy(existing.get("updates", [])) if existing else [],
@@ -60,6 +86,7 @@ def _build_updated_record(
             "order_id": order_id,
             "order": None,
             "create_summary": None,
+            "client_flags": None,
             "created_at": now_ms,
             "expires_at": now_ms + ttl_ms,
             "updates": [deepcopy(normalized_update)],
@@ -69,6 +96,16 @@ def _build_updated_record(
     record["updates"] = [*deepcopy(existing.get("updates", [])), deepcopy(normalized_update)]
     record["expires_at"] = now_ms + ttl_ms
     record["last_updated_at"] = now_ms
+    order = record.get("order")
+    if isinstance(order, dict):
+        info = normalized_update.get("order_info")
+        if isinstance(info, dict) and info.get("status"):
+            order["status"] = info.get("status")
+            record["order"] = order
+    record["client_flags"] = _client_flags_for_order(
+        record.get("order") if isinstance(record.get("order"), dict) else None,
+        _normalize_client_flags(record.get("client_flags")),
+    )
     return record
 
 
@@ -134,6 +171,28 @@ class InMemoryOrderStore:
                 return None
             if touch_ttl:
                 record["expires_at"] = now_ms + self._ttl_ms
+            return deepcopy(record)
+
+    async def set_client_flags(self, order_id: str, client_flags: dict[str, Any]) -> dict[str, Any] | None:
+        now_ms = _now_ms()
+        with self._lock:
+            self._purge_locked(now_ms)
+            existing = self._records.get(order_id)
+            if existing is None:
+                return None
+            record = deepcopy(existing)
+            order = record.get("order") if isinstance(record.get("order"), dict) else None
+            normalized = _normalize_client_flags(client_flags) or {}
+            if normalized.get("payment_submitted") is True:
+                if not isinstance(order, dict) or str(order.get("status", "")).strip() != "waiting_for_payment":
+                    record["client_flags"] = None
+                else:
+                    record["client_flags"] = {"payment_submitted": True}
+            else:
+                record["client_flags"] = None
+            record["expires_at"] = now_ms + self._ttl_ms
+            record["last_updated_at"] = now_ms
+            self._records[order_id] = record
             return deepcopy(record)
 
     async def remove_expired(self) -> None:
@@ -211,6 +270,24 @@ class RedisOrderStore:
             record["expires_at"] = now_ms + self._ttl_ms
             return await self._write_record(order_id, record, now_ms=now_ms)
         return deepcopy(record)
+
+    async def set_client_flags(self, order_id: str, client_flags: dict[str, Any]) -> dict[str, Any] | None:
+        now_ms = _now_ms()
+        record = await self._read_record(order_id)
+        if record is None:
+            return None
+        order = record.get("order") if isinstance(record.get("order"), dict) else None
+        normalized = _normalize_client_flags(client_flags) or {}
+        if normalized.get("payment_submitted") is True:
+            if not isinstance(order, dict) or str(order.get("status", "")).strip() != "waiting_for_payment":
+                record["client_flags"] = None
+            else:
+                record["client_flags"] = {"payment_submitted": True}
+        else:
+            record["client_flags"] = None
+        record["expires_at"] = now_ms + self._ttl_ms
+        record["last_updated_at"] = now_ms
+        return await self._write_record(order_id, record, now_ms=now_ms)
 
     async def remove_expired(self) -> None:
         return None

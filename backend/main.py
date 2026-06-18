@@ -95,9 +95,15 @@ app.state.order_store = (
     else InMemoryOrderStore(settings.order_updates_ttl_ms)
 )
 logging.getLogger("didit_proxy").info(
-    "Order store backend: %s",
+    "Order store backend: %s (ttl_ms=%s)",
     "redis" if redis_client is not None else "memory",
+    settings.order_updates_ttl_ms,
 )
+if redis_client is None:
+    logging.getLogger("didit_proxy").warning(
+        "REDIS_URL is empty; order tracking is in-memory only and will not survive restarts "
+        "or work across instances. Configure REDIS_URL for cross-device /order/{id} access."
+    )
 app.state.biometric_rate_limiter = FileBiometricRateLimiter(
     settings.biometric_rate_limit_file,
     settings.biometric_rate_limit_per_ip_per_day,

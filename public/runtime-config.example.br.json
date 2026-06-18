@@ -178,7 +178,7 @@
     "message": ""
   },
   "orderPersistence": {
-    "ttlMs": 10800000,
+    "ttlMs": 604800000,
     "pollIntervalMs": 5000
   },
   "orderPage": {
