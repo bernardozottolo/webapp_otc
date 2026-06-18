@@ -43,6 +43,7 @@ function renderStartupError(message: string) {
 async function bootstrap() {
   try {
     const brand = await loadRuntimeBrandConfig();
+    document.title = brand.companyName;
     configureOtcApi(brand);
     root.render(
       <React.StrictMode>

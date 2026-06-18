@@ -267,6 +267,7 @@ class Settings:
     biometry_review: BiometryReviewSettings
     biometry_pending_ttl_hours: int
     biometry_pending_poll_interval_seconds: int
+    runtime_config_path: str
 
 
 def get_settings() -> Settings:
@@ -381,4 +382,5 @@ def get_settings() -> Settings:
         biometry_review=biometry_review,
         biometry_pending_ttl_hours=biometry_pending_ttl_hours,
         biometry_pending_poll_interval_seconds=biometry_pending_poll_interval_seconds,
+        runtime_config_path=runtime_config_path,
     )

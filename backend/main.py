@@ -4,9 +4,9 @@ import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from redis.asyncio import Redis, from_url
 
 from .audit.audit_logger import AuditLogger
@@ -14,6 +14,7 @@ from .audit.audit_worker import AuditLogWorker
 from .biometric_rate_limiter import FileBiometricRateLimiter
 from .clients_database_client import ClientsDatabaseUpstreamClient
 from .config import configure_app_logging, get_settings
+from .frontend_meta import read_and_inject_index_html
 from .didit_client import DiditClient
 from .logging_middleware import RequestLoggingMiddleware
 from .otc_client import OtcUpstreamClient
@@ -176,11 +177,26 @@ def _dist_path_for(relative_path: str) -> Path:
     return settings.frontend_dist_dir / relative
 
 
+def _serve_spa_index(request: Request) -> HTMLResponse:
+    index_file = _dist_path_for("index.html")
+    if not index_file.is_file():
+        raise HTTPException(status_code=404, detail="Frontend build not found.")
+    base_url = str(request.base_url).rstrip("/")
+    page_url = str(request.url)
+    html = read_and_inject_index_html(
+        index_file,
+        runtime_config_path=settings.runtime_config_path,
+        base_url=base_url,
+        page_url=page_url,
+    )
+    return HTMLResponse(html)
+
+
 @app.get("/")
-async def serve_root():
+async def serve_root(request: Request):
     index_file = _dist_path_for("index.html")
     if index_file.exists():
-        return FileResponse(index_file)
+        return _serve_spa_index(request)
 
     return JSONResponse(
         {
@@ -190,7 +206,7 @@ async def serve_root():
 
 
 @app.get("/{full_path:path}")
-async def serve_frontend(full_path: str):
+async def serve_frontend(request: Request, full_path: str):
     if full_path.startswith("webhook/") or full_path == "health" or full_path.startswith("otc/"):
         raise HTTPException(status_code=404, detail="Not found")
 
@@ -201,6 +217,6 @@ async def serve_frontend(full_path: str):
         return FileResponse(target)
 
     if index_file.exists():
-        return FileResponse(index_file)
+        return _serve_spa_index(request)
 
     raise HTTPException(status_code=404, detail="Frontend build not found.")
