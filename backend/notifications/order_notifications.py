@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import json
 import logging
 import re
@@ -19,6 +18,12 @@ SOURCE = "webapp_otc"
 EVENT_CREATED = "order_created"
 EVENT_UPDATE_EXTERNAL = "order_update_external"
 EVENT_UPDATE_LOCAL = "order_update_local"
+
+_LOCAL_REASON_TO_TEMPLATE = {
+    "payment_timeout": "payment_timeout",
+    "payment_update_timeout": "payment_timeout",
+    "order_update_timeout": "order_update_timeout",
+}
 
 
 def normalize_order_status(value: str | None) -> str:
@@ -69,6 +74,65 @@ def _extract_status_from_update_body(update_body: dict[str, Any]) -> str:
     if template == "payment_reproved":
         return order_status or "reproved"
     return order_status or template
+
+
+def _extract_tx_hash_from_order_info(order_info: dict[str, Any]) -> str:
+    payment_data_v2 = order_info.get("payment_data_v2")
+    if isinstance(payment_data_v2, dict):
+        for key in ("payout_identifier", "refund_identifier", "tx_hash"):
+            value = str(payment_data_v2.get(key, "")).strip()
+            if value:
+                return value.lower()
+    payment_instructions = order_info.get("payment_instructions")
+    if isinstance(payment_instructions, dict):
+        tx_hash = str(payment_instructions.get("tx_hash", "")).strip()
+        if tx_hash:
+            return tx_hash.lower()
+    return ""
+
+
+def build_notification_dedup_identity(
+    *,
+    order_id: str | None,
+    event: str,
+    update_body: dict[str, Any] | None = None,
+    local_payload: dict[str, Any] | None = None,
+    status: str | None = None,
+) -> dict[str, str]:
+    """Stable business identity for notification deduplication (no volatile timestamps)."""
+    template = ""
+    tx_hash = ""
+    normalized_status = normalize_order_status(status)
+
+    if update_body is not None:
+        template = normalize_order_status(str(update_body.get("template", "")))
+        order_info = update_body.get("order_info")
+        if isinstance(order_info, dict):
+            tx_hash = _extract_tx_hash_from_order_info(order_info)
+            if not normalized_status:
+                normalized_status = normalize_order_status(_extract_status_from_update_body(update_body))
+
+    if local_payload is not None:
+        reason = str(local_payload.get("reason", "")).strip()
+        template = template or _LOCAL_REASON_TO_TEMPLATE.get(reason, normalize_order_status(reason))
+        last_update = local_payload.get("last_update")
+        if isinstance(last_update, dict) and not template:
+            template = normalize_order_status(str(last_update.get("template", "")))
+
+    if not normalized_status and update_body is not None:
+        normalized_status = normalize_order_status(_extract_status_from_update_body(update_body))
+
+    if event == EVENT_CREATED:
+        template = template or EVENT_CREATED
+    elif not template and normalized_status:
+        template = normalized_status
+
+    return {
+        "order_id": order_id or "unknown",
+        "template": template or "unknown",
+        "status": normalized_status or "unknown",
+        "tx_hash": tx_hash or "-",
+    }
 
 
 def _pick_pre_order_value(pre_order: dict[str, Any], *keys: str) -> Any:
@@ -158,20 +222,23 @@ async def _dedup_should_send(
     event: str,
     order_id: str | None,
     status: str | None,
-    payload: dict[str, Any],
+    update_body: dict[str, Any] | None = None,
+    local_payload: dict[str, Any] | None = None,
     settings: Settings,
 ) -> bool:
     if redis_client is None:
         return True
-    fingerprint = hashlib.sha256(
-        json.dumps(
-            {"event": event, "order_id": order_id, "status": status, "payload": payload},
-            ensure_ascii=False,
-            sort_keys=True,
-            default=str,
-        ).encode("utf-8")
-    ).hexdigest()[:24]
-    key = f"order_notification_sent:{event}:{order_id or 'unknown'}:{status or 'unknown'}:{fingerprint}"
+    identity = build_notification_dedup_identity(
+        order_id=order_id,
+        event=event,
+        update_body=update_body,
+        local_payload=local_payload,
+        status=status,
+    )
+    key = (
+        f"order_notification_sent:{identity['order_id']}:"
+        f"{identity['template']}:{identity['status']}:{identity['tx_hash']}"
+    )
     try:
         inserted = await redis_client.set(key, "1", ex=settings.order_notification_dedup_ttl_seconds, nx=True)
         return bool(inserted)
@@ -298,7 +365,6 @@ async def notify_order_created(
         event=EVENT_CREATED,
         order_id=order_id,
         status=normalize_order_status(status),
-        payload=payload,
         settings=settings,
     ):
         return
@@ -362,7 +428,8 @@ async def notify_order_update(
         event=event,
         order_id=order_id,
         status=normalized_status,
-        payload=inner_payload,
+        update_body=update_body,
+        local_payload=local_payload,
         settings=settings,
     ):
         return

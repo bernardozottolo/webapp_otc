@@ -10,8 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 from ..audit.audit_logger import write_audit_event
 from ..config import Settings, get_settings
-from ..notifications.order_local_status import detect_local_synthetic_status
-from ..notifications.order_notifications import EVENT_UPDATE_EXTERNAL, EVENT_UPDATE_LOCAL, notify_order_update
+from ..notifications.order_notifications import EVENT_UPDATE_EXTERNAL, notify_order_update
 from ..order_store import OrderStore
 from ..request_context import get_request_id
 from ..security.client_ip import get_client_ip
@@ -155,9 +154,9 @@ async def receive_order_update(
 async def get_order_updates(
     order_id: str,
     request: Request,
-    settings: Annotated[Settings, Depends(get_settings)],
     store: Annotated[OrderStore, Depends(get_order_store)],
 ) -> dict[str, Any]:
+    """Read-only: returns the persisted order record without emitting notifications."""
     try:
         stored = await store.get_record(order_id, touch_ttl=True)
         if stored is None:
@@ -168,41 +167,6 @@ async def get_order_updates(
                 reason="order_not_found",
             )
             raise HTTPException(status_code=404, detail="Order not found")
-
-        try:
-            synthetic_status, notify_status, local_payload = detect_local_synthetic_status(stored, settings=settings)
-        except Exception as exc:
-            _log_get_order_updates_failure(
-                request,
-                order_id,
-                status_code=500,
-                reason="synthetic_status_detection_failed",
-                exc=exc,
-            )
-            raise HTTPException(status_code=500, detail="Failed to process order updates") from exc
-
-        if synthetic_status and local_payload is not None:
-            await write_audit_event(
-                request,
-                "order_update_local_detected",
-                {
-                    "source": "local",
-                    "order_id": order_id,
-                    "status": notify_status or synthetic_status,
-                    "payload": local_payload,
-                    "stored_record": stored,
-                },
-                sanitize=False,
-            )
-            await notify_order_update(
-                settings=settings,
-                event=EVENT_UPDATE_LOCAL,
-                order_id=order_id,
-                status=notify_status or synthetic_status,
-                local_payload=local_payload,
-                redis_client=getattr(request.app.state, "redis", None),
-            )
-
         return stored
     except HTTPException:
         raise

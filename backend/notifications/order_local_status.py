@@ -16,6 +16,9 @@ def detect_local_synthetic_status(
     """
     Espelha a lógica do frontend (orderCache.getOrderDisplayVariant) para detectar
     estados sintéticos quando não há update externo ou após timeout pós-pagamento.
+
+    Uso previsto: classificação/derivação de estado para UI ou testes.
+    Não deve ser usada para emitir notificações no GET de acompanhamento.
     """
     now = now_ms if now_ms is not None else int(time.time() * 1000)
     order = record.get("order")
