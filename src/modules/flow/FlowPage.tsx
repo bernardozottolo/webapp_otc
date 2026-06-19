@@ -472,11 +472,33 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
     setBiometryPreConfirmVariant(null);
     setStep("bio");
   }, []);
-  const occupations = useMemo(() => brand.occupations, [brand]);
-  const occupationsAvailable = useMemo(() => brand.occupationsAvailable, [brand]);
-  const personalDocumentTypes = useMemo(
-    () => documentTypes.filter((doc) => !companyDocumentTypes.includes(doc.trim())),
-    [documentTypes, companyDocumentTypes]
+  const companyRepresentativePopupConfig = useMemo(() => {
+    if (!companyRepresentativeContext) {
+      return null;
+    }
+    return biometryReason === "onboarding" ? brand.onboardingCompany : brand.defaultCompanyBiometric;
+  }, [brand, biometryReason, companyRepresentativeContext]);
+  const occupations = useMemo(
+    () => companyRepresentativePopupConfig?.occupations ?? [],
+    [companyRepresentativePopupConfig]
+  );
+  const occupationsAvailable = useMemo(
+    () => companyRepresentativePopupConfig?.occupationsAvailable ?? [],
+    [companyRepresentativePopupConfig]
+  );
+  const representativeDocumentTypeConfigs = useMemo(() => {
+    if (!companyRepresentativePopupConfig) {
+      return documentTypeConfigs;
+    }
+    return (
+      companyRepresentativePopupConfig.ownerDocumentTypesByCountry[country] ??
+      companyRepresentativePopupConfig.ownerDocumentTypesByCountry[brand.defaultCountry] ??
+      documentTypeConfigs
+    );
+  }, [brand, companyRepresentativePopupConfig, country, documentTypeConfigs]);
+  const representativeDocumentTypes = useMemo(
+    () => representativeDocumentTypeConfigs.map((item) => item.type),
+    [representativeDocumentTypeConfigs]
   );
   const isCompanyRepresentativeStep = Boolean(companyRepresentativeContext);
   const parsedAmount = useMemo(() => {
@@ -1116,12 +1138,15 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
       companyDocumentNumber: string;
       companyDocumentType: string;
       ownersInfo?: CompanyKycOwnerInfo[];
-      availableDocumentTypes: string[];
       reason: BiometryReason;
     }) => {
-      const allowedPersonalDocumentTypes = input.availableDocumentTypes.filter(
-        (doc) => !companyDocumentTypes.includes(doc.trim())
-      );
+      const popupConfig =
+        input.reason === "onboarding" ? brand.onboardingCompany : brand.defaultCompanyBiometric;
+      const representativeConfigs =
+        popupConfig.ownerDocumentTypesByCountry[country] ??
+        popupConfig.ownerDocumentTypesByCountry[brand.defaultCountry] ??
+        [];
+      const representativeTypes = representativeConfigs.map((item) => item.type);
       setCompanyRepresentativeContext({
         companyName: input.companyName ?? null,
         companyDocumentNumber: input.companyDocumentNumber,
@@ -1129,7 +1154,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
         ownersInfo: input.ownersInfo ?? []
       });
       setSelectedOccupation("");
-      setSelectedRepresentativeDocumentType(allowedPersonalDocumentTypes[0] ?? "");
+      setSelectedRepresentativeDocumentType(representativeTypes[0] ?? "");
       setSelectedRepresentativeDocumentNumber("");
       setOccupationValidationMessage(null);
       setRepresentativeValidationMessage(null);
@@ -1137,7 +1162,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
       setBiometryReason(input.reason);
       setStep("kyc");
     },
-    [companyDocumentTypes]
+    [brand, country]
   );
 
   const submitCounterpartyKyc = useCallback(
@@ -1217,7 +1242,6 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
       companyDocumentNumber,
       companyDocumentType,
       ownersInfo: kyc.ownersInfo,
-      availableDocumentTypes: docs,
       reason: "payment"
     });
   }, [country, customer, openCompanyRepresentativeStep, openKycRejectedModal, submitCounterpartyKyc, syncApprovedCounterpartyKyc]);
@@ -1284,7 +1308,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
     }
     const normalizedRepresentativeDocument = normalizeDocumentValue(selectedRepresentativeDocumentNumber);
     const representativeDocumentError = validateDocumentNumberForType(
-      documentTypeConfigs,
+      representativeDocumentTypeConfigs,
       selectedRepresentativeDocumentType,
       normalizedRepresentativeDocument,
       normalizeDocumentValue
@@ -1319,7 +1343,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
     selectedOccupation,
     selectedRepresentativeDocumentNumber,
     selectedRepresentativeDocumentType,
-    documentTypeConfigs,
+    representativeDocumentTypeConfigs,
     formatDocumentValidationError,
     t
   ]);
@@ -1698,7 +1722,6 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
           companyDocumentNumber: normalizedDocument,
           companyDocumentType: normalizedPersonType,
           ownersInfo: kyc.ownersInfo,
-          availableDocumentTypes: documentTypes,
           reason: "onboarding"
         });
         return;
@@ -2954,45 +2977,47 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
 
       <Modal
         open={step === "kyc"}
-        title={t("modal.kyc.title")}
+        title={
+          isCompanyRepresentativeStep && companyRepresentativePopupConfig
+            ? companyRepresentativePopupConfig.texts.modalTitle
+            : t("modal.kyc.title")
+        }
         onClose={() => {
           resetCompanyRepresentativeState();
           setStep("none");
         }}
       >
         <div className="modal-body modal-body--form">
-          <p className="modal-description">
-            {isCompanyRepresentativeStep ? t("modal.kyc.companyDescription") : t("modal.kyc.description")}
-          </p>
-          <div className={`modal-field${documentValidationMessage && !isCompanyRepresentativeStep ? " modal-field--error" : ""}`}>
-            <label>{t("common.document")}</label>
-            <div className="field-shell modal-document-shell">
-              <select
-                value={documentType}
-                disabled={isCompanyRepresentativeStep}
-                onChange={(e: { target: { value: string } }) => handleDocumentTypeChange(e.target.value)}
-              >
-                {documentTypes.map((doc: string) => (
-                  <option key={doc} value={doc}>
-                    {doc}
-                  </option>
-                ))}
-              </select>
-              <input
-                value={documentNumber}
-                disabled={isCompanyRepresentativeStep}
-                onChange={(e: { target: { value: string } }) => handleDocumentNumberChange(e.target.value)}
-              />
-            </div>
-            {documentValidationMessage && !isCompanyRepresentativeStep ? (
-              <p className="modal-field-error">{documentValidationMessage}</p>
-            ) : null}
-          </div>
-          {companyRepresentativeContext ? (
+          {!isCompanyRepresentativeStep ? (
             <>
-              <div className="modal-section-title">{t("company.representativeSectionTitle")}</div>
+              <p className="modal-description">{t("modal.kyc.description")}</p>
+              <div className={`modal-field${documentValidationMessage ? " modal-field--error" : ""}`}>
+                <label>{t("common.document")}</label>
+                <div className="field-shell modal-document-shell">
+                  <select
+                    value={documentType}
+                    onChange={(e: { target: { value: string } }) => handleDocumentTypeChange(e.target.value)}
+                  >
+                    {documentTypes.map((doc: string) => (
+                      <option key={doc} value={doc}>
+                        {doc}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    value={documentNumber}
+                    onChange={(e: { target: { value: string } }) => handleDocumentNumberChange(e.target.value)}
+                  />
+                </div>
+                {documentValidationMessage ? <p className="modal-field-error">{documentValidationMessage}</p> : null}
+              </div>
+            </>
+          ) : null}
+          {companyRepresentativeContext && companyRepresentativePopupConfig ? (
+            <>
+              <p className="modal-description">{companyRepresentativePopupConfig.texts.modalDescription}</p>
               <div className={`modal-field${occupationValidationMessage ? " modal-field--error" : ""}`}>
-                <label>{t("company.occupation")}</label>
+                <label>{companyRepresentativePopupConfig.texts.occupationLabel}</label>
                 <select value={selectedOccupation} onChange={(e: { target: { value: string } }) => handleOccupationChange(e.target.value)}>
                   <option value="">{t("company.occupationPlaceholder")}</option>
                   {occupations.map((occupation) => (
@@ -3004,13 +3029,13 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
                 {occupationValidationMessage ? <p className="modal-field-error">{occupationValidationMessage}</p> : null}
               </div>
               <div className={`modal-field${representativeValidationMessage ? " modal-field--error" : ""}`}>
-                <label>{t("company.representativeDocument")}</label>
+                <label>{companyRepresentativePopupConfig.texts.representativeDocumentLabel}</label>
                 <div className="field-shell modal-document-shell">
                   <select
                     value={selectedRepresentativeDocumentType}
                     onChange={(e: { target: { value: string } }) => handleRepresentativeDocumentTypeChange(e.target.value)}
                   >
-                    {personalDocumentTypes.map((doc) => (
+                    {representativeDocumentTypes.map((doc) => (
                       <option key={doc} value={doc}>
                         {doc}
                       </option>

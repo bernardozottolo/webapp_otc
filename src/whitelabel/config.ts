@@ -248,6 +248,20 @@ export interface BiometryPreConfirmConfig {
   paymentDescription: string;
 }
 
+export interface CompanyRepresentativePopupTextsConfig {
+  modalTitle: string;
+  modalDescription: string;
+  occupationLabel: string;
+  representativeDocumentLabel: string;
+}
+
+export interface CompanyRepresentativePopupConfig {
+  occupations: string[];
+  occupationsAvailable: string[];
+  ownerDocumentTypesByCountry: Record<Country, DocumentTypeConfig[]>;
+  texts: CompanyRepresentativePopupTextsConfig;
+}
+
 export interface FooterConfig {
   title: string;
   description: string;
@@ -288,6 +302,8 @@ export interface BrandConfig {
   companyDocumentTypes: Record<Country, string[]>;
   occupations: string[];
   occupationsAvailable: string[];
+  onboardingCompany: CompanyRepresentativePopupConfig;
+  defaultCompanyBiometric: CompanyRepresentativePopupConfig;
   tradeAvailabilityTexts: TradeAvailabilityTextsConfig;
   paymentFormTexts: PaymentFormTextsConfig;
   biometryReview: BiometryReviewConfig;
@@ -452,6 +468,54 @@ export const defaultBiometryPreConfirmConfig: BiometryPreConfirmConfig = {
   paymentDescription: "Precisamos validar sua identidade por reconhecimento facial"
 };
 
+export const defaultOnboardingCompanyTexts: CompanyRepresentativePopupTextsConfig = {
+  modalTitle: "Cadastro da empresa",
+  modalDescription:
+    "Informe sua relação com a empresa e o documento pessoal do representante que fará a biometria.",
+  occupationLabel: "Qual sua relação com a empresa?",
+  representativeDocumentLabel: "Insira seu documento"
+};
+
+export const defaultDefaultCompanyBiometricTexts: CompanyRepresentativePopupTextsConfig = {
+  modalTitle: "Verificação do representante",
+  modalDescription:
+    "Para continuar, confirme sua relação com a empresa e informe seu documento pessoal para a biometria.",
+  occupationLabel: "Qual sua relação com a empresa?",
+  representativeDocumentLabel: "Insira seu documento"
+};
+
+function buildPersonalDocumentTypesByCountry(
+  documentTypesByCountry: Record<Country, DocumentTypeConfig[]>,
+  companyDocumentTypes: Record<Country, string[]>
+): Record<Country, DocumentTypeConfig[]> {
+  const companyTypes = new Set((companyDocumentTypes.BR ?? []).map((item) => item.trim()));
+  const personal = (documentTypesByCountry.BR ?? []).filter((item) => !companyTypes.has(item.type.trim()));
+  return {
+    BR: personal.length > 0 ? personal : [{ type: "CPF" }]
+  };
+}
+
+export const defaultOnboardingCompanyConfig: CompanyRepresentativePopupConfig = {
+  occupations: ["Representante Legal", "Sócio"],
+  occupationsAvailable: ["Representante Legal", "Sócio"],
+  ownerDocumentTypesByCountry: {
+    BR: [{ type: "CPF", pattern: "^\\d{11}$" }]
+  },
+  texts: defaultOnboardingCompanyTexts
+};
+
+export const defaultDefaultCompanyBiometricConfig: CompanyRepresentativePopupConfig = {
+  occupations: ["Representante Legal", "Sócio", "Funcionário com Autorização"],
+  occupationsAvailable: ["Representante Legal", "Sócio", "Funcionário com Autorização"],
+  ownerDocumentTypesByCountry: {
+    BR: [
+      { type: "CPF", pattern: "^\\d{11}$" },
+      { type: "Outros", pattern: "^[a-zA-Z0-9]+$" }
+    ]
+  },
+  texts: defaultDefaultCompanyBiometricTexts
+};
+
 export const defaultBiometryReviewConfig: BiometryReviewConfig = {
   pendingUserMessage:
     "Sua biometria está em análise. Você será notificado por e-mail em até 48 horas.",
@@ -512,6 +576,8 @@ export const defaultBrandConfig: BrandConfig = {
   companyDocumentTypes: defaultCompanyDocumentTypes,
   occupations: ["Representante Legal", "Sócio", "Funcionário"],
   occupationsAvailable: ["Representante Legal", "Sócio"],
+  onboardingCompany: defaultOnboardingCompanyConfig,
+  defaultCompanyBiometric: defaultDefaultCompanyBiometricConfig,
   tradeAvailabilityTexts: {
     buyUnavailable: "Compra não está disponível no momento.",
     sellUnavailable: "Venda não está disponível no momento."
@@ -967,6 +1033,75 @@ function asOccupationsAvailable(value: unknown, fallback: string[], occupations:
   return filtered.length > 0 ? filtered : fallback;
 }
 
+function readOwnerDocumentTypesByCountryRaw(value: unknown): unknown {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+  return (
+    value.owenerDocumentTypesByCountryAvaiables ??
+    value.ownerDocumentTypesByCountryAvailables ??
+    value.ownerDocumentTypesByCountry
+  );
+}
+
+function asCompanyRepresentativePopupTexts(
+  value: unknown,
+  fallback: CompanyRepresentativePopupTextsConfig
+): CompanyRepresentativePopupTextsConfig {
+  const textsRecord = isRecord(value) ? value : {};
+  const nestedTexts = isRecord(textsRecord.texts) ? textsRecord.texts : {};
+  return {
+    modalTitle: asString(
+      nestedTexts.modalTitle ?? textsRecord.modalTitle,
+      fallback.modalTitle
+    ),
+    modalDescription: asString(
+      nestedTexts.modalDescription ?? textsRecord.modalDescription,
+      fallback.modalDescription
+    ),
+    occupationLabel: asString(
+      nestedTexts.occupationLabel ?? textsRecord.occupationLabel,
+      fallback.occupationLabel
+    ),
+    representativeDocumentLabel: asString(
+      nestedTexts.representativeDocumentLabel ?? textsRecord.representativeDocumentLabel,
+      fallback.representativeDocumentLabel
+    )
+  };
+}
+
+function asCompanyRepresentativePopupConfig(
+  value: unknown,
+  fallback: CompanyRepresentativePopupConfig,
+  ownerDocumentFallback: Record<Country, DocumentTypeConfig[]>
+): CompanyRepresentativePopupConfig {
+  if (!isRecord(value)) {
+    return fallback;
+  }
+
+  const occupations = asStringArray(
+    value.occupations ?? (value as { ocupations?: unknown }).ocupations,
+    fallback.occupations
+  );
+  const occupationsAvailable = asOccupationsAvailable(
+    value.occupationsAvailable ??
+      value.occupationsAvailables ??
+      (value as { ocupationsAvaiables?: unknown }).ocupationsAvaiables,
+    fallback.occupationsAvailable,
+    occupations
+  );
+
+  return {
+    occupations,
+    occupationsAvailable,
+    ownerDocumentTypesByCountry: asDocumentTypesByCountryMap(
+      readOwnerDocumentTypesByCountryRaw(value),
+      ownerDocumentFallback
+    ),
+    texts: asCompanyRepresentativePopupTexts(value, fallback.texts)
+  };
+}
+
 function asNegotiationAssetFallbackConfig(
   value: unknown,
   fallback: NegotiationAssetFallbackConfig[]
@@ -1378,6 +1513,32 @@ export function normalizeRuntimeBrandConfig(raw: unknown, fallback: BrandConfig 
     raw.occupations ?? (raw as { ocupations?: unknown }).ocupations,
     fallback.occupations
   );
+  const documentTypesByCountry = asDocumentTypesByCountryMap(raw.documentTypesByCountry, fallback.documentTypesByCountry);
+  const companyDocumentTypes = asCountryStringArrayMap(raw.companyDocumentTypes, fallback.companyDocumentTypes);
+  const personalDocumentTypesByCountry = buildPersonalDocumentTypesByCountry(
+    documentTypesByCountry,
+    companyDocumentTypes
+  );
+  const onboardingCompanyFallback: CompanyRepresentativePopupConfig = {
+    ...fallback.onboardingCompany,
+    occupations: occupations.length > 0 ? occupations : fallback.onboardingCompany.occupations,
+    occupationsAvailable: asOccupationsAvailable(
+      raw.occupationsAvailable ?? (raw as { ocupationsAvaiables?: unknown }).ocupationsAvaiables,
+      fallback.onboardingCompany.occupationsAvailable,
+      occupations.length > 0 ? occupations : fallback.onboardingCompany.occupations
+    ),
+    ownerDocumentTypesByCountry: personalDocumentTypesByCountry
+  };
+  const defaultCompanyBiometricFallback: CompanyRepresentativePopupConfig = {
+    ...fallback.defaultCompanyBiometric,
+    occupations: occupations.length > 0 ? occupations : fallback.defaultCompanyBiometric.occupations,
+    occupationsAvailable: asOccupationsAvailable(
+      raw.occupationsAvailable ?? (raw as { ocupationsAvaiables?: unknown }).ocupationsAvaiables,
+      fallback.defaultCompanyBiometric.occupationsAvailable,
+      occupations.length > 0 ? occupations : fallback.defaultCompanyBiometric.occupations
+    ),
+    ownerDocumentTypesByCountry: personalDocumentTypesByCountry
+  };
 
   return {
     id: asString(raw.id, fallback.id),
@@ -1397,15 +1558,25 @@ export function normalizeRuntimeBrandConfig(raw: unknown, fallback: BrandConfig 
     enabledCountries: asCountryArray(raw.enabledCountries, fallback.enabledCountries),
     enabledPaymentKinds: asPaymentKinds(raw.enabledPaymentKinds, fallback.enabledPaymentKinds),
     bankLabelByCountry: asCountryStringMap(raw.bankLabelByCountry, fallback.bankLabelByCountry),
-    documentTypesByCountry: asDocumentTypesByCountryMap(raw.documentTypesByCountry, fallback.documentTypesByCountry),
+    documentTypesByCountry,
     pixKeyDefaultsByCountry: asPixKeyDefaultsByCountryMap(raw.pixKeyDefaultsByCountry, fallback.pixKeyDefaultsByCountry),
     pixKeyTypesByCountry: asPixKeyTypesByCountryMap(raw.pixKeyTypesByCountry, fallback.pixKeyTypesByCountry),
-    companyDocumentTypes: asCountryStringArrayMap(raw.companyDocumentTypes, fallback.companyDocumentTypes),
+    companyDocumentTypes,
     occupations,
     occupationsAvailable: asOccupationsAvailable(
       raw.occupationsAvailable ?? (raw as { ocupationsAvaiables?: unknown }).ocupationsAvaiables,
       fallback.occupationsAvailable,
       occupations
+    ),
+    onboardingCompany: asCompanyRepresentativePopupConfig(
+      raw.onboardingCompany,
+      onboardingCompanyFallback,
+      personalDocumentTypesByCountry
+    ),
+    defaultCompanyBiometric: asCompanyRepresentativePopupConfig(
+      raw.defaultCompanyBiometric,
+      defaultCompanyBiometricFallback,
+      personalDocumentTypesByCountry
     ),
     tradeAvailabilityTexts: asTradeAvailabilityTextsConfig(raw.tradeAvailabilityTexts, fallback.tradeAvailabilityTexts),
     paymentFormTexts: asPaymentFormTextsConfig(raw.paymentFormTexts, fallback.paymentFormTexts),

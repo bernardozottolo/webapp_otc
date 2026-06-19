@@ -29,6 +29,52 @@
       { "type": "CNPJ", "pattern": "^\\d{14}$" }
     ]
   },
+  "companyDocumentTypes": {
+    "BR": [
+      "CNPJ"
+    ]
+  },
+  "onboardingCompany": {
+    "modalTitle": "Cadastro da empresa",
+    "modalDescription": "Informe sua relação com a empresa e o documento pessoal do representante que fará a biometria.",
+    "occupationLabel": "Qual sua relação com a empresa?",
+    "representativeDocumentLabel": "Insira seu documento",
+    "occupations": [
+      "Representante Legal",
+      "Sócio"
+    ],
+    "occupationsAvailables": [
+      "Representante Legal",
+      "Sócio"
+    ],
+    "owenerDocumentTypesByCountryAvaiables": {
+      "BR": [
+        { "type": "CPF", "pattern": "^\\d{11}$" }
+      ]
+    }
+  },
+  "defaultCompanyBiometric": {
+    "modalTitle": "Verificação do representante",
+    "modalDescription": "Para continuar confirme sua relação com a empresa e informe seu documento pessoal para a biometria.",
+    "occupationLabel": "Qual sua relação com a empresa?",
+    "representativeDocumentLabel": "Insira seu documento",
+    "occupations": [
+      "Representante Legal",
+      "Sócio",
+      "Funcionário com Autorização"
+    ],
+    "occupationsAvailable": [
+      "Representante Legal",
+      "Sócio",
+      "Funcionário com Autorização"
+    ],
+    "owenerDocumentTypesByCountryAvaiables": {
+      "BR": [
+        { "type": "CPF", "pattern": "^\\d{11}$" },
+        { "type": "Outros", "pattern": "^[a-zA-Z0-9]+$" }
+      ]
+    }
+  },
   "pixKeyDefaultsByCountry": {
     "BR": {
       "defaultBackType": "phone",
@@ -69,20 +115,6 @@
       }
     ]
   },
-  "companyDocumentTypes": {
-    "BR": [
-      "CNPJ"
-    ]
-  },
-  "occupations": [
-    "Representante Legal",
-    "Sócio",
-    "Funcionário"
-  ],
-  "occupationsAvailable": [
-    "Representante Legal",
-    "Sócio"
-  ],
   "tradeAvailabilityTexts": {
     "buyUnavailable": "Essa funcionalidade volta em breve ✨",
     "sellUnavailable": "Essa funcionalidade volta em breve ✨"
