@@ -89,6 +89,10 @@ export interface OrderStatusContentConfig {
   title: string;
   /** HTML renderizado no card de status. Placeholders: ver `OrderStatusHtmlVars` em `orderStatusHtml.ts`. */
   html: string;
+  /** HTML específico para operações de compra (`tradeSide === "buy"`). */
+  htmlBuy?: string;
+  /** HTML específico para operações de venda (`tradeSide === "sell"`). */
+  htmlSell?: string;
 }
 
 export interface OrderStatusLabelsConfig {
@@ -735,7 +739,11 @@ export const defaultBrandConfig: BrandConfig = {
       },
       orderConcluded: {
         title: "Pedido concluído",
-        html: buildLegacyOrderStatusHtml("✅", "Tudo certo. As criptos foram enviadas para a carteira informada.")
+        html: buildLegacyOrderStatusHtml("✅", "Tudo certo. As criptos foram enviadas para a carteira informada."),
+        htmlSell: buildLegacyOrderStatusHtml(
+          "✅",
+          "Tudo certo. O valor foi depositado para o PIX informado.\n\nObrigado por utilizar a Infinite Ativos Virtuais."
+        )
       },
       paymentUpdateTimeout: {
         title: "Pagamento expirado",
@@ -1220,6 +1228,10 @@ function asOrderPersistenceConfig(value: unknown, fallback: OrderPersistenceConf
   };
 }
 
+function asOptionalHtmlString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
 function asOrderStatusContentConfig(value: unknown, fallback: OrderStatusContentConfig): OrderStatusContentConfig {
   if (!isRecord(value)) {
     return fallback;
@@ -1234,7 +1246,14 @@ function asOrderStatusContentConfig(value: unknown, fallback: OrderStatusContent
       ? buildLegacyOrderStatusHtml(legacyEmoji, legacyMessage)
       : "") ||
     fallback.html;
-  return { title, html };
+  const htmlBuy = asOptionalHtmlString(value.htmlBuy ?? value.html_buy) ?? fallback.htmlBuy;
+  const htmlSell = asOptionalHtmlString(value.htmlSell ?? value.html_sell) ?? fallback.htmlSell;
+  return {
+    title,
+    html,
+    ...(htmlBuy ? { htmlBuy } : {}),
+    ...(htmlSell ? { htmlSell } : {})
+  };
 }
 
 function asOrderStatusLabelsConfig(value: unknown, fallback: OrderStatusLabelsConfig): OrderStatusLabelsConfig {

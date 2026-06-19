@@ -56,3 +56,18 @@ export function interpolateOrderStatusHtml(
     htmlWithRawVars
   );
 }
+
+/** Escolhe `htmlSell` / `htmlBuy` quando existirem; caso contrário usa `html`. */
+export function resolveOrderStatusContentHtml(
+  content: { html: string; htmlBuy?: string; htmlSell?: string },
+  tradeSide: string | undefined
+): string {
+  const side = tradeSide?.trim().toLowerCase();
+  if (side === "sell" && content.htmlSell?.trim()) {
+    return content.htmlSell.trim();
+  }
+  if (side === "buy" && content.htmlBuy?.trim()) {
+    return content.htmlBuy.trim();
+  }
+  return content.html.trim();
+}

@@ -18,6 +18,7 @@ import { Modal } from "../../shared/ui/Modal";
 import { formatDisplayAmountWithAsset, formatDisplayFiatAmount } from "../../shared/displayAmount";
 import {
   interpolateOrderStatusHtml,
+  resolveOrderStatusContentHtml,
   type OrderStatusHtmlRawVars,
   type OrderStatusHtmlVars
 } from "../../shared/orderStatusHtml";
@@ -458,15 +459,25 @@ export function OrderStatusPage({ brand }: OrderStatusPageProps) {
     [showUndoPaymentSubmitted, texts.undoPaymentSubmittedButtonLabel]
   );
 
-  const variantStatusHtml = useMemo(() => {
-    if (!variantContent?.html.trim()) {
+  const resolvedVariantStatusHtmlSource = useMemo(() => {
+    if (!variantContent) {
       return "";
     }
-    return interpolateOrderStatusHtml(variantContent.html, orderStatusHtmlVars, rawOrderStatusHtmlVars);
-  }, [variantContent, orderStatusHtmlVars, rawOrderStatusHtmlVars]);
+    return resolveOrderStatusContentHtml(variantContent, summaryTradeSide);
+  }, [variantContent, summaryTradeSide]);
+
+  const variantStatusHtml = useMemo(() => {
+    if (!resolvedVariantStatusHtmlSource) {
+      return "";
+    }
+    return interpolateOrderStatusHtml(resolvedVariantStatusHtmlSource, orderStatusHtmlVars, rawOrderStatusHtmlVars);
+  }, [resolvedVariantStatusHtmlSource, orderStatusHtmlVars, rawOrderStatusHtmlVars]);
 
   const supportsEmbeddedUndoPaymentSubmittedButton =
-    variantContent?.html.includes("{undoPaymentSubmittedButton}") ?? false;
+    resolvedVariantStatusHtmlSource.includes("{undoPaymentSubmittedButton}");
+  const showTransactionPanel =
+    (displayVariant === "payment_reproved" || (displayVariant === "order_concluded" && !isSellOrder)) &&
+    (hasTxHashValue || hasTxHashLink);
 
   useEffect(() => {
     if (!deadlineMs || !shouldShowPaymentCard) {
@@ -718,8 +729,7 @@ export function OrderStatusPage({ brand }: OrderStatusPageProps) {
                     <p>{texts.waitingMessage}</p>
                   </>
                 )}
-                {(displayVariant === "order_concluded" || displayVariant === "payment_reproved") &&
-                (hasTxHashValue || hasTxHashLink) ? (
+                {showTransactionPanel ? (
                   <div className="order-transaction-panel order-transaction-panel--inline">
                     {hasTxHashValue ? (
                       <div className="order-txhash-box">
