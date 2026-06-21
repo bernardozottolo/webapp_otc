@@ -3214,7 +3214,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
           {floatingContacts.map((contact) => (
             <a
               key={`floating-${contact.kind}`}
-              className="home-floating-contacts__button"
+              className={`home-floating-contacts__button${contact.kind === "telegram" ? " home-floating-contacts__button--telegram" : ""}`}
               href={contact.href}
               aria-label={contact.label}
               target={contact.openInNewTab ? "_blank" : undefined}

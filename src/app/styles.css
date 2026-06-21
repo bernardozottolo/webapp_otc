@@ -390,6 +390,10 @@ body::after {
   opacity: 0.96;
 }
 
+.home-floating-contacts__button--telegram {
+  padding-right: 3px;
+}
+
 .home-floating-contacts__icon {
   display: inline-flex;
   align-items: center;
