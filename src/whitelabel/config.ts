@@ -218,10 +218,13 @@ export interface FooterContactsConfig {
   phone: string;
   whatsapp: string;
   email: string;
+  telegram: string;
   linkedin: string;
   facebook: string;
   instagram: string;
 }
+
+export type FloatingContactsConfig = FooterContactsConfig;
 
 export interface FooterColorsConfig {
   backgroundColor: string;
@@ -318,6 +321,8 @@ export interface BrandConfig {
    */
   emailConsentLabel?: string;
   footer: FooterConfig;
+  /** Botões flutuantes de contato na home; independente de `footer.contacts`. */
+  floatingContacts: FloatingContactsConfig;
   backend: {
     companyKey: string;
     platform: string;
@@ -536,6 +541,16 @@ export const defaultBiometryReviewConfig: BiometryReviewConfig = {
   emailMessageTypeExpiredWallet: "biometry_wallet_expired"
 };
 
+export const defaultFloatingContactsConfig: FloatingContactsConfig = {
+  phone: "",
+  whatsapp: "",
+  email: "",
+  telegram: "",
+  linkedin: "",
+  facebook: "",
+  instagram: ""
+};
+
 export const defaultFooterConfig: FooterConfig = {
   title: "Fale Conosco",
   description: "Entre em contato com nossa equipe para mais informações ou para saber como aumentar seu limite transacional.",
@@ -545,6 +560,7 @@ export const defaultFooterConfig: FooterConfig = {
     phone: "",
     whatsapp: "",
     email: "",
+    telegram: "",
     linkedin: "",
     facebook: "",
     instagram: ""
@@ -594,6 +610,7 @@ export const defaultBrandConfig: BrandConfig = {
   biometryPreConfirm: defaultBiometryPreConfirmConfig,
   emailConsentLabel: "",
   footer: defaultFooterConfig,
+  floatingContacts: defaultFloatingContactsConfig,
   backend: {
     companyKey: "origin",
     platform: "webapp",
@@ -1440,6 +1457,7 @@ function asFooterContactsConfig(value: unknown, fallback: FooterContactsConfig):
     phone: asPossiblyEmptyString(value.phone, fallback.phone),
     whatsapp: asPossiblyEmptyString(value.whatsapp, fallback.whatsapp),
     email: asPossiblyEmptyString(value.email, fallback.email),
+    telegram: asPossiblyEmptyString(value.telegram, fallback.telegram),
     linkedin: asPossiblyEmptyString(value.linkedin, fallback.linkedin),
     facebook: asPossiblyEmptyString(value.facebook, fallback.facebook),
     instagram: asPossiblyEmptyString(value.instagram, fallback.instagram)
@@ -1603,6 +1621,7 @@ export function normalizeRuntimeBrandConfig(raw: unknown, fallback: BrandConfig 
     biometryPreConfirm: asBiometryPreConfirmConfig(raw.biometryPreConfirm, fallback.biometryPreConfirm),
     emailConsentLabel: asOptionalString(raw.emailConsentLabel) ?? "",
     footer: asFooterConfig(raw.footer, fallback.footer),
+    floatingContacts: asFooterContactsConfig(raw.floatingContacts, fallback.floatingContacts),
     backend: {
       companyKey: asString(backend.companyKey, fallback.backend.companyKey),
       platform: asString(backend.platform, fallback.backend.platform),

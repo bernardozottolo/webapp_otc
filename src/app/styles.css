@@ -355,6 +355,65 @@ body::after {
   text-decoration: underline;
 }
 
+.home-floating-contacts {
+  position: fixed;
+  right: clamp(12px, 2vw, 24px);
+  bottom: clamp(12px, 2vh, 24px);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.home-floating-contacts__button {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(320px, calc(100vw - 32px));
+  padding: 10px 14px 10px 10px;
+  border-radius: 999px;
+  background: var(--brand-color);
+  color: var(--button-primary-text);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.9rem;
+  line-height: 1.2;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+}
+
+.home-floating-contacts__button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.28);
+  opacity: 0.96;
+}
+
+.home-floating-contacts__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.home-floating-contacts__icon svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+
+.home-floating-contacts__label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .form-column {
   display: flex;
   justify-content: flex-end;

@@ -151,6 +151,7 @@
       "phone": "",
       "whatsapp": "",
       "email": "suporte@empresa-exemplo.com.br",
+      "telegram": "",
       "linkedin": "",
       "facebook": "",
       "instagram": ""
@@ -163,6 +164,15 @@
       "contactColor": "#ffffff",
       "iconBackgroundColor": "rgba(255, 255, 255, 0.12)"
     }
+  },
+  "floatingContacts": {
+    "phone": "",
+    "whatsapp": "",
+    "email": "",
+    "telegram": "",
+    "linkedin": "",
+    "facebook": "",
+    "instagram": ""
   },
   "backend": {
     "companyKey": "cliente-exemplo",

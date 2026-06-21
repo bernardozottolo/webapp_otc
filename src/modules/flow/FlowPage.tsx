@@ -93,20 +93,21 @@ interface FlowPageProps {
   locale: Locale;
 }
 
-type FooterContactKind = keyof BrandConfig["footer"]["contacts"];
+type ContactKind = keyof BrandConfig["footer"]["contacts"];
 
-const FOOTER_CONTACT_ORDER: FooterContactKind[] = ["phone", "whatsapp", "email", "linkedin", "facebook", "instagram"];
+const CONTACT_ORDER: ContactKind[] = ["phone", "whatsapp", "email", "telegram", "linkedin", "facebook", "instagram"];
 
-const FOOTER_CONTACT_LABELS: Record<FooterContactKind, string> = {
+const FOOTER_CONTACT_LABELS: Record<ContactKind, string> = {
   phone: "Telefone",
   whatsapp: "WhatsApp",
   email: "E-mail",
+  telegram: "Telegram",
   linkedin: "LinkedIn",
   facebook: "Facebook",
   instagram: "Instagram"
 };
 
-function buildFooterContactHref(kind: FooterContactKind, value: string) {
+function buildFooterContactHref(kind: ContactKind, value: string) {
   const trimmed = value.trim();
   if (!trimmed) return "";
   if (/^(tel:|mailto:|https?:\/\/)/i.test(trimmed)) {
@@ -123,14 +124,43 @@ function buildFooterContactHref(kind: FooterContactKind, value: string) {
   if (kind === "email") {
     return `mailto:${trimmed}`;
   }
+  if (kind === "telegram") {
+    if (/^https?:\/\//i.test(trimmed)) {
+      return trimmed;
+    }
+    const handle = trimmed.replace(/^@/, "").replace(/^\/+/, "");
+    return handle ? `https://t.me/${handle}` : trimmed;
+  }
   return `https://${trimmed.replace(/^\/+/, "")}`;
 }
 
-function footerContactOpensInNewTab(kind: FooterContactKind, href: string) {
+function footerContactOpensInNewTab(kind: ContactKind, href: string) {
   if (kind === "phone" || kind === "email") {
     return false;
   }
   return /^https?:\/\//i.test(href);
+}
+
+function buildContactLinks(contacts: BrandConfig["footer"]["contacts"]) {
+  return CONTACT_ORDER.flatMap((kind) => {
+    const value = contacts[kind].trim();
+    if (!value) {
+      return [];
+    }
+    const href = buildFooterContactHref(kind, value);
+    if (!href) {
+      return [];
+    }
+    return [
+      {
+        kind,
+        label: FOOTER_CONTACT_LABELS[kind],
+        value,
+        href,
+        openInNewTab: footerContactOpensInNewTab(kind, href)
+      }
+    ];
+  });
 }
 
 function hasQuoteExpired(updatedAt: string | null | undefined, nowMs: number) {
@@ -140,7 +170,7 @@ function hasQuoteExpired(updatedAt: string | null | undefined, nowMs: number) {
   return nowMs - updatedAtMs > QUOTE_MAX_AGE_MS;
 }
 
-function renderFooterContactIcon(kind: FooterContactKind) {
+function renderFooterContactIcon(kind: ContactKind) {
   switch (kind) {
     case "phone":
       return (
@@ -158,6 +188,12 @@ function renderFooterContactIcon(kind: FooterContactKind) {
       return (
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <path d="M3 5.5A2.5 2.5 0 0 1 5.5 3h13A2.5 2.5 0 0 1 21 5.5v13a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 18.5v-13Zm2 0v.36l7 5.24 7-5.24V5.5a.5.5 0 0 0-.5-.5h-13a.5.5 0 0 0-.5.5Zm14 2.86-6.4 4.8a1 1 0 0 1-1.2 0L5 8.36V18.5c0 .28.22.5.5.5h13a.5.5 0 0 0 .5-.5V8.36Z" />
+        </svg>
+      );
+    case "telegram":
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M21.8 4.2 2.9 11.1c-1.1.45-1.08 1.05-.18 1.32l4.86 1.52 1.86 5.64c.24.72.43.72.87.45l2.62-1.98 5.45 4.02c1 .55 1.72.27 1.97-.94L23.7 5.9c.43-1.64-.62-2.38-1.9-1.7ZM9.2 13.3l9.66-6.07c.42-.27.8-.12.49.17l-8.28 7.55-.31 3.08-1.56-4.73Z" />
         </svg>
       );
     case "linkedin":
@@ -527,33 +563,12 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
           brand.footer.description.trim() ||
           brand.footer.legalInfoLeft.trim() ||
           brand.footer.legalInfoRight.trim() ||
-          FOOTER_CONTACT_ORDER.some((kind) => brand.footer.contacts[kind].trim())
+          CONTACT_ORDER.some((kind) => brand.footer.contacts[kind].trim())
       ),
     [brand.footer]
   );
-  const footerContacts = useMemo(
-    () =>
-      FOOTER_CONTACT_ORDER.flatMap((kind) => {
-        const value = brand.footer.contacts[kind].trim();
-        if (!value) {
-          return [];
-        }
-        const href = buildFooterContactHref(kind, value);
-        if (!href) {
-          return [];
-        }
-        return [
-          {
-            kind,
-            label: FOOTER_CONTACT_LABELS[kind],
-            value,
-            href,
-            openInNewTab: footerContactOpensInNewTab(kind, href)
-          }
-        ];
-      }),
-    [brand.footer.contacts]
-  );
+  const footerContacts = useMemo(() => buildContactLinks(brand.footer.contacts), [brand.footer.contacts]);
+  const floatingContacts = useMemo(() => buildContactLinks(brand.floatingContacts), [brand.floatingContacts]);
   const footerWrapperStyle = useMemo(
     () => ({
       backgroundColor: brand.footer.colors.backgroundColor,
@@ -3193,6 +3208,25 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
           </div>
         </div>
       </Modal>
+
+      {floatingContacts.length ? (
+        <div className="home-floating-contacts" aria-label="Contatos rápidos">
+          {floatingContacts.map((contact) => (
+            <a
+              key={`floating-${contact.kind}`}
+              className="home-floating-contacts__button"
+              href={contact.href}
+              target={contact.openInNewTab ? "_blank" : undefined}
+              rel={contact.openInNewTab ? "noreferrer" : undefined}
+            >
+              <span className="home-floating-contacts__icon" aria-hidden="true">
+                {renderFooterContactIcon(contact.kind)}
+              </span>
+              <span className="home-floating-contacts__label">{contact.value}</span>
+            </a>
+          ))}
+        </div>
+      ) : null}
 
       {blockingUi ? (
         <div className="flow-loading-overlay" role="status" aria-live="polite" aria-busy="true">
