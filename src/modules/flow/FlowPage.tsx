@@ -3216,13 +3216,13 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
               key={`floating-${contact.kind}`}
               className="home-floating-contacts__button"
               href={contact.href}
+              aria-label={contact.label}
               target={contact.openInNewTab ? "_blank" : undefined}
               rel={contact.openInNewTab ? "noreferrer" : undefined}
             >
               <span className="home-floating-contacts__icon" aria-hidden="true">
                 {renderFooterContactIcon(contact.kind)}
               </span>
-              <span className="home-floating-contacts__label">{contact.value}</span>
             </a>
           ))}
         </div>
