@@ -399,6 +399,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
   const [transactionalFetchError, setTransactionalFetchError] = useState(false);
   const [paymentData, setPaymentData] = useState<PaymentData | null>(null);
   const [paymentSlotError, setPaymentSlotError] = useState<string | null>(null);
+  const [depositNetworkError, setDepositNetworkError] = useState(false);
   const [pendingPaymentSave, setPendingPaymentSave] = useState<PendingPaymentSave | null>(null);
   const pendingPaymentSaveRef = useRef<PendingPaymentSave | null>(null);
   const pendingEmailAuthRef = useRef<{ intent: EmailAuthIntent; customer: Customer | null } | null>(null);
@@ -976,9 +977,6 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
   const belowMinimumNegotiationValue =
     fiatLegAmount !== null && minNegotiationValueFiat > 0 && fiatLegAmount + 1e-6 < minNegotiationValueFiat;
 
-  const sellDepositNetworkMissing =
-    identified && tradeSide === "sell" && !depositNetwork.trim();
-
   const anonymousFlowBlocked =
     !identified &&
     (!parsedAmount ||
@@ -1544,6 +1542,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
     if (!identified || tradeSide !== "sell") {
       setDepositNetworks([]);
       setDepositNetwork("");
+      setDepositNetworkError(false);
       setDepositNetworksLoading(false);
       setDepositNetworksLoadError(false);
       return;
@@ -2352,17 +2351,19 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
       transactional_gate_blocked: transactionalGateBlocksOrder
     });
     if (identified && tradeSide === "buy" && !hasPaymentReady) {
+      setDepositNetworkError(false);
       setPaymentSlotError(t("form.walletRequiredBeforeConfirm"));
       return;
     }
     if (identified && tradeSide === "sell" && !hasPaymentReady) {
+      const missingBankKey = !paymentData?.bankKeyValue || !paymentData?.bankKeyType;
+      setDepositNetworkError(!missingBankKey && !depositNetwork.trim());
       setPaymentSlotError(
-        !paymentData?.bankKeyValue || !paymentData?.bankKeyType
-          ? t("form.bankKeyRequiredBeforeConfirm")
-          : t("form.depositNetworkRequiredBeforeConfirm")
+        missingBankKey ? t("form.bankKeyRequiredBeforeConfirm") : t("form.depositNetworkRequiredBeforeConfirm")
       );
       return;
     }
+    setDepositNetworkError(false);
     setPaymentSlotError(null);
     if (identified) {
       await createOrderNow();
@@ -2389,6 +2390,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
       ? Boolean(paymentData?.walletAddress && paymentData.network)
       : Boolean(paymentData?.bankKeyValue && paymentData.bankKeyType && depositNetwork);
   const showPaymentSlotError = Boolean(paymentSlotError);
+  const showDepositNetworkError = identified && tradeSide === "sell" && depositNetworkError && !depositNetwork.trim();
   const selectedNetworkOption =
     tradeSide === "buy" && paymentData?.walletAddress && paymentData.network
       ? findWithdrawNetworkByCode(networksAndFees, paymentData.network) ?? null
@@ -2682,10 +2684,16 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
                   {tradeSide === "sell" && identified ? (
                     <div className="row">
                       <label>{t("common.network")}</label>
-                      <div className="field-shell field-shell--network-select">
+                      <div className={`field-shell field-shell--network-select${showDepositNetworkError ? " field-shell--error" : ""}`}>
                         <select
                           value={depositNetwork}
-                          onChange={(e: { target: { value: string } }) => setDepositNetwork(e.target.value)}
+                          onChange={(e: { target: { value: string } }) => {
+                            const nextValue = e.target.value;
+                            setDepositNetwork(nextValue);
+                            if (nextValue.trim()) {
+                              setDepositNetworkError(false);
+                            }
+                          }}
                           disabled={depositNetworksLoading || depositNetworks.length === 0}
                           required
                         >
@@ -2699,6 +2707,9 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
                       </div>
                       {depositNetworksLoadError ? (
                         <p className="field-feedback field-feedback--error">{t("form.depositNetworksLoadError")}</p>
+                      ) : null}
+                      {showDepositNetworkError ? (
+                        <p className="field-feedback field-feedback--error">{t("form.depositNetworkRequiredBeforeConfirm")}</p>
                       ) : null}
                     </div>
                   ) : null}
@@ -2855,8 +2866,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
                       identified
                         ? !actionableQuote ||
                           !parsedAmount ||
-                          transactionalGateBlocksOrder ||
-                          sellDepositNetworkMissing
+                          transactionalGateBlocksOrder
                         : anonymousFlowBlocked
                     }
                   >
