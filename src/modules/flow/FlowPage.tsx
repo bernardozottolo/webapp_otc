@@ -2357,10 +2357,9 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
     }
     if (identified && tradeSide === "sell" && !hasPaymentReady) {
       const missingBankKey = !paymentData?.bankKeyValue || !paymentData?.bankKeyType;
-      setDepositNetworkError(!missingBankKey && !depositNetwork.trim());
-      setPaymentSlotError(
-        missingBankKey ? t("form.bankKeyRequiredBeforeConfirm") : t("form.depositNetworkRequiredBeforeConfirm")
-      );
+      const missingDepositNetwork = !depositNetwork.trim();
+      setDepositNetworkError(missingDepositNetwork);
+      setPaymentSlotError(missingBankKey ? t("form.bankKeyRequiredBeforeConfirm") : null);
       return;
     }
     setDepositNetworkError(false);
