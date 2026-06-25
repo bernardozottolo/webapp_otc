@@ -541,19 +541,118 @@ button {
   min-width: 0;
 }
 
-.asset-select-shell {
-  display: inline-flex;
-  align-items: center;
-  min-width: 0;
+.asset-select {
+  position: relative;
   flex: 0 1 auto;
+  min-width: 0;
 }
 
-.asset-select-shell__icon {
+.asset-select__trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 96px;
+  max-width: 100%;
+  min-height: 40px;
+  padding: clamp(6px, 0.8vh, 8px) 10px clamp(6px, 0.8vh, 8px) 12px;
+  border-radius: 999px;
+  border: 1px solid var(--pill-border-color);
+  background: var(--pill-background);
+  color: inherit;
+  font-weight: 700;
+  font-size: var(--form-body-size);
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.asset-select__trigger:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--pill-border-color) 55%, var(--brand-color));
+}
+
+.asset-select--open .asset-select__trigger {
+  border-color: var(--brand-color);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-color) 18%, transparent);
+}
+
+.asset-select__trigger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.asset-select__trigger-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.asset-select__icon {
   width: 20px;
   height: 20px;
   flex: 0 0 20px;
   border-radius: 999px;
   object-fit: cover;
+}
+
+.asset-select__label {
+  white-space: nowrap;
+}
+
+.asset-select__chevron {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  fill: currentColor;
+  opacity: 0.72;
+  transition: transform 0.15s ease;
+}
+
+.asset-select--open .asset-select__chevron {
+  transform: rotate(180deg);
+}
+
+.asset-select__menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 30;
+  min-width: 100%;
+  max-height: min(280px, 42vh);
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  overflow: auto;
+  border-radius: 16px;
+  border: 1px solid var(--input-border-color);
+  background: var(--field-shell-background);
+  box-shadow: 0 14px 36px rgba(15, 23, 42, 0.16);
+}
+
+.asset-select__option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: inherit;
+  font-weight: 600;
+  font-size: var(--form-body-size);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.asset-select__option:hover {
+  background: color-mix(in srgb, var(--brand-color) 10%, transparent);
+}
+
+.asset-select__option--selected {
+  background: color-mix(in srgb, var(--brand-color) 14%, transparent);
 }
 
 .field-shell input,

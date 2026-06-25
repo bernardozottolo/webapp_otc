@@ -11,6 +11,7 @@ import {
 } from "../../shared/api/biometryPending";
 import { sendFrontendTelemetryEvent } from "../../shared/api/telemetry";
 import { QuoteRefreshIndicator, QUOTE_REFRESH_INTERVAL_MS } from "./QuoteRefreshIndicator";
+import { AssetSelect } from "./AssetSelect";
 import {
   type DocumentValidationError,
   validateAgainstRegexPattern,
@@ -575,7 +576,6 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
     () => assetOptions.find((item) => item.asset === asset) ?? null,
     [assetOptions, asset]
   );
-  const selectedAssetIconUrl = useMemo(() => getAssetIconUrl(asset), [asset]);
   const assetDecimalPrecision = selectedAssetInfo?.decimalPrecisionAsset ?? DEFAULT_ASSET_DECIMAL_PRECISION;
   const fiatDecimalPrecision = selectedAssetInfo?.decimalPrecisionFiat ?? 2;
   const minNegotiationValueFiat = selectedAssetInfo?.minNegotiationValueFiat ?? 0;
@@ -2677,28 +2677,13 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
                         </>
                       ) : (
                         <>
-                          <div className="asset-select-shell">
-                            {selectedAssetIconUrl ? (
-                              <img
-                                className="asset-select-shell__icon"
-                                src={selectedAssetIconUrl}
-                                alt=""
-                                aria-hidden="true"
-                                referrerPolicy="no-referrer"
-                              />
-                            ) : null}
-                            <select
-                              value={asset}
-                              onChange={(e) => setAsset(e.target.value)}
-                              disabled={negotiationAssetsLoading || assetOptions.length === 0}
-                            >
-                              {assetOptions.map((option) => (
-                                <option key={option.asset} value={option.asset}>
-                                  {option.asset}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
+                          <AssetSelect
+                            value={asset}
+                            options={assetOptions}
+                            onChange={setAsset}
+                            disabled={negotiationAssetsLoading || assetOptions.length === 0}
+                            getIconUrl={getAssetIconUrl}
+                          />
                           <input
                             className="amount-input"
                             inputMode="decimal"
@@ -2755,28 +2740,13 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
                     <div className="field-shell">
                       {tradeSide === "buy" ? (
                         <>
-                          <div className="asset-select-shell">
-                            {selectedAssetIconUrl ? (
-                              <img
-                                className="asset-select-shell__icon"
-                                src={selectedAssetIconUrl}
-                                alt=""
-                                aria-hidden="true"
-                                referrerPolicy="no-referrer"
-                              />
-                            ) : null}
-                            <select
-                              value={asset}
-                              onChange={(e) => setAsset(e.target.value)}
-                              disabled={negotiationAssetsLoading || assetOptions.length === 0}
-                            >
-                              {assetOptions.map((option) => (
-                                <option key={option.asset} value={option.asset}>
-                                  {option.asset}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
+                          <AssetSelect
+                            value={asset}
+                            options={assetOptions}
+                            onChange={setAsset}
+                            disabled={negotiationAssetsLoading || assetOptions.length === 0}
+                            getIconUrl={getAssetIconUrl}
+                          />
                           <div className="field-output">{outputText}</div>
                         </>
                       ) : (
