@@ -544,13 +544,8 @@ button {
 .asset-select-shell {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
   min-width: 0;
   flex: 0 1 auto;
-}
-
-.asset-select-shell select {
-  min-width: 0;
 }
 
 .asset-select-shell__icon {
@@ -564,7 +559,7 @@ button {
 .field-shell input,
 .field-shell select {
   border: 0;
-  padding: clamp(5px, 0.8vh, 8px) 10px;
+  padding: clamp(5px, 0.8vh, 8px) 0;
   box-shadow: none;
 }
 
