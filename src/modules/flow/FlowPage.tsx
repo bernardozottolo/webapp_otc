@@ -86,6 +86,23 @@ type BlockingUiState = {
 const INACTIVITY_TIMEOUT_MS = 20 * 60 * 1000;
 const DEFAULT_ASSET_DECIMAL_PRECISION = 6;
 const QUOTE_MAX_AGE_MS = 60 * 1000;
+const ASSET_ICON_URLS: Record<string, string> = {
+  USDT: "https://static.bscdnweb.com/image/admin_mgs_image_upload/20240508/6180cdb6-8480-4a3c-a8a9-8a193a89fc5e.png",
+  BTC: "https://static.bscdnweb.com/image/admin_mgs_image_upload/20201110/87496d50-2408-43e1-ad4c-78b47b448a6a.png",
+  ETH: "https://static.bscdnweb.com/image/admin_mgs_image_upload/20201110/3a8c9fe6-2a76-4ace-aa07-415d994de6f0.png",
+  SOL: "https://static.bscdnweb.com/image/admin_mgs_image_upload/20230404/b2f0c70f-4fb2-4472-9fe7-480ad1592421.png",
+  XRP: "https://static.bscdnweb.com/image/admin_mgs_image_upload/20201110/4766a9cc-8545-4c2b-bfa4-cad2be91c135.png",
+  BNB: "https://static.bscdnweb.com/image/admin_mgs_image_upload/20220218/94863af2-c980-42cf-a139-7b9f462a36c2.png",
+  USDC: "https://static.bscdnweb.com/image/admin_mgs_image_upload/20201110/4cf7d633-92fb-4d37-80ed-458c7d1ea410.png",
+  LTC: "https://static.bscdnweb.com/image/admin_mgs_image_upload/20201110/359ca651-a084-4010-92d8-4eaff96e6384.png",
+  PEPE: "https://static.bscdnweb.com/image/admin_mgs_image_upload/20240812/a7120d40-14bd-4332-80fd-cd483ffbe086.png",
+  TRX: "https://static.bscdnweb.com/image/admin_mgs_image_upload/20201110/dd9332e2-0a23-4228-89b2-50d188a09e2b.png",
+  ADA: "https://static.bscdnweb.com/image/admin_mgs_image_upload/20201110/3bc4f3c3-c142-4379-9ebd-a72f332776bc.png",
+  DOGE: "https://static.bscdnweb.com/image/admin_mgs_image_upload/20201110/22ef2baf-b210-4882-afd9-1317bb7a3603.png",
+  XLM: "https://static.bscdnweb.com/image/admin_mgs_image_upload/20201110/ed48f689-8b24-4aa9-bc38-6501f6b0f225.png",
+  SYN: "https://static.bscdnweb.com/image/admin_mgs_image_upload/20230222/d7a07df2-9d4d-4ed3-b8b4-8d277f68812c.png",
+  SUI: "https://static.bscdnweb.com/image/admin_mgs_image_upload/20250426/29b2a289-c671-4a28-ba59-4b57bb748900.jpg"
+};
 
 interface FlowPageProps {
   brand: BrandConfig;
@@ -161,6 +178,10 @@ function buildContactLinks(contacts: BrandConfig["footer"]["contacts"]) {
       }
     ];
   });
+}
+
+function getAssetIconUrl(asset: string) {
+  return ASSET_ICON_URLS[asset.trim().toUpperCase()] ?? "";
 }
 
 function hasQuoteExpired(updatedAt: string | null | undefined, nowMs: number) {
@@ -554,6 +575,7 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
     () => assetOptions.find((item) => item.asset === asset) ?? null,
     [assetOptions, asset]
   );
+  const selectedAssetIconUrl = useMemo(() => getAssetIconUrl(asset), [asset]);
   const assetDecimalPrecision = selectedAssetInfo?.decimalPrecisionAsset ?? DEFAULT_ASSET_DECIMAL_PRECISION;
   const fiatDecimalPrecision = selectedAssetInfo?.decimalPrecisionFiat ?? 2;
   const minNegotiationValueFiat = selectedAssetInfo?.minNegotiationValueFiat ?? 0;
@@ -2655,13 +2677,22 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
                         </>
                       ) : (
                         <>
-                          <select value={asset} onChange={(e) => setAsset(e.target.value)} disabled={negotiationAssetsLoading || assetOptions.length === 0}>
-                            {assetOptions.map((option) => (
-                              <option key={option.asset} value={option.asset}>
-                                {option.asset}
-                              </option>
-                            ))}
-                          </select>
+                          <div className="asset-select-shell">
+                            {selectedAssetIconUrl ? (
+                              <img className="asset-select-shell__icon" src={selectedAssetIconUrl} alt="" aria-hidden="true" />
+                            ) : null}
+                            <select
+                              value={asset}
+                              onChange={(e) => setAsset(e.target.value)}
+                              disabled={negotiationAssetsLoading || assetOptions.length === 0}
+                            >
+                              {assetOptions.map((option) => (
+                                <option key={option.asset} value={option.asset}>
+                                  {option.asset}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
                           <input
                             className="amount-input"
                             inputMode="decimal"
@@ -2718,13 +2749,22 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
                     <div className="field-shell">
                       {tradeSide === "buy" ? (
                         <>
-                          <select value={asset} onChange={(e) => setAsset(e.target.value)} disabled={negotiationAssetsLoading || assetOptions.length === 0}>
-                            {assetOptions.map((option) => (
-                              <option key={option.asset} value={option.asset}>
-                                {option.asset}
-                              </option>
-                            ))}
-                          </select>
+                          <div className="asset-select-shell">
+                            {selectedAssetIconUrl ? (
+                              <img className="asset-select-shell__icon" src={selectedAssetIconUrl} alt="" aria-hidden="true" />
+                            ) : null}
+                            <select
+                              value={asset}
+                              onChange={(e) => setAsset(e.target.value)}
+                              disabled={negotiationAssetsLoading || assetOptions.length === 0}
+                            >
+                              {assetOptions.map((option) => (
+                                <option key={option.asset} value={option.asset}>
+                                  {option.asset}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
                           <div className="field-output">{outputText}</div>
                         </>
                       ) : (
