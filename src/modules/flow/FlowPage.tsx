@@ -2679,7 +2679,13 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
                         <>
                           <div className="asset-select-shell">
                             {selectedAssetIconUrl ? (
-                              <img className="asset-select-shell__icon" src={selectedAssetIconUrl} alt="" aria-hidden="true" />
+                              <img
+                                className="asset-select-shell__icon"
+                                src={selectedAssetIconUrl}
+                                alt=""
+                                aria-hidden="true"
+                                referrerPolicy="no-referrer"
+                              />
                             ) : null}
                             <select
                               value={asset}
@@ -2751,7 +2757,13 @@ export function FlowPage({ brand, country, locale }: FlowPageProps) {
                         <>
                           <div className="asset-select-shell">
                             {selectedAssetIconUrl ? (
-                              <img className="asset-select-shell__icon" src={selectedAssetIconUrl} alt="" aria-hidden="true" />
+                              <img
+                                className="asset-select-shell__icon"
+                                src={selectedAssetIconUrl}
+                                alt=""
+                                aria-hidden="true"
+                                referrerPolicy="no-referrer"
+                              />
                             ) : null}
                             <select
                               value={asset}
